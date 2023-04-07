@@ -1,10 +1,12 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using HIDrogen.Imports;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.HID;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.InputSystem.Utilities;
 
@@ -129,6 +131,11 @@ namespace HIDrogen.Backend
         {
             foreach (var info in hid_enumerate())
             {
+                // Ignore unsupported devices
+                if (!HIDSupport.supportedHIDUsages.Any((usage) =>
+                    (int)usage.page == info.usagePage && usage.usage == info.usage))
+                    continue;
+
                 if (!s_PathLookup.ContainsKey(info.path))
                 {
                     s_AdditionQueue.Add(info);
