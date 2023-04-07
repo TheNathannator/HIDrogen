@@ -1,0 +1,22 @@
+{
+  "name": "com.thenathannator.hidrogen",
+  "version": "0.1.0",
+  "displayName": "HIDrogen",
+  "description": "An add-on for the Unity InputSystem package that provides proper HID device support on Linux.",
+  "unity": "2019.4",
+  "license": "MIT",
+  "licensesUrl": "https://github.com/TheNathannator/HIDrogen/blob/main/LICENSE.md",
+  "dependencies": {
+    "com.unity.inputsystem": "1.4.4"
+  },
+  "keywords": [
+    "InputSystem",
+    "HID",
+    "Linux"
+  ],
+  "author": {
+    "name": "TheNathannator",
+    "url": "https://github.com/TheNathannator"
+  },
+  "hideInEditor": false
+}

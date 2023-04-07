@@ -1,0 +1,80 @@
+root = true
+
+[*]
+indent_style = space
+
+[*.md]
+indent_size = 2
+tab_width = 2
+
+[*.cs]
+indent_size = 4
+tab_width = 4
+
+# Naming conventions
+# Public members are camelCase
+dotnet_naming_symbols.public_members.applicable_kinds = field, property, event
+dotnet_naming_symbols.public_members.applicable_accessibilities = public
+
+dotnet_naming_style.public_members_style.capitalization = camel_case
+
+dotnet_naming_rule.public_members_rule.symbols = public_members
+dotnet_naming_rule.public_members_rule.style = public_members_style
+dotnet_naming_rule.public_members_rule.severity = suggestion
+
+# Public consts are PascalCase
+dotnet_naming_symbols.public_const.applicable_kinds = field
+dotnet_naming_symbols.public_const.applicable_accessibilities = public
+dotnet_naming_symbols.public_const.required_modifiers = const
+
+dotnet_naming_style.public_const_style.capitalization = pascal_case
+
+dotnet_naming_rule.public_const_rule.symbols = public_const
+dotnet_naming_rule.public_const_rule.style = public_const_style
+dotnet_naming_rule.public_const_rule.severity = suggestion
+
+# So are public static readonly
+dotnet_naming_symbols.public_statro.applicable_kinds = field
+dotnet_naming_symbols.public_statro.applicable_accessibilities = public
+dotnet_naming_symbols.public_statro.required_modifiers = static, readonly
+
+dotnet_naming_style.public_statro_style.capitalization = pascal_case
+
+dotnet_naming_rule.public_statro_rule.symbols = public_statro
+dotnet_naming_rule.public_statro_rule.style = public_statro_style
+dotnet_naming_rule.public_statro_rule.severity = suggestion
+
+# Private/internal members are prefixed with "m_"
+dotnet_naming_symbols.private_members.applicable_kinds = field, property, event
+dotnet_naming_symbols.private_members.applicable_accessibilities = private, internal
+
+dotnet_naming_style.private_members_style.capitalization = pascal_case
+dotnet_naming_style.private_members_style.required_prefix = m_
+
+dotnet_naming_rule.private_members_rule.symbols = private_members
+dotnet_naming_rule.private_members_rule.style = private_members_style
+dotnet_naming_rule.private_members_rule.severity = suggestion
+
+# Private/internal static members are prefixed with "s_"
+dotnet_naming_symbols.private_static.applicable_kinds = field, property, event
+dotnet_naming_symbols.private_static.applicable_accessibilities = private, internal
+dotnet_naming_symbols.private_static.required_modifiers = static
+
+dotnet_naming_style.private_static_style.capitalization = pascal_case
+dotnet_naming_style.private_static_style.required_prefix = s_
+
+dotnet_naming_rule.private_static_rule.symbols = private_static
+dotnet_naming_rule.private_static_rule.style = private_static_style
+dotnet_naming_rule.private_static_rule.severity = suggestion
+
+# Private/internal const members are prefixed with "k"
+dotnet_naming_symbols.private_const.applicable_kinds = field
+dotnet_naming_symbols.private_const.applicable_accessibilities = private, internal
+dotnet_naming_symbols.private_const.required_modifiers = const
+
+dotnet_naming_style.private_const_style.capitalization = pascal_case
+dotnet_naming_style.private_const_style.required_prefix = k
+
+dotnet_naming_rule.private_const_rule.symbols = private_const
+dotnet_naming_rule.private_const_rule.style = private_const_style
+dotnet_naming_rule.private_const_rule.severity = suggestion

@@ -1,0 +1,8 @@
+# Everything that Unity generates should be in LF to prevent line ending over-committing
+# This might not be everything, if something new comes up make sure to add it here.
+*.unity eol=lf
+*.meta eol=lf
+*.mat eol=lf
+*.prefab eol=lf
+ProjectSettings/* eol=lf
+ProjectSettings/**/* eol=lf
