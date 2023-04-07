@@ -4,6 +4,10 @@
 
 An add-on for the [Unity InputSystem](https://github.com/Unity-Technologies/InputSystem) package that provides proper HID device support on Linux.
 
+## Notes
+
+As part of supporting HID devices properly, devices that come from the native backend under the `Linux` and `SDL` interfaces are automatically disabled. This is only being mentioned for transparency's sake, there should be little to no consequences to it.
+
 ## Installing
 
 ### From the Releases Page
