@@ -256,7 +256,7 @@ namespace HIDrogen.Backend
 
             // Queue state event
             var eventPtr = new InputEventPtr((InputEvent*)buffer);
-            InputSystem.QueueEvent(eventPtr);
+            HidApiBackend.QueueEvent(eventPtr);
         }
 
         public void Dispose()

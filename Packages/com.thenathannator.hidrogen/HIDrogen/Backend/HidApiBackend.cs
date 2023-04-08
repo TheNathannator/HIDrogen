@@ -1,8 +1,10 @@
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using HIDrogen.Imports;
+using HIDrogen.LowLevel;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -33,6 +35,14 @@ namespace HIDrogen.Backend
         private static Thread s_ReadingThread;
         private static readonly EventWaitHandle s_ThreadStop = new EventWaitHandle(false, EventResetMode.ManualReset);
 
+        // Input buffers
+        // We use a custom buffering implementation because the built-in implementation is not friendly to managed threads,
+        // despite what the docs for InputSystem.QueueEvent/QueueStateEvent may claim, so we need to flush events on the main thread.
+        private const int kInputBufferCount = 2;
+        private static readonly SlimEventBuffer[] s_InputBuffers = new SlimEventBuffer[kInputBufferCount];
+        private static readonly object s_BufferLock = new object();
+        private static int s_CurrentBuffer = 0;
+
         // Format codes
         public static readonly FourCC InputFormat = new FourCC('H', 'I', 'D');
 
@@ -55,6 +65,12 @@ namespace HIDrogen.Backend
 #else
             Application.quitting += Uninitialize;
 #endif
+
+            // Initialize event buffers
+            for (int i = 0; i < kInputBufferCount; i++)
+            {
+                s_InputBuffers[i] = new SlimEventBuffer();
+            }
 
             // Start threads
             s_EnumerationThread = new Thread(DeviceDiscoveryThread) { IsBackground = true };
@@ -89,6 +105,13 @@ namespace HIDrogen.Backend
                 device.Dispose();
             }
 
+            // Dispose event buffers
+            // Initialize event buffers
+            for (int i = 0; i < kInputBufferCount; i++)
+            {
+                s_InputBuffers[i].Dispose();
+            }
+
             // Free hidapi
             int result = hid_exit();
             if (result < 0)
@@ -99,6 +122,7 @@ namespace HIDrogen.Backend
 
         private static void Update()
         {
+            FlushEventBuffer();
             HandleAdditionQueue();
         }
 
@@ -198,6 +222,37 @@ namespace HIDrogen.Backend
                 s_ReadingThread = new Thread(ReadThread) { IsBackground = true };
                 s_ReadingThread.Start();
             }
+        }
+
+        internal static unsafe void QueueEvent(InputEventPtr eventPtr)
+        {
+            lock (s_BufferLock)
+            {
+                s_InputBuffers[s_CurrentBuffer].AppendEvent(eventPtr);
+            }
+        }
+
+        private static void FlushEventBuffer()
+        {
+            SlimEventBuffer buffer;
+            lock (s_BufferLock)
+            {
+                buffer = s_InputBuffers[s_CurrentBuffer];
+                s_CurrentBuffer = (s_CurrentBuffer + 1) % kInputBufferCount;
+            }
+
+            foreach (var eventPtr in buffer)
+            {
+                try
+                {
+                    InputSystem.QueueEvent(eventPtr);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"Error when flushing an event: {ex}");
+                }
+            }
+            buffer.Reset();
         }
     }
 }
