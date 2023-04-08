@@ -1,46 +1,53 @@
 using System;
+using System.Reflection;
 using HIDrogen.Imports;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.HID;
 using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
 
 namespace HIDrogen.Backend
 {
     using static HidApi;
+#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+    using static Libc;
+    using static HidRaw;
+#endif
 
     /// <summary>
     /// An hidapi device.
     /// </summary>
     internal class HidApiDevice : IDisposable
     {
-        /// <summary>
-        /// Information to be serialized to InputDeviceDescription.capabilities on device creation.
-        /// </summary>
-        private struct Capabilities
-        {
-            public int vendorId;
-            public int productId;
-            public int usagePage;
-            public int usage;
-        }
+        // Get built-in HID descriptor parsing so we don't have to implement our own
+        private unsafe delegate bool HIDParser_ParseReportDescriptor(byte* bufferPtr, int bufferLength,
+            ref HID.HIDDeviceDescriptor deviceDescriptor);
+        private static readonly HIDParser_ParseReportDescriptor s_ParseReportDescriptor = (HIDParser_ParseReportDescriptor)
+            Assembly.GetAssembly(typeof(HID)).GetType("UnityEngine.InputSystem.HID.HIDParser")
+            .GetMethod("ParseReportDescriptor", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static, null,
+                new Type[] { typeof(byte).MakePointerType(), typeof(int), typeof(HID.HIDDeviceDescriptor).MakeByRefType() }, null)
+            .CreateDelegate(typeof(HIDParser_ParseReportDescriptor));
 
         private readonly hid_device_info m_Info;
         private hid_device m_Handle;
         private InputDevice m_Device;
+        private HID.HIDDeviceDescriptor m_Descriptor;
 
-        private readonly byte[] m_ReadBuffer = new byte[100]; // TODO: Remove default size once report length calculation is implemented
+        private readonly byte[] m_ReadBuffer;
 
         public string path => m_Info.path;
         public InputDevice device => m_Device;
 
-        private HidApiDevice(hid_device_info info, hid_device handle, InputDevice device)
+        private HidApiDevice(hid_device_info info, hid_device handle, InputDevice device, HID.HIDDeviceDescriptor descriptor)
         {
             m_Info = info;
             m_Handle = handle;
             m_Device = device;
-            // m_ReadBuffer = new byte[descriptor.inputLength], // TODO: Use this when report length calculation is implemented
+            m_Descriptor = descriptor;
+
+            m_ReadBuffer = new byte[descriptor.inputReportSize];
         }
 
         ~HidApiDevice()
@@ -58,25 +65,20 @@ namespace HIDrogen.Backend
                 return null;
             }
 
+            // Get descriptor
+            if (!GetReportDescriptor(info, out var descriptor))
+                return null;
+
             // Create input device description and add it to the system
-            // TODO: Get device descriptor
-            var capabilities = new Capabilities()
-            {
-                vendorId = info.vendorId,
-                productId = info.productId,
-                usagePage = info.usagePage,
-                usage = info.usage
-            };
             var version = info.releaseVersion;
             var description = new InputDeviceDescription()
             {
-                // TODO: Set to HID once descriptor retrieval has been implemented
-                interfaceName = "LinuxHID",
+                interfaceName = "HID",
                 manufacturer = info.manufacturerName,
                 product = info.productName,
                 serial = info.serialNumber,
                 version = $"{version.major}.{version.minor}",
-                capabilities = JsonUtility.ToJson(capabilities)
+                capabilities = JsonUtility.ToJson(descriptor)
             };
 
             // The input system will throw if a device layout can't be found
@@ -91,7 +93,94 @@ namespace HIDrogen.Backend
                 return null;
             }
 
-            return new HidApiDevice(info, handle, device);
+            return new HidApiDevice(info, handle, device, descriptor);
+        }
+
+        private static unsafe bool GetReportDescriptor(hid_device_info info, out HID.HIDDeviceDescriptor descriptor)
+        {
+            byte* data = null;
+            int dataLength = 0;
+#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+            var fd = open(info.path, O_RDONLY);
+            if (fd == null || fd.IsInvalid)
+            {
+                descriptor = default;
+                return false;
+            }
+
+            var buffer = new hidraw_report_descriptor();
+            using (fd)
+            {
+                if ((ioctl(fd, HIDIOCGRDESCSIZE, &buffer.size) < 0) ||
+                    (ioctl(fd, HIDIOCGRDESC, &buffer) < 0))
+                {
+                    Debug.Log($"Error getting descriptor: {errno}");
+                    descriptor = default;
+                    return false;
+                }
+            }
+
+            data = buffer.value;
+            dataLength = buffer.size;
+#endif
+
+            return ParseReportDescriptor(info, data, dataLength, out descriptor);
+        }
+
+        internal static unsafe bool ParseReportDescriptor(hid_device_info info, byte* data, int length,
+            out HID.HIDDeviceDescriptor descriptor)
+        {
+            descriptor = new HID.HIDDeviceDescriptor()
+            {
+                vendorId = info.vendorId,
+                productId = info.productId,
+                usagePage = (HID.UsagePage)info.usagePage,
+                usage = info.usage
+            };
+
+            if (data == null || length < 1 || !s_ParseReportDescriptor(data, length, ref descriptor))
+                return false;
+
+            // The parser doesn't actually set the report lengths unfortunately, we need to fix them up ourselves
+            int inputSizeBits = 0;
+            int outputSizeBits = 0;
+            int featureSizeBits = 0;
+            foreach (var element in descriptor.elements)
+            {
+                int sizeBits = element.reportOffsetInBits + element.reportSizeInBits;
+                switch (element.reportType)
+                {
+                    case HID.HIDReportType.Input:
+                        if (inputSizeBits < sizeBits)
+                            inputSizeBits = sizeBits;
+                        break;
+
+                    case HID.HIDReportType.Output:
+                        if (outputSizeBits < sizeBits)
+                            outputSizeBits = sizeBits;
+                        break;
+
+                    case HID.HIDReportType.Feature:
+                        if (featureSizeBits < sizeBits)
+                            featureSizeBits = sizeBits;
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+
+            // Ensure sizes are normalized to byte boundaries
+            inputSizeBits += -(inputSizeBits % 8) + 8;
+            outputSizeBits += -(outputSizeBits % 8) + 8;
+            featureSizeBits += -(featureSizeBits % 8) + 8;
+
+            // Turn bit size into byte size
+            descriptor.inputReportSize = inputSizeBits / 8;
+            descriptor.outputReportSize = outputSizeBits / 8;
+            descriptor.featureReportSize = featureSizeBits / 8;
+
+            return descriptor.inputReportSize > 0; // Output and feature reports aren't required for normal operation
         }
 
         // Returns true on success, false if the device should be removed.
