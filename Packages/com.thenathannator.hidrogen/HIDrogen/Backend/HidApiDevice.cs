@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Reflection;
 using HIDrogen.Imports;
 using Unity.Collections.LowLevel.Unsafe;
@@ -36,6 +37,7 @@ namespace HIDrogen.Backend
         private HID.HIDDeviceDescriptor m_Descriptor;
 
         private readonly byte[] m_ReadBuffer;
+        private readonly int m_PrependCount; // Number of bytes to prepend to the queued input buffer
 
         public string path => m_Info.path;
         public InputDevice device => m_Device;
@@ -46,8 +48,14 @@ namespace HIDrogen.Backend
             m_Handle = handle;
             m_Device = device;
             m_Descriptor = descriptor;
-
             m_ReadBuffer = new byte[descriptor.inputReportSize];
+
+            // Get a count of distinct input report IDs
+            // Assume no report ID provided if count is 1
+            int reportIdCount = (from element in descriptor.elements
+                where element.reportType == HID.HIDReportType.Input
+                select element.reportId).Distinct().Count();
+            m_PrependCount = reportIdCount > 1 ? 1 : 0;
         }
 
         ~HidApiDevice()
@@ -215,7 +223,7 @@ namespace HIDrogen.Backend
         {
             // Get event size
             const int kMaxStateSize = 512; // TODO: Is this actually necessary? (InputSystem.StateEventBuffer.kMaxSize)
-            var stateSize = m_ReadBuffer.Length;
+            var stateSize = m_ReadBuffer.Length + m_PrependCount;
             if (stateSize > kMaxStateSize)
             {
                 Debug.LogError($"Size of the buffer ({stateSize}) exceeds maximum supported state size ({kMaxStateSize})");
@@ -236,7 +244,7 @@ namespace HIDrogen.Backend
             fixed (byte* statePtr = m_ReadBuffer)
             {
                 byte* bufferPtr = (byte*)stateBuffer->state;
-                UnsafeUtility.MemCpy(bufferPtr, statePtr, stateSize);
+                UnsafeUtility.MemCpy(bufferPtr + m_PrependCount, statePtr, stateSize);
             }
 
             // Queue state event
