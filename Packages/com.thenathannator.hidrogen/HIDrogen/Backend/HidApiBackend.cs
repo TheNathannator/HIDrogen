@@ -27,7 +27,7 @@ namespace HIDrogen.Backend
     internal static class HidApiBackend
     {
         // Keeps track of available devices
-        private static readonly ConcurrentDictionary<string, HidApiDevice> s_PathLookup = new ConcurrentDictionary<string, HidApiDevice>();
+        private static readonly ConcurrentDictionary<int, HidApiDevice> s_DeviceLookup = new ConcurrentDictionary<int, HidApiDevice>();
 
         // Queue for new devices; they must be added on the main thread
         private static readonly ConcurrentBag<hid_device_info> s_AdditionQueue = new ConcurrentBag<hid_device_info>();
@@ -102,7 +102,7 @@ namespace HIDrogen.Backend
 #endif
 
             // Close devices
-            foreach (var device in s_PathLookup.Values)
+            foreach (var device in s_DeviceLookup.Values)
             {
                 device.Dispose();
             }
@@ -135,11 +135,10 @@ namespace HIDrogen.Backend
             if (command == null)
                 return InputDeviceCommand.GenericFailure;
 
-            var hid = s_PathLookup.Values.SingleOrDefault((entry) => entry.device == device);
-            if (hid == null)
+            if (!s_DeviceLookup.TryGetValue(device.deviceId, out var entry))
                 return null;
 
-            return hid.ExecuteCommand(command);
+            return entry.ExecuteCommand(command);
         }
 
         private static void DeviceDiscoveryThread()
@@ -172,7 +171,7 @@ namespace HIDrogen.Backend
             {
                 UpdateDevices();
             }
-            while (s_PathLookup.Count > 0 && !s_ThreadStop.WaitOne(0));
+            while (s_DeviceLookup.Count > 0 && !s_ThreadStop.WaitOne(0));
         }
 
         private static void EnumerateDevices()
@@ -184,7 +183,7 @@ namespace HIDrogen.Backend
                     (int)usage.page == info.usagePage && usage.usage == info.usage))
                     continue;
 
-                if (!s_PathLookup.ContainsKey(info.path))
+                if (!s_DeviceLookup.Values.Any((entry) => entry.path == info.path))
                 {
                     s_AdditionQueue.Add(info);
                 }
@@ -285,7 +284,7 @@ namespace HIDrogen.Backend
 
         private static void UpdateDevices()
         {
-            foreach (var device in s_PathLookup.Values)
+            foreach (var device in s_DeviceLookup.Values)
             {
                 // Update device state
                 if (!device.UpdateState())
@@ -307,7 +306,7 @@ namespace HIDrogen.Backend
         {
             while (!s_AdditionQueue.IsEmpty)
             {
-                if (s_AdditionQueue.TryTake(out var info) && !s_PathLookup.ContainsKey(info.path))
+                if (s_AdditionQueue.TryTake(out var info) && !s_DeviceLookup.Values.Any((entry) => entry.path == info.path))
                 {
                     AddDevice(info);
                 }
@@ -318,10 +317,11 @@ namespace HIDrogen.Backend
         {
             foreach (var device in s_RemovalQueue)
             {
-                if (s_PathLookup.ContainsKey(device.path))
+                int deviceId = device.deviceId;
+                if (s_DeviceLookup.ContainsKey(deviceId))
                 {
                     device.Dispose();
-                    s_PathLookup.TryRemove(device.path, out _);
+                    s_DeviceLookup.TryRemove(deviceId, out _);
                 }
             }
             s_RemovalQueue.Clear();
@@ -330,7 +330,8 @@ namespace HIDrogen.Backend
         private static void AddDevice(hid_device_info info)
         {
             var device = HidApiDevice.TryCreate(info);
-            if (device == null || !s_PathLookup.TryAdd(info.path, device))
+            if (device == null || device.deviceId == InputDevice.InvalidDeviceId ||
+                !s_DeviceLookup.TryAdd(device.deviceId, device))
                 return;
 
             if (s_ReadingThread == null || !s_ReadingThread.IsAlive)

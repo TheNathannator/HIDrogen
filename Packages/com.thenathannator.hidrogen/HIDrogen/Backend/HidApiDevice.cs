@@ -50,7 +50,7 @@ namespace HIDrogen.Backend
         private int m_ErrorCount; // Number of consecutive errors encountered during reads
 
         public string path => m_Info.path;
-        public InputDevice device => m_Device;
+        public int deviceId => m_Device?.deviceId ?? InputDevice.InvalidDeviceId;
 
         private HidApiDevice(hid_device_info info, hid_device handle, InputDevice device, HID.HIDDeviceDescriptor descriptor)
         {
