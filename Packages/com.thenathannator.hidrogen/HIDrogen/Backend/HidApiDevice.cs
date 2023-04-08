@@ -31,6 +31,8 @@ namespace HIDrogen.Backend
                 new Type[] { typeof(byte).MakePointerType(), typeof(int), typeof(HID.HIDDeviceDescriptor).MakeByRefType() }, null)
             .CreateDelegate(typeof(HIDParser_ParseReportDescriptor));
 
+        private const int kRetryThreshold = 3; // Max allowed number of consecutive errors
+
         private readonly hid_device_info m_Info;
         private hid_device m_Handle;
         private InputDevice m_Device;
@@ -38,6 +40,8 @@ namespace HIDrogen.Backend
 
         private readonly byte[] m_ReadBuffer;
         private readonly int m_PrependCount; // Number of bytes to prepend to the queued input buffer
+
+        private int m_ErrorCount; // Number of consecutive errors encountered during reads
 
         public string path => m_Info.path;
         public InputDevice device => m_Device;
@@ -207,11 +211,14 @@ namespace HIDrogen.Backend
             {
                 if (result < 0) // Error
                 {
-                    Debug.LogError($"hid_read: {hid_error(m_Handle)}");
-                    return false;
+                    m_ErrorCount++;
+                    Debug.LogError($"hid_read: {hid_error(m_Handle)}\nError count: {m_ErrorCount}");
+                    return m_ErrorCount < kRetryThreshold;
                 }
+                m_ErrorCount = 0;
                 return true;
             }
+            m_ErrorCount = 0;
 
             // Queue state
             QueueState();
