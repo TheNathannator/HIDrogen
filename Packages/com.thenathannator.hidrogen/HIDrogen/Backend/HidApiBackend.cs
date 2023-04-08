@@ -43,9 +43,6 @@ namespace HIDrogen.Backend
         private static readonly object s_BufferLock = new object();
         private static int s_CurrentBuffer = 0;
 
-        // Format codes
-        public static readonly FourCC InputFormat = new FourCC('H', 'I', 'D');
-
         internal static unsafe bool Initialize()
         {
             // Initialize hidapi
@@ -128,8 +125,16 @@ namespace HIDrogen.Backend
 
         private static unsafe long? DeviceCommand(InputDevice device, InputDeviceCommand* command)
         {
-            // TODO
-            return null;
+            if (device == null || device.description.interfaceName != "HID")
+                return null;
+            if (command == null)
+                return InputDeviceCommand.GenericFailure;
+
+            var hid = s_PathLookup.Values.SingleOrDefault((entry) => entry.device == device);
+            if (hid == null)
+                return null;
+
+            return hid.ExecuteCommand(command);
         }
 
         private static void DeviceDiscoveryThread()

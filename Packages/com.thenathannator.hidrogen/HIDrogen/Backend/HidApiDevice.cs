@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using HIDrogen.Imports;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
@@ -8,6 +9,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.HID;
 using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
+using UnityEngine.InputSystem.Utilities;
 
 namespace HIDrogen.Backend
 {
@@ -32,6 +34,10 @@ namespace HIDrogen.Backend
             .CreateDelegate(typeof(HIDParser_ParseReportDescriptor));
 
         private const int kRetryThreshold = 3; // Max allowed number of consecutive errors
+
+        // Format codes
+        public static readonly FourCC InputFormat = new FourCC('H', 'I', 'D');
+        public static readonly FourCC OutputFormat = new FourCC('H', 'I', 'D');
 
         private readonly hid_device_info m_Info;
         private hid_device m_Handle;
@@ -225,6 +231,46 @@ namespace HIDrogen.Backend
             return true;
         }
 
+        public unsafe long? ExecuteCommand(InputDeviceCommand* command)
+        {
+            if (command == null)
+                return InputDeviceCommand.GenericFailure;
+
+            // TODO
+            // System commands
+            // if (command->type == EnableDeviceCommand.Type)
+            //     return Enable(command);
+            // if (command->type == DisableDeviceCommand.Type)
+            //     return Disable(command);
+            // if (command->type == QueryEnabledStateCommand.Type)
+            //     return IsEnabled(command);
+            // if (command->type == RequestSyncCommand.Type)
+            //     return SyncState(command);
+            // if (command->type == RequestResetCommand.Type)
+            //     return ResetState(command);
+            // if (command->type == QueryCanRunInBackground.Type)
+            //     return CanRunInBackground(command);
+
+            // Reports
+            if (command->type == OutputFormat)
+                return SendOutput(command);
+            // These don't have any (documented, at least) format codes
+            // if (command->type == HidDefinitions.GetFeatureFormat)
+            //     return GetFeature(command);
+            // if (command->type == HidDefinitions.SetFeatureFormat)
+            //     return SetFeature(command);
+
+            // Descriptors
+            if (command->type == HID.QueryHIDReportDescriptorSizeDeviceCommandType)
+                return GetReportDescriptorSize(command);
+            if (command->type == HID.QueryHIDReportDescriptorDeviceCommandType)
+                return GetReportDescriptor(command);
+            if (command->type == HID.QueryHIDParsedReportDescriptorDeviceCommandType)
+                return GetParsedReportDescriptor(command);
+
+            return null;
+        }
+
         // Based on InputSystem.QueueStateEvent<T>
         private unsafe void QueueState()
         {
@@ -244,7 +290,7 @@ namespace HIDrogen.Backend
             *stateBuffer = new StateEvent
             {
                 baseEvent = new InputEvent(StateEvent.Type, eventSize, m_Device.deviceId),
-                stateFormat = HidApiBackend.InputFormat
+                stateFormat = InputFormat
             };
 
             // Copy state into buffer
@@ -257,6 +303,105 @@ namespace HIDrogen.Backend
             // Queue state event
             var eventPtr = new InputEventPtr((InputEvent*)buffer);
             HidApiBackend.QueueEvent(eventPtr);
+        }
+
+        private unsafe long SendOutput(InputDeviceCommand* command)
+        {
+            if (command->payloadPtr == null || command->payloadSizeInBytes < 1)
+                return InputDeviceCommand.GenericFailure;
+
+            int result = hid_write(m_Handle, (byte*)command->payloadPtr, command->payloadSizeInBytes);
+            return result >= 0 ? InputDeviceCommand.GenericSuccess : InputDeviceCommand.GenericFailure;
+        }
+
+        private unsafe long GetFeature(InputDeviceCommand* command)
+        {
+            if (command->payloadPtr == null || command->payloadSizeInBytes < 1)
+                return InputDeviceCommand.GenericFailure;
+
+            int result = hid_get_feature_report(m_Handle, (byte*)command->payloadPtr, command->payloadSizeInBytes);
+            return result >= 0 ? InputDeviceCommand.GenericSuccess : InputDeviceCommand.GenericFailure;
+        }
+
+        private unsafe long SetFeature(InputDeviceCommand* command)
+        {
+            if (command->payloadPtr == null || command->payloadSizeInBytes < 1)
+                return InputDeviceCommand.GenericFailure;
+
+            int result = hid_send_feature_report(m_Handle, (byte*)command->payloadPtr, command->payloadSizeInBytes);
+            return result >= 0 ? InputDeviceCommand.GenericSuccess : InputDeviceCommand.GenericFailure;
+        }
+
+        private unsafe long GetReportDescriptorSize(InputDeviceCommand* command)
+        {
+#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+            var fd = open(m_Info.path, O_RDONLY);
+            if (fd == null || fd.IsInvalid)
+                return InputDeviceCommand.GenericFailure;
+
+            int size = 0;
+            using (fd)
+            {
+                if (ioctl(fd, HIDIOCGRDESCSIZE, &size) < 0)
+                {
+                    Debug.Log($"Error getting descriptor: {errno}");
+                    return InputDeviceCommand.GenericFailure;
+                }
+            }
+
+            // Expected return code is the size of the descriptor
+            return size;
+#else
+            return InputDeviceCommand.GenericFailure;
+#endif
+        }
+
+        private unsafe long GetReportDescriptor(InputDeviceCommand* command)
+        {
+            if (command->payloadPtr == null || command->payloadSizeInBytes < 1)
+                return InputDeviceCommand.GenericFailure;
+
+#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+            var fd = open(m_Info.path, O_RDONLY);
+            if (fd == null || fd.IsInvalid)
+                return InputDeviceCommand.GenericFailure;
+
+            var buffer = new hidraw_report_descriptor();
+            using (fd)
+            {
+                if ((ioctl(fd, HIDIOCGRDESCSIZE, &buffer.size) < 0) ||
+                    (ioctl(fd, HIDIOCGRDESC, &buffer) < 0))
+                {
+                    Debug.Log($"Error getting descriptor: {errno}");
+                    return InputDeviceCommand.GenericFailure;
+                }
+            }
+
+            if (command->payloadSizeInBytes < buffer.size)
+                return InputDeviceCommand.GenericFailure;
+
+            UnsafeUtility.MemCpy(command->payloadPtr, buffer.value, buffer.size);
+            return buffer.size; // Expected return code is the size of the descriptor
+#else
+            return InputDeviceCommand.GenericFailure;
+#endif
+        }
+
+        private unsafe long GetParsedReportDescriptor(InputDeviceCommand* command)
+        {
+            if (command->payloadPtr == null || command->payloadSizeInBytes < 1)
+                return InputDeviceCommand.GenericFailure;
+
+            string descriptor = JsonUtility.ToJson(m_Descriptor);
+            var buffer = Encoding.UTF8.GetBytes(descriptor);
+            if (command->payloadSizeInBytes < buffer.Length)
+                return InputDeviceCommand.GenericFailure;
+
+            fixed (byte* ptr = buffer)
+            {
+                UnsafeUtility.MemCpy(command->payloadPtr, ptr, buffer.Length);
+            }
+            return buffer.Length; // Expected return code is the size of the string buffer
         }
 
         public void Dispose()
