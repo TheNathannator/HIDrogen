@@ -16,6 +16,11 @@ namespace HIDrogen.Backend
 {
     using static HidApi;
 
+#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+    using static Libc;
+    using static Udev;
+#endif
+
     /// <summary>
     /// Provides input through the hidapi library.
     /// </summary>
@@ -139,12 +144,26 @@ namespace HIDrogen.Backend
 
         private static void DeviceDiscoveryThread()
         {
-            do
+            // Initial device enumeration
+            EnumerateDevices();
+
+            // Try using udev to monitor first
+            int errorCount = 0;
+            const int errorThreshold = 3;
+            while (errorCount < errorThreshold && !s_ThreadStop.WaitOne(5000))
             {
-                // Find new devices from hidapi
+                if (!MonitorUdev())
+                {
+                    errorCount++;
+                    Debug.LogError($"udev monitoring failed! {(errorCount < errorThreshold ? "Trying again" : "Falling back to periodic re-enumeration of hidapi")}");
+                }
+            }
+
+            // Fall back to just periodically enumerating hidapi
+            while (!s_ThreadStop.WaitOne(2000))
+            {
                 EnumerateDevices();
             }
-            while (!s_ThreadStop.WaitOne(2000));
         }
 
         private static void ReadThread()
@@ -170,6 +189,98 @@ namespace HIDrogen.Backend
                     s_AdditionQueue.Add(info);
                 }
             }
+        }
+
+        // Returns false if falling back to hidapi polling is necessary, returns true on exit
+        private static bool MonitorUdev()
+        {
+            // Initialize udev
+            var udev = udev_new();
+            if (udev == null || udev.IsInvalid)
+            {
+                Debug.LogError($"Failed to initialize udev context: {errno}");
+                return false;
+            }
+
+            using (udev)
+            {
+                // Set up device monitor
+                var monitor = udev_monitor_new_from_netlink(udev, "udev");
+                if (monitor == null || monitor.IsInvalid)
+                {
+                    Debug.LogError($"Failed to initialize device monitor: {errno}");
+                    return false;
+                }
+
+                // Add filter for hidraw devices
+                if (udev_monitor_filter_add_match_subsystem_devtype(monitor, "hidraw", null) < 0)
+                {
+                    Debug.LogError($"Failed to add filter to device monitor: {errno}");
+                    return false;
+                }
+
+                // Enable monitor
+                if (udev_monitor_enable_receiving(monitor) < 0)
+                {
+                    Debug.LogError($"Failed to enable receiving on device monitor: {errno}");
+                    return false;
+                }
+
+                using (monitor)
+                {
+                    // Get monitor file descriptor
+                    var fd = udev_monitor_get_fd(monitor);
+                    if (udev == null || udev.IsInvalid)
+                    {
+                        Debug.LogError($"Failed to get device monitor file descriptor: {errno}");
+                        return false;
+                    }
+
+                    using (fd)
+                    {
+                        int errorCount = 0;
+                        const int errorThreshold = 5;
+                        while (!s_ThreadStop.WaitOne(1000))
+                        {
+                            // Check if any events are available
+                            int result = poll(POLLIN, 0, fd);
+                            if (result <= 0) // No events, or an error occured
+                            {
+                                if (result < 0) // Error
+                                {
+                                    errorCount++;
+                                    Debug.LogError($"Error while polling for device monitor events: {errno}");
+                                    if (errorCount >= errorThreshold)
+                                    {
+                                        Debug.LogError($"Error threshold reached, stopping udev monitoring");
+                                        return false;
+                                    }
+                                    continue;
+                                }
+                                errorCount = 0;
+                                continue;
+                            }
+                            errorCount = 0;
+
+                            // Get device to clear it from the event buffer
+                            var dev = udev_monitor_receive_device(monitor);
+                            if (dev == null || dev.IsInvalid)
+                            {
+                                Debug.LogError($"Failed to get changed device: {errno}");
+                                continue;
+                            }
+
+                            using (dev)
+                            {
+                                // Re-enumerate devices from hidapi, as we need the info it gives
+                                EnumerateDevices();
+                            }
+                        }
+                    }
+                }
+            }
+
+            return true;
         }
 
         private static void UpdateDevices()
