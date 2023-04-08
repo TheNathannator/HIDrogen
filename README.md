@@ -4,6 +4,31 @@
 
 An add-on for the [Unity InputSystem](https://github.com/Unity-Technologies/InputSystem) package that provides proper HID device support on Linux.
 
+Most device handling features are implemented, including raw input reports, device descriptor retrieval/parsing, and input system IOCTLs. The backend is also pretty robust, with input event double-buffering, some error tolerance, and a fallback device enumeration method.
+
+If there's anything in the native Windows or Mac HID backends that is not implemented here, feel free to contribute!
+
+## Dependencies
+
+This project relies on the hidraw version of hidapi for input, along with libudev for device connection/disconnection monitoring. By installing this package, your project will become dependent on them as well on Linux. On distributions that use `apt`, the following commands should do the trick:
+
+```
+sudo apt install libhidapi-hidraw0
+sudo apt install libudev1
+```
+
+The user will also need to install some udev rules in order to allow accessing hidraw devices without elevated priveleges:
+
+```
+# If you just want specific devices, you can specify them by vendor/product ID with the following.
+KERNEL=="hidraw*", ATTRS{idVendor}=="04d8", ATTRS{idProduct}=="003f", TAG+="uaccess"
+
+# If you want *all* hidraw devices, you can omit the attributes and just set the access tag.
+KERNEL=="hidraw*", TAG+="uaccess"
+```
+
+The rules file should be placed in `etc/udev/rules.d` or `/usr/lib/udev/rules.d/`, and it must come before `73-seat-late.rules`.
+
 ## Notes
 
 As part of supporting HID devices properly, devices that come from the native backend under the `Linux` and `SDL` interfaces are automatically disabled. This is only being mentioned for transparency's sake, there should be little to no consequences to it.
