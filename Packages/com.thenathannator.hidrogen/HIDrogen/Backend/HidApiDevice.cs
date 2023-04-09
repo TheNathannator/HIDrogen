@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using HIDrogen.Imports;
+using HIDrogen.Utilities;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -126,11 +127,10 @@ namespace HIDrogen.Backend
                 return false;
             }
 
-            var buffer = new hidraw_report_descriptor();
+            hidraw_report_descriptor buffer;
             using (fd)
             {
-                if ((ioctl(fd, HIDIOCGRDESCSIZE, &buffer.size) < 0) ||
-                    (ioctl(fd, HIDIOCGRDESC, &buffer) < 0))
+                if (!GetHidRawReportDescriptor(fd, out buffer))
                 {
                     Debug.Log($"Error getting descriptor: {errno}");
                     descriptor = default;
@@ -188,18 +188,39 @@ namespace HIDrogen.Backend
                 }
             }
 
-            // Ensure sizes are normalized to byte boundaries
-            inputSizeBits += -(inputSizeBits % 8) + 8;
-            outputSizeBits += -(outputSizeBits % 8) + 8;
-            featureSizeBits += -(featureSizeBits % 8) + 8;
-
-            // Turn bit size into byte size
-            descriptor.inputReportSize = inputSizeBits / 8;
-            descriptor.outputReportSize = outputSizeBits / 8;
-            descriptor.featureReportSize = featureSizeBits / 8;
+            // Turn bit size into byte size, ensuring sizes are normalized to byte boundaries
+            descriptor.inputReportSize = inputSizeBits.AlignToMultipleOf(8) / 8;
+            descriptor.outputReportSize = outputSizeBits.AlignToMultipleOf(8) / 8;
+            descriptor.featureReportSize = featureSizeBits.AlignToMultipleOf(8) / 8;
 
             return descriptor.inputReportSize > 0; // Output and feature reports aren't required for normal operation
         }
+
+#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+        private static unsafe bool GetHidRawReportDescriptorLength(fd fd, out int length)
+        {
+            length = 0;
+            if (fd == null || fd.IsInvalid)
+                return false;
+
+            fixed (int* ptr = &length)
+                return ioctl(fd, HIDIOCGRDESCSIZE, ptr) >= 0;
+        }
+
+        private static unsafe bool GetHidRawReportDescriptor(fd fd, out hidraw_report_descriptor buffer)
+        {
+            buffer = default;
+            if (fd == null || fd.IsInvalid)
+                return false;
+
+            if (!GetHidRawReportDescriptorLength(fd, out int length))
+                return false;
+
+            buffer.size = length;
+            fixed (hidraw_report_descriptor* ptr = &buffer)
+                return ioctl(fd, HIDIOCGRDESC, ptr) >= 0;
+        }
+#endif
 
         // Returns true on success, false if the device should be removed.
         public bool UpdateState()
@@ -336,20 +357,10 @@ namespace HIDrogen.Backend
         {
 #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
             var fd = open(m_Info.path, O_RDONLY);
-            if (fd == null || fd.IsInvalid)
+            if (fd == null || fd.IsInvalid || !GetHidRawReportDescriptorLength(fd, out int size))
                 return InputDeviceCommand.GenericFailure;
 
-            int size = 0;
-            using (fd)
-            {
-                if (ioctl(fd, HIDIOCGRDESCSIZE, &size) < 0)
-                {
-                    Debug.Log($"Error getting descriptor: {errno}");
-                    return InputDeviceCommand.GenericFailure;
-                }
-            }
-
-            // Expected return code is the size of the descriptor
+            // Expected return is the size of the descriptor
             return size;
 #else
             return InputDeviceCommand.GenericFailure;
@@ -363,25 +374,12 @@ namespace HIDrogen.Backend
 
 #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
             var fd = open(m_Info.path, O_RDONLY);
-            if (fd == null || fd.IsInvalid)
-                return InputDeviceCommand.GenericFailure;
-
-            var buffer = new hidraw_report_descriptor();
-            using (fd)
-            {
-                if ((ioctl(fd, HIDIOCGRDESCSIZE, &buffer.size) < 0) ||
-                    (ioctl(fd, HIDIOCGRDESC, &buffer) < 0))
-                {
-                    Debug.Log($"Error getting descriptor: {errno}");
-                    return InputDeviceCommand.GenericFailure;
-                }
-            }
-
-            if (command->payloadSizeInBytes < buffer.size)
+            if (fd == null || fd.IsInvalid || !GetHidRawReportDescriptor(fd, out var buffer) ||
+                command->payloadSizeInBytes < buffer.size)
                 return InputDeviceCommand.GenericFailure;
 
             UnsafeUtility.MemCpy(command->payloadPtr, buffer.value, buffer.size);
-            return buffer.size; // Expected return code is the size of the descriptor
+            return buffer.size; // Expected return is the size of the descriptor
 #else
             return InputDeviceCommand.GenericFailure;
 #endif
@@ -392,6 +390,7 @@ namespace HIDrogen.Backend
             if (command->payloadPtr == null || command->payloadSizeInBytes < 1)
                 return InputDeviceCommand.GenericFailure;
 
+            // Get string descriptor as a UTF-8 encoded buffer
             string descriptor = JsonUtility.ToJson(m_Descriptor);
             var buffer = Encoding.UTF8.GetBytes(descriptor);
             if (command->payloadSizeInBytes < buffer.Length)
@@ -401,7 +400,7 @@ namespace HIDrogen.Backend
             {
                 UnsafeUtility.MemCpy(command->payloadPtr, ptr, buffer.Length);
             }
-            return buffer.Length; // Expected return code is the size of the string buffer
+            return buffer.Length; // Expected return is the size of the string buffer
         }
 
         public void Dispose()

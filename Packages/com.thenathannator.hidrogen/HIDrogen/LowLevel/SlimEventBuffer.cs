@@ -1,48 +1,13 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using Unity.Collections;
+using HIDrogen.Utilities;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 using UnityEngine.InputSystem.LowLevel;
 
 namespace HIDrogen.LowLevel
 {
-    // Copied from UnityEngine.InputSystem.Utilities
-    internal static unsafe class NumberHelpers
-    {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int AlignToMultipleOf(this int number, int alignment)
-        {
-            var remainder = number % alignment;
-            if (remainder == 0)
-                return number;
-
-            return number + alignment - remainder;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static long AlignToMultipleOf(this long number, long alignment)
-        {
-            var remainder = number % alignment;
-            if (remainder == 0)
-                return number;
-
-            return number + alignment - remainder;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static uint AlignToMultipleOf(this uint number, uint alignment)
-        {
-            var remainder = number % alignment;
-            if (remainder == 0)
-                return number;
-
-            return number + alignment - remainder;
-        }
-    }
-
     /// <summary>
     /// A buffer of memory holding a sequence of <see cref="InputEvent">input events</see>.
     /// Heavily modified and slimmed down from <see cref="InputEventBuffer"/>.
@@ -53,6 +18,7 @@ namespace HIDrogen.LowLevel
         private const int kEventAlignment = 4; // InputEvent.kAlignment
 
         private SlimNativeBuffer<byte> m_Buffer = new SlimNativeBuffer<byte>(2048);
+        private InputEventPtr m_FirstEvent => m_Buffer != null ? (InputEvent*)m_Buffer.bufferPtr : null;
 
         private long m_UsedLength;
         private int m_EventCount;
@@ -114,7 +80,26 @@ namespace HIDrogen.LowLevel
 
         public IEnumerator<InputEventPtr> GetEnumerator()
         {
-            return new Enumerator(this);
+            int currentIndex = 0;
+            InputEventPtr currentEvent = m_FirstEvent;
+            while (currentIndex < m_EventCount)
+            {
+                if (!currentEvent.valid)
+                    break;
+
+                yield return currentEvent;
+                currentEvent = getNextInMemory(currentEvent);
+                ++currentIndex;
+            }
+            yield break;
+
+            // Copied from InputEvent.GetNextInMemory
+            unsafe InputEventPtr getNextInMemory(InputEventPtr currentPtr)
+            {
+                Debug.Assert(currentPtr != null, "Event pointer must not be null!");
+                var alignedSizeInBytes = currentPtr.sizeInBytes.AlignToMultipleOf(kEventAlignment);
+                return (InputEvent*)((byte*)currentPtr.data + alignedSizeInBytes);
+            }
         }
 
         IEnumerator IEnumerable.GetEnumerator()
@@ -138,64 +123,6 @@ namespace HIDrogen.LowLevel
 
             m_UsedLength = 0;
             m_EventCount = 0;
-        }
-
-        private struct Enumerator : IEnumerator<InputEventPtr>
-        {
-            private readonly InputEvent* m_Buffer;
-            private readonly int m_EventCount;
-            private InputEvent* m_CurrentEvent;
-            private int m_CurrentIndex;
-
-            public InputEventPtr Current => m_CurrentEvent;
-            object IEnumerator.Current => Current;
-
-            public Enumerator(SlimEventBuffer buffer)
-            {
-                m_Buffer = (InputEvent*)buffer.m_Buffer.bufferPtr;
-                m_EventCount = buffer.m_EventCount;
-                m_CurrentEvent = null;
-                m_CurrentIndex = 0;
-            }
-
-            public bool MoveNext()
-            {
-                if (m_CurrentIndex == m_EventCount)
-                    return false;
-
-                if (m_CurrentEvent == null)
-                {
-                    m_CurrentEvent = m_Buffer;
-                    return m_CurrentEvent != null;
-                }
-
-                Debug.Assert(m_CurrentEvent != null, "Current event must not be null!");
-
-                ++m_CurrentIndex;
-                if (m_CurrentIndex == m_EventCount)
-                    return false;
-
-                m_CurrentEvent = GetNextInMemory(m_CurrentEvent);
-                return true;
-            }
-
-            public void Reset()
-            {
-                m_CurrentEvent = null;
-                m_CurrentIndex = 0;
-            }
-
-            // InputEvent.GetNextInMemory
-            internal static unsafe InputEvent* GetNextInMemory(InputEvent* currentPtr)
-            {
-                Debug.Assert(currentPtr != null, "Event pointer must not be null!");
-                var alignedSizeInBytes = currentPtr->sizeInBytes.AlignToMultipleOf(kEventAlignment);
-                return (InputEvent*)((byte*)currentPtr + alignedSizeInBytes);
-            }
-
-            public void Dispose()
-            {
-            }
         }
     }
 }
