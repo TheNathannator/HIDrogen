@@ -27,7 +27,7 @@ KERNEL=="hidraw*", ATTRS{idVendor}=="04d8", ATTRS{idProduct}=="003f", TAG+="uacc
 KERNEL=="hidraw*", TAG+="uaccess"
 ```
 
-The rules file should be placed in `etc/udev/rules.d` or `/usr/lib/udev/rules.d/`, and it must come before `73-seat-late.rules`.
+The rules file should be placed in `/etc/udev/rules.d` or `/usr/lib/udev/rules.d/`, and it must come before `73-seat-late.rules`.
 
 ## Notes
 
