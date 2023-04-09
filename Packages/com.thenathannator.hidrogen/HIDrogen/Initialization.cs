@@ -25,12 +25,12 @@ namespace HIDrogen
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         internal static void Initialize()
         {
+#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
             if (HidApiBackend.Initialize())
             {
-#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
                 LinuxShim.Initialize();
-#endif
             }
+#endif
         }
     }
 }
