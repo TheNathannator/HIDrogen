@@ -31,7 +31,7 @@ The rules file should be placed in `/etc/udev/rules.d` or `/usr/lib/udev/rules.d
 
 ## Notes
 
-As part of supporting HID devices properly, devices that come from the native backend under the `Linux` and `SDL` interfaces are automatically disabled. This is only being mentioned for transparency's sake, there should be little to no consequences to it.
+As part of supporting HID devices properly, devices that come from the native backend under the `Linux` interface are automatically disabled. This is only being mentioned for transparency's sake, there should be little to no consequences to it.
 
 ## Installing
 

@@ -16,14 +16,14 @@ namespace HIDrogen.Backend
         private static void OnDeviceChange(InputDevice device, InputDeviceChange change)
         {
             string interfaceName = device.description.interfaceName;
-            if (interfaceName != "Linux" && interfaceName != "SDL")
+            if (interfaceName != "Linux") // && interfaceName != "SDL") // Not ignored as Xbox devices are not handled by hidraw
                 return;
 
             switch (change)
             {
                 case InputDeviceChange.Added:
                 case InputDeviceChange.Reconnected:
-                case InputDeviceChange.HardReset: // Occurs on domain relod
+                case InputDeviceChange.HardReset: // Occurs on domain reload
                     // InputSystem.DisableDevice(device); // This causes a deadlock for an extended period, at least on my (lower-end) laptop
                     InputSystem.RemoveDevice(device);
                     break;
