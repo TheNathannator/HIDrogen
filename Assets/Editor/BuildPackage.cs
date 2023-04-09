@@ -1,6 +1,6 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
-using System.Threading;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEditor.PackageManager;
@@ -17,7 +17,7 @@ public class BuildPackageWindow : EditorWindow
 
     enum BuildStatus
     {
-        Idle = 0,
+        Idle,
         Starting,
         Running,
         CopyFiles,
@@ -32,9 +32,12 @@ public class BuildPackageWindow : EditorWindow
     string outputPath_GUI;
     string outputPath;
     string tempDir;
-    Task buildTask;
+    string errorMessage;
+    IEnumerator<Task> buildTasks;
+    Task currentTask;
+    System.Diagnostics.Stopwatch currentTaskTimer = new System.Diagnostics.Stopwatch();
+    int previousTimerSeconds;
     PackRequest packTask;
-    EventWaitHandle packCompleted = new EventWaitHandle(false, EventResetMode.AutoReset);
     BuildStatus status;
 
     void OnGUI()
@@ -75,29 +78,41 @@ public class BuildPackageWindow : EditorWindow
             default:
                 break;
         }
+
+        const int displayThreshold = 10000; // 10 seconds
+        if (currentTaskTimer.ElapsedMilliseconds > displayThreshold)
+        {
+            GUILayout.Label($"Time elapsed: {currentTaskTimer.Elapsed.Seconds} (timeout threshold: 1 minute)");
+        }
     }
 
     void Update()
     {
+        // Ensure a repaint at least every second to keep timer accurate
+        if (currentTaskTimer.Elapsed.Seconds != previousTimerSeconds)
+        {
+            previousTimerSeconds = currentTaskTimer.Elapsed.Seconds;
+            Repaint();
+        }
+
         switch (status)
         {
             case BuildStatus.Starting:
+                if (!Directory.Exists(outputPath))
+                {
+                    EditorUtility.DisplayDialog("Invalid Directory", $"{outputPath} is not a valid directory!", "OK");
+                    return;
+                }
+
                 EditorApplication.LockReloadAssemblies();
-                status = BuildStatus.Running;
                 tempDir = Path.Combine(outputPath, "buildTemp");
-                buildTask = BuildPackage();
+                buildTasks = BuildPackage().GetEnumerator();
+                SetStatus(BuildStatus.Running);
                 break;
 
             case BuildStatus.Package:
-                if (packTask == null)
-                {
-                    string packOutput = Path.Combine(outputPath, "Builds");
-                    Debug.Log($"Creating package in {packOutput}");
-                    packTask = Client.Pack(tempDir, packOutput);
-                }
-
                 if (packTask.IsCompleted)
-                    packCompleted.Set();
+                    SetStatus(BuildStatus.Running); // Continue to the next task
                 break;
 
             case BuildStatus.Complete:
@@ -124,11 +139,9 @@ public class BuildPackageWindow : EditorWindow
                 break;
 
             case BuildStatus.Error:
-                string errorMessage = null;
-                if (buildTask.IsFaulted)
+                if (currentTask != null && currentTask.IsFaulted)
                 {
-                    // The build task failed, get its exception message
-                    var exception = buildTask.Exception;
+                    var exception = currentTask.Exception;
                     // Only display inner exception if only one occured
                     errorMessage = exception.InnerExceptions.Count < 2
                         ? $"An error occured!\n{exception.InnerException}"
@@ -143,130 +156,171 @@ public class BuildPackageWindow : EditorWindow
                 break;
 
             default:
+                if (currentTask != null) // A task is currently running
+                {
+                    if (!currentTask.IsCompleted)
+                    {
+                        const int timeout = 60000; // 1 minute timeout limit
+                        if (currentTaskTimer.ElapsedMilliseconds > timeout)
+                        {
+                            errorMessage = $"Timeout threshold reached! Current status: {status}";
+                            SetStatus(BuildStatus.Error);
+                        }
+                        break;
+                    }
+                    
+                    if (currentTask.IsFaulted)
+                    {
+                        SetStatus(BuildStatus.Error);
+                        break;
+                    }
+                }
+
+                // Either no task is running or the running task has completed
+                if (buildTasks != null)
+                {
+                    if (buildTasks.MoveNext())
+                    {
+                        currentTask = buildTasks.Current;
+                        currentTaskTimer.Restart();
+                    }
+                    else
+                    {
+                        // No more tasks available
+                        SetStatus(BuildStatus.Complete);
+                    }
+                }
                 break;
         }
+    }
+
+    void SetStatus(BuildStatus newStatus)
+    {
+        status = newStatus;
+        Repaint();
     }
 
     void ResetState()
     {
         status = BuildStatus.Idle;
+        buildTasks = null;
+        currentTask = null;
         packTask = null;
-        buildTask = null;
         outputPath = null;
         tempDir = null;
+        errorMessage = null;
+        currentTaskTimer.Reset();
         EditorApplication.UnlockReloadAssemblies();
     }
 
-    Task BuildPackage()
+    IEnumerable<Task> BuildPackage()
+    {
+        // Ensure temporary directory is removed
+        if (Directory.Exists(tempDir))
+        {
+            SetStatus(BuildStatus.DeleteTemp);
+            yield return DeleteDirectory(tempDir);
+        }
+
+        // Copy files to temporary directory
+        SetStatus(BuildStatus.CopyFiles);
+        yield return CopyDirectory(Path.GetFullPath(packagePath), tempDir);
+
+        // Remove all folders named "Ignored", along with their contents
+        SetStatus(BuildStatus.RemoveIgnored);
+        yield return RemoveIgnored(tempDir);
+
+        // Start packaging
+        SetStatus(BuildStatus.Package);
+        string packOutput = Path.Combine(outputPath, "Builds");
+        Debug.Log($"Creating package in {packOutput}");
+        packTask = Client.Pack(tempDir, packOutput);
+        yield return Task.CompletedTask;
+
+        // Delete temporary directory now that we're done with it
+        SetStatus(BuildStatus.DeleteTemp);
+        yield return DeleteDirectory(tempDir);
+
+        SetStatus(BuildStatus.Complete);
+        yield break;
+    }
+
+    Task CopyDirectory(string sourceDir, string targetDir)
     {
         return Task.Run(() => {
-            BuildStatus finalStatus = BuildStatus.Error;
-            try
-            {
-                // Don't attempt if output path doesn't exist
-                if (!Directory.Exists(outputPath))
-                    throw new DirectoryNotFoundException("Output path must be a directory!");
+            Debug.Log($"Copying files from {sourceDir} to temp directory {targetDir}");
+            // Don't attempt if source directory doesn't exist
+            if (!Directory.Exists(sourceDir))
+                throw new DirectoryNotFoundException("Could not find source folder!");
 
-                // Ensure temporary directory is removed
-                if (Directory.Exists(tempDir))
+            // Ensure target directory exists
+            if (!Directory.Exists(targetDir))
+            {
+                Directory.CreateDirectory(targetDir);
+            }
+
+            // Copy everything from the source directory to the target directory
+            var dirInfo = new DirectoryInfo(sourceDir);
+            foreach (var fileInfo in dirInfo.EnumerateFiles("*.*", SearchOption.AllDirectories))
+            {
+                string path = fileInfo.FullName;
+                string dir = fileInfo.Directory.FullName;
+                string newDir;
+                if (dir.Length > sourceDir.Length)
                 {
-                    status = BuildStatus.DeleteTemp;
-                    DeleteDirectory(tempDir);
+                    string shortDir = dir.Substring(sourceDir.Length + 1);
+                    newDir = Path.Combine(targetDir, shortDir);
+                    if (!Directory.Exists(newDir))
+                    {
+                        Debug.Log($"Creating directory {newDir}");
+                        Directory.CreateDirectory(newDir);
+                    }
+                }
+                else
+                {
+                    newDir = targetDir;
                 }
 
-                // Copy files to temporary directory
-                status = BuildStatus.CopyFiles;
-                CopyDirectory(Path.GetFullPath(packagePath), tempDir);
-
-                // Remove all folders named "Ignored", along with their contents
-                status = BuildStatus.RemoveIgnored;
-                RemoveIgnored(tempDir);
-
-                // Start packaging and wait for it to complete
-                status = BuildStatus.Package;
-                packCompleted.WaitOne();
-                finalStatus = BuildStatus.Complete;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"Error while building: {ex}");
-                finalStatus = BuildStatus.Error;
-                throw;
-            }
-            finally
-            {
-                // Remove temporary directory
-                status = BuildStatus.DeleteTemp;
-                DeleteDirectory(tempDir);
-
-                // Set final status
-                status = finalStatus;
+                string newPath = Path.Combine(newDir, fileInfo.Name);
+                Debug.Log($"Copying from {path} to {newPath}");
+                File.Copy(path, newPath, true);
             }
         });
     }
 
-    void CopyDirectory(string sourceDir, string targetDir)
+    Task DeleteDirectory(string directory)
     {
-        Debug.Log($"Copying files from {sourceDir} to temp directory {targetDir}");
-        // Don't attempt if source directory doesn't exist
-        if (!Directory.Exists(sourceDir))
-            throw new DirectoryNotFoundException("Could not find source folder!");
+        return Task.Run(() => {
+            // Don't attempt to delete a non-existent directory
+            if (!Directory.Exists(directory))
+                return;
 
-        // Ensure target directory exists
-        if (!Directory.Exists(targetDir))
-        {
-            Directory.CreateDirectory(targetDir);
-        }
-
-        // Copy everything from the source directory to the target directory
-        var dirInfo = new DirectoryInfo(sourceDir);
-        foreach (var fileInfo in dirInfo.EnumerateFiles("*.*", SearchOption.AllDirectories))
-        {
-            string path = fileInfo.FullName;
-            string dir = fileInfo.Directory.FullName;
-            string newDir;
-            if (dir.Length > sourceDir.Length)
+            Debug.Log($"Removing folder {directory}");
+            try
             {
-                string shortDir = dir.Substring(sourceDir.Length + 1);
-                newDir = Path.Combine(targetDir, shortDir);
-                if (!Directory.Exists(newDir))
-                {
-                    Debug.Log($"Creating directory {newDir}");
-                    Directory.CreateDirectory(newDir);
-                }
+                Directory.Delete(directory, true);
             }
-            else
+            catch (Exception ex)
             {
-                newDir = targetDir;
+                Debug.LogWarning($"Error when deleting, trying again\n{ex}");
+                Directory.Delete(directory, true);
             }
-
-            string newPath = Path.Combine(newDir, fileInfo.Name);
-            Debug.Log($"Copying from {path} to {newPath}");
-            File.Copy(path, newPath, true);
-        }
+        });
     }
 
-    void DeleteDirectory(string directory)
+    Task RemoveIgnored(string directory)
     {
-        // Don't attempt to delete a non-existent directory
-        if (!Directory.Exists(directory))
-            return;
-
-        Debug.Log($"Removing folder {directory}");
-        Directory.Delete(directory, true);
-    }
-
-    void RemoveIgnored(string directory)
-    {
-        Debug.Log($"Removing \"Ignored\" folders from {directory}");
-        foreach (string path in Directory.EnumerateDirectories(directory, "Ignored", SearchOption.AllDirectories))
-        {
-            Debug.Log($"Deleting directory {path}");
-            Directory.Delete(path, true);
-            string noEndSeparator = path.TrimEnd(Path.DirectorySeparatorChar);
-            string metaPath = noEndSeparator + ".meta";
-            Debug.Log($"Deleting file {metaPath}");
-            File.Delete(metaPath);
-        }
+        return Task.Run(() => {
+            Debug.Log($"Removing \"Ignored\" folders from {directory}");
+            foreach (string path in Directory.EnumerateDirectories(directory, "Ignored", SearchOption.AllDirectories))
+            {
+                Debug.Log($"Deleting directory {path}");
+                Directory.Delete(path, true);
+                string noEndSeparator = path.TrimEnd(Path.DirectorySeparatorChar);
+                string metaPath = noEndSeparator + ".meta";
+                Debug.Log($"Deleting file {metaPath}");
+                File.Delete(metaPath);
+            }
+        });
     }
 }
