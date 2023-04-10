@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Dates are relative to UTC.
 
-## Unreleased
+## [0.1.1] - 2023/10/04
 
 ### Changed
 
