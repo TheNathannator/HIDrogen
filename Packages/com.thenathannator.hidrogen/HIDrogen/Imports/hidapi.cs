@@ -255,7 +255,7 @@ namespace HIDrogen.Imports
             // While this is intended for Linux only, it's best to support everything correctly
 #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
             return StringMarshal.FromNullTerminatedUtf32(ptr);
-#elif UNITY_STANDALONE_WINDOWS || UNITY_EDITOR_WINDOWS
+#elif UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
             return StringMarshal.FromNullTerminatedUtf16(ptr);
 #else
             #error "Unhandled platform in wide string conversion!"
