@@ -12,6 +12,7 @@ Dates are relative to UTC.
 
 - The Windows #if directive for hidapi wide-string conversion has been fixed.
 - The package will no longer cause builds to fail on platforms that are not handled in the hidapi wide-string conversion method.
+- Added missing Linux #if directives around udev device monitoring to fix other compilation errors on non-Linux platforms.
 
 ## [0.1.1] - 2023/10/04
 

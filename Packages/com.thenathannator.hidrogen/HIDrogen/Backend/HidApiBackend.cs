@@ -145,6 +145,7 @@ namespace HIDrogen.Backend
             // Initial device enumeration
             EnumerateDevices();
 
+#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
             // Try using udev to monitor first
             int errorCount = 0;
             const int errorThreshold = 3;
@@ -156,6 +157,7 @@ namespace HIDrogen.Backend
                     Debug.LogError($"udev monitoring failed! {(errorCount < errorThreshold ? "Trying again" : "Falling back to periodic re-enumeration of hidapi")}");
                 }
             }
+#endif
 
             // Fall back to just periodically enumerating hidapi
             while (!s_ThreadStop.WaitOne(2000))
@@ -189,6 +191,7 @@ namespace HIDrogen.Backend
             }
         }
 
+#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
         // Returns false if falling back to hidapi polling is necessary, returns true on exit
         private static bool MonitorUdev()
         {
@@ -280,6 +283,7 @@ namespace HIDrogen.Backend
 
             return true;
         }
+#endif
 
         private static void UpdateDevices()
         {
