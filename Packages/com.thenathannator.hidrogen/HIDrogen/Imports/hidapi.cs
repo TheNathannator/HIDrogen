@@ -258,7 +258,7 @@ namespace HIDrogen.Imports
 #elif UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
             return StringMarshal.FromNullTerminatedUtf16(ptr);
 #else
-            #error "Unhandled platform in wide string conversion!"
+            throw new NotImplementedException("Unhandled platform in wide string conversion!");
 #endif
         }
     }
