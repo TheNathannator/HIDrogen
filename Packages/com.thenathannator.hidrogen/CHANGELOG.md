@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Dates are relative to UTC.
 
+## [0.1.4] - 2023/15/04
+
+### Changed
+
+- Device removal handling is now completed on the main thread instead of the read thread, in order to avoid issues with device change calbacks using APIs that are only available on the main thread.
+  - This should hopefully be the last threading issue involving InputSystem methods, all code paths that call them are now done on the main thread and whatever thread handles exiting/assembly reloads.
+- Device removal is now properly detected and no longer relies on the error counting mechanism. This also means that errors are no longer logged when disconnecting a device.
+- Error logging for hidapi calls will now display error numbers/names alongside the message retrieved from hidapi.
+
 ## [0.1.3] - 2023/15/04
 
 ### Fixed
