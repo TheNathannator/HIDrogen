@@ -124,6 +124,7 @@ namespace HIDrogen.Backend
         private static void Update()
         {
             FlushEventBuffer();
+            HandleRemovalQueue();
             HandleAdditionQueue();
         }
 
@@ -298,10 +299,14 @@ namespace HIDrogen.Backend
                 }
             }
 
-            // Handle devices queued for removal
+            // Remove devices queued for removal from the main list
             if (s_RemovalQueue.Count > 0)
             {
-                HandleRemovalQueue();
+                foreach (var device in s_RemovalQueue)
+                {
+                    int deviceId = device.deviceId;
+                    s_DeviceLookup.TryRemove(deviceId, out _);
+                }
             }
         }
 
@@ -320,12 +325,12 @@ namespace HIDrogen.Backend
         {
             foreach (var device in s_RemovalQueue)
             {
+                // Ensure device was removed from the list
                 int deviceId = device.deviceId;
                 if (s_DeviceLookup.ContainsKey(deviceId))
-                {
-                    device.Dispose();
                     s_DeviceLookup.TryRemove(deviceId, out _);
-                }
+
+                device.Dispose();
             }
             s_RemovalQueue.Clear();
         }
