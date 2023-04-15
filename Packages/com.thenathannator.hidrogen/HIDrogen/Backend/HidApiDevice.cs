@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using HIDrogen.Imports;
 using HIDrogen.Utilities;
@@ -80,7 +81,11 @@ namespace HIDrogen.Backend
             var handle = hid_open_path(info.path);
             if (handle == null || handle.IsInvalid)
             {
-                Debug.LogError($"Error when opening HID device path: {hid_error()}");
+                #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+                Debug.LogError($"Error when opening HID device path: {hid_error()} ({errno})");
+                #else
+                Debug.LogError($"Error when opening HID device path: {hid_error()} ({Marshal.GetLastWin32Error()})");
+                #endif
                 return null;
             }
 
@@ -227,7 +232,7 @@ namespace HIDrogen.Backend
             // Ensure read buffer is valid
             if (m_ReadBuffer == null || m_ReadBuffer.Length < 1)
             {
-                Debug.Assert(false, "without a read buffer!");
+                Debug.Assert(false, "Device without a read buffer!");
                 return false;
             }
 
@@ -243,7 +248,11 @@ namespace HIDrogen.Backend
                     #endif
 
                     m_ErrorCount++;
-                    Debug.LogError($"hid_read: {hid_error(m_Handle)}\nError count: {m_ErrorCount}");
+                    #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+                    Debug.LogError($"hid_read: {hid_error(m_Handle)} ({errno})\nError count: {m_ErrorCount}");
+                    #else
+                    Debug.LogError($"hid_read: {hid_error(m_Handle)} ({Marshal.GetLastWin32Error()})\nError count: {m_ErrorCount}");
+                    #endif
                     return m_ErrorCount < kRetryThreshold;
                 }
                 m_ErrorCount = 0;
@@ -304,7 +313,7 @@ namespace HIDrogen.Backend
             var stateSize = m_ReadBuffer.Length + m_PrependCount;
             if (stateSize > kMaxStateSize)
             {
-                Debug.LogError($"Size of the buffer ({stateSize}) exceeds maximum supported state size ({kMaxStateSize})");
+                Debug.LogError($"State buffer size ({stateSize}) exceeds maximum supported state size ({kMaxStateSize})");
                 return;
             }
             int eventSize = UnsafeUtility.SizeOf<StateEvent>() - 1 + stateSize; // StateEvent already includes 1 byte at the end

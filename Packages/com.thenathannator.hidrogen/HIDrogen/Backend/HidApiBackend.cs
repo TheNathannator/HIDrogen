@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using HIDrogen.Imports;
 using HIDrogen.LowLevel;
@@ -53,7 +54,11 @@ namespace HIDrogen.Backend
             int result = hid_init();
             if (result < 0)
             {
-                Debug.LogError($"Failed to initialize hidapi!");
+                #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+                Debug.LogError($"Failed to initialize hidapi: {errno}");
+                #else
+                Debug.LogError($"Failed to initialize hidapi: {Marshal.GetLastWin32Error()}");
+                #endif
                 return false;
             }
 
@@ -117,7 +122,11 @@ namespace HIDrogen.Backend
             int result = hid_exit();
             if (result < 0)
             {
-                Debug.LogError("Error when freeing hidapi!");
+                #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+                Debug.LogError($"Error when freeing hidapi: {errno}");
+                #else
+                Debug.LogError($"Error when freeing hidapi: {Marshal.GetLastWin32Error()}");
+                #endif
             }
         }
 
