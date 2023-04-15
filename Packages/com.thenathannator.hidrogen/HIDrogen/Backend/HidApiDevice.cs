@@ -237,6 +237,11 @@ namespace HIDrogen.Backend
             {
                 if (result < 0) // Error
                 {
+                    #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+                    if (errno == Errno.ENOENT) // Device has been disconnected
+                        return false;
+                    #endif
+
                     m_ErrorCount++;
                     Debug.LogError($"hid_read: {hid_error(m_Handle)}\nError count: {m_ErrorCount}");
                     return m_ErrorCount < kRetryThreshold;
