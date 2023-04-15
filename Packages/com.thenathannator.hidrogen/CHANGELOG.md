@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Dates are relative to UTC.
 
+## [0.1.3] - 2023/15/04
+
+### Fixed
+
+- The format of the device description's `version` property now matches how it is formatted on Windows. Instead of a point-separated version number, it is just the raw binary-coded decimal value turned into a base-10 string.
+
 ## [0.1.2] - 2023/13/04
 
 ### Fixed

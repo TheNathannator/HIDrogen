@@ -89,14 +89,13 @@ namespace HIDrogen.Backend
                 return null;
 
             // Create input device description and add it to the system
-            var version = info.releaseVersion;
             var description = new InputDeviceDescription()
             {
                 interfaceName = "HID",
                 manufacturer = info.manufacturerName,
                 product = info.productName,
                 serial = info.serialNumber,
-                version = $"{version.major}.{version.minor}",
+                version = info.releaseBcd.ToString(),
                 capabilities = JsonUtility.ToJson(descriptor)
             };
 
