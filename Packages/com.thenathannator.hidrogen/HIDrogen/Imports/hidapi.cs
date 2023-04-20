@@ -69,7 +69,7 @@ namespace HIDrogen.Imports
             public string productName => FromNullTerminatedWideStr(m_ProductName);
         }
 
-        const string kLibName = "libhidapi-hidraw";
+        const string kLibName = "libhidapi-hidraw.so.0";
 
         public static IEnumerable<hid_device_info> hid_enumerate()
         {

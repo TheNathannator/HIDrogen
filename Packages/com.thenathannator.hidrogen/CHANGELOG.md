@@ -12,6 +12,7 @@ Dates are relative to UTC.
 
 - Report ID detection should hopefully work correctly for all devices now.
 - Report ID detection also now adjusts the bit offsets and report lengths provided in the `capabilities` info to compensate for the additional byte being added to the input report data.
+- The library name used for imports has been changed, it should now load without requiring `libhidapi-dev` to be installed.
 
 ## [0.1.4] - 2023/15/04
 
