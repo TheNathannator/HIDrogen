@@ -54,20 +54,15 @@ namespace HIDrogen.Backend
         public string path => m_Info.path;
         public int deviceId => m_Device?.deviceId ?? InputDevice.InvalidDeviceId;
 
-        private HidApiDevice(hid_device_info info, hid_device handle, InputDevice device, HID.HIDDeviceDescriptor descriptor)
+        private HidApiDevice(hid_device_info info, hid_device handle, InputDevice device, HID.HIDDeviceDescriptor descriptor,
+            int inputPrependCount)
         {
             m_Info = info;
             m_Handle = handle;
             m_Device = device;
             m_Descriptor = descriptor;
             m_ReadBuffer = new byte[descriptor.inputReportSize];
-
-            // Get a count of distinct input report IDs
-            // Assume no report ID provided if count is 1
-            int reportIdCount = (from element in descriptor.elements
-                where element.reportType == HID.HIDReportType.Input
-                select element.reportId).Distinct().Count();
-            m_PrependCount = reportIdCount > 1 ? 1 : 0;
+            m_PrependCount = inputPrependCount;
         }
 
         ~HidApiDevice()
@@ -90,7 +85,7 @@ namespace HIDrogen.Backend
             }
 
             // Get descriptor
-            if (!GetReportDescriptor(info, out var descriptor))
+            if (!GetReportDescriptor(info, out var descriptor, out int inputPrependCount))
                 return null;
 
             // Create input device description and add it to the system
@@ -116,10 +111,11 @@ namespace HIDrogen.Backend
                 return null;
             }
 
-            return new HidApiDevice(info, handle, device, descriptor);
+            return new HidApiDevice(info, handle, device, descriptor, inputPrependCount);
         }
 
-        private static unsafe bool GetReportDescriptor(hid_device_info info, out HID.HIDDeviceDescriptor descriptor)
+        private static unsafe bool GetReportDescriptor(hid_device_info info, out HID.HIDDeviceDescriptor descriptor,
+            out int inputPrependCount)
         {
             byte* data = null;
             int dataLength = 0;
@@ -128,6 +124,7 @@ namespace HIDrogen.Backend
             if (fd == null || fd.IsInvalid)
             {
                 descriptor = default;
+                inputPrependCount = 0;
                 return false;
             }
 
@@ -138,6 +135,7 @@ namespace HIDrogen.Backend
                 {
                     Debug.Log($"Error getting descriptor: {errno}");
                     descriptor = default;
+                    inputPrependCount = 0;
                     return false;
                 }
             }
@@ -146,11 +144,11 @@ namespace HIDrogen.Backend
             dataLength = buffer.size;
 #endif
 
-            return ParseReportDescriptor(info, data, dataLength, out descriptor);
+            return ParseReportDescriptor(info, data, dataLength, out descriptor, out inputPrependCount);
         }
 
         internal static unsafe bool ParseReportDescriptor(hid_device_info info, byte* data, int length,
-            out HID.HIDDeviceDescriptor descriptor)
+            out HID.HIDDeviceDescriptor descriptor, out int inputPrependCount)
         {
             descriptor = new HID.HIDDeviceDescriptor()
             {
@@ -159,6 +157,7 @@ namespace HIDrogen.Backend
                 usagePage = (HID.UsagePage)info.usagePage,
                 usage = info.usage
             };
+            inputPrependCount = 0;
 
             if (data == null || length < 1 || !s_ParseReportDescriptor(data, length, ref descriptor))
                 return false;
@@ -167,14 +166,21 @@ namespace HIDrogen.Backend
             int inputSizeBits = 0;
             int outputSizeBits = 0;
             int featureSizeBits = 0;
+            // We also need to account for the case where there's no input report ID
+            // No elements are provided for the report ID itself, so if any have an offset
+            // less than 8 we know there's no report ID
+            int inputStartOffsetBits = 8;
             foreach (var element in descriptor.elements)
             {
+                int offsetBits = element.reportOffsetInBits;
                 int sizeBits = element.reportOffsetInBits + element.reportSizeInBits;
                 switch (element.reportType)
                 {
                     case HID.HIDReportType.Input:
                         if (inputSizeBits < sizeBits)
                             inputSizeBits = sizeBits;
+                        if (inputStartOffsetBits > offsetBits)
+                            inputStartOffsetBits = offsetBits;
                         break;
 
                     case HID.HIDReportType.Output:
@@ -196,6 +202,22 @@ namespace HIDrogen.Backend
             descriptor.inputReportSize = inputSizeBits.AlignToMultipleOf(8) / 8;
             descriptor.outputReportSize = outputSizeBits.AlignToMultipleOf(8) / 8;
             descriptor.featureReportSize = featureSizeBits.AlignToMultipleOf(8) / 8;
+
+            // Fix up offsets and set prepend count, such that there always is a report ID byte
+            if (inputStartOffsetBits < 8)
+            {
+                descriptor.inputReportSize += 1;
+                inputPrependCount = 1;
+                for (int i = 0; i < descriptor.elements.Length; i++)
+                {
+                    var element = descriptor.elements[i];
+                    if (element.reportType != HID.HIDReportType.Input)
+                        continue;
+
+                    element.reportOffsetInBits += 8;
+                    descriptor.elements[i] = element;
+                }
+            }
 
             return descriptor.inputReportSize > 0; // Output and feature reports aren't required for normal operation
         }
