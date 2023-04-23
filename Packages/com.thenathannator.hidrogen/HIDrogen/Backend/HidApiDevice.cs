@@ -39,7 +39,7 @@ namespace HIDrogen.Backend
 
         // Format codes
         public static readonly FourCC InputFormat = new FourCC('H', 'I', 'D');
-        public static readonly FourCC OutputFormat = new FourCC('H', 'I', 'D');
+        public static readonly FourCC OutputFormat = new FourCC('H', 'I', 'D', 'O');
 
         private readonly hid_device_info m_Info;
         private hid_device m_Handle;
