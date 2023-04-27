@@ -63,6 +63,8 @@ namespace HIDrogen.Backend
             m_Descriptor = descriptor;
             m_ReadBuffer = new byte[descriptor.inputReportSize];
             m_PrependCount = inputPrependCount;
+
+            HidApiBackend.LogVerbose($"Created new device '{device}' with report size of {descriptor.inputReportSize - inputPrependCount} and prepend count of {inputPrependCount}");
         }
 
         ~HidApiDevice()
@@ -451,6 +453,11 @@ namespace HIDrogen.Backend
                     m_Device = null;
                 }
             }
+        }
+
+        public override string ToString()
+        {
+            return m_Device.ToString();
         }
     }
 }

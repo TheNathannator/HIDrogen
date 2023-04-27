@@ -1,16 +1,18 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using HIDrogen.Imports;
 using HIDrogen.LowLevel;
 using UnityEditor;
-using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.HID;
 using UnityEngine.InputSystem.LowLevel;
+
+using Debug = UnityEngine.Debug;
 
 namespace HIDrogen.Backend
 {
@@ -50,6 +52,8 @@ namespace HIDrogen.Backend
 
         internal static unsafe bool Initialize()
         {
+            LogVerbose("Initializing hidapi backend");
+
             // Initialize hidapi
             int result = hid_init();
             if (result < 0)
@@ -84,6 +88,8 @@ namespace HIDrogen.Backend
 
         private static unsafe void Uninitialize()
         {
+            LogVerbose("Uninitializing hidapi backend");
+
             // Stop threads
             s_ThreadStop.Set();
             s_EnumerationThread?.Join();
@@ -108,7 +114,6 @@ namespace HIDrogen.Backend
             }
 
             // Dispose event buffers
-            // Initialize event buffers
             for (int i = 0; i < kInputBufferCount; i++)
             {
                 s_InputBuffers[i].Dispose();
@@ -137,13 +142,19 @@ namespace HIDrogen.Backend
                 return InputDeviceCommand.GenericFailure;
 
             if (!s_DeviceLookup.TryGetValue(device.deviceId, out var entry))
+            {
+                Debug.LogWarning($"Could not find hidapi device for device {device} (ID {device.deviceId})!");
                 return null;
+            }
 
+            LogVerbose($"Executing command for device {device} (ID {device.deviceId})");
             return entry.ExecuteCommand(command);
         }
 
         private static void DeviceDiscoveryThread()
         {
+            LogVerbose("Starting device discovery thread");
+
             // Initial device enumeration
             EnumerateDevices();
 
@@ -170,6 +181,8 @@ namespace HIDrogen.Backend
 
         private static void ReadThread()
         {
+            LogVerbose("Starting device read thread");
+
             do
             {
                 UpdateDevices();
@@ -179,15 +192,20 @@ namespace HIDrogen.Backend
 
         private static void EnumerateDevices()
         {
+            LogVerbose("Enumerating hidapi devices");
             foreach (var info in hid_enumerate())
             {
                 // Ignore unsupported devices
                 if (!HIDSupport.supportedHIDUsages.Any((usage) =>
                     (int)usage.page == info.usagePage && usage.usage == info.usage))
+                {
+                    LogVerbose($"Found device with unsupported usage page {info.usagePage} and usage {info.usage}, ignoring\nVID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
                     continue;
+                }
 
                 if (!s_DeviceLookup.Values.Any((entry) => entry.path == info.path))
                 {
+                    LogVerbose($"Found new device, adding to addition queue\nVID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
                     s_AdditionQueue.Add(info);
                 }
             }
@@ -197,6 +215,8 @@ namespace HIDrogen.Backend
         // Returns false if falling back to hidapi polling is necessary, returns true on exit
         private static bool MonitorUdev()
         {
+            LogVerbose("Monitoring udev for devices");
+
             // Initialize udev
             var udev = udev_new();
             if (udev == null || udev.IsInvalid)
@@ -295,6 +315,7 @@ namespace HIDrogen.Backend
                 if (!device.UpdateState())
                 {
                     // Queue for removal
+                    LogVerbose($"Queuing device {device} (ID {device.deviceId}) for removal");
                     s_RemovalQueue.Add(device);
                     continue;
                 }
@@ -338,6 +359,7 @@ namespace HIDrogen.Backend
 
         private static void AddDevice(hid_device_info info)
         {
+            LogVerbose($"Adding new device to input system\nVID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
             var device = HidApiDevice.TryCreate(info);
             if (device == null || device.deviceId == InputDevice.InvalidDeviceId ||
                 !s_DeviceLookup.TryAdd(device.deviceId, device))
@@ -380,6 +402,10 @@ namespace HIDrogen.Backend
             }
             buffer.Reset();
         }
+
+        [Conditional("HIDROGEN_VERBOSE_LOGGING")]
+        internal static void LogVerbose(string message)
+            => Debug.Log(message);
 
         internal static void LogInteropError(string message)
         {
