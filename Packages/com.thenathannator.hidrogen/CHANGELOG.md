@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Dates are relative to UTC.
 
+## [0.1.7] - 2023/27/04
+
+### Fixed
+
+- Hopefully fixed shimmed devices not always being removed, by searching through the device list for them on initializiation.
+
+### Added
+
+- A ton of verbose logging has been added, which can be enabled by defining `HIDROGEN_VERBOSE_LOGGING`.
+
 ## [0.1.6] - 2023/24/04
 
 ### Fixed
