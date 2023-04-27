@@ -143,7 +143,7 @@ namespace HIDrogen.Backend
 
             if (!s_DeviceLookup.TryGetValue(device.deviceId, out var entry))
             {
-                Debug.LogWarning($"Could not find hidapi device for device {device} (ID {device.deviceId})!");
+                LogWarning($"Could not find hidapi device for device {device} (ID {device.deviceId})!");
                 return null;
             }
 
@@ -167,7 +167,7 @@ namespace HIDrogen.Backend
                 if (!MonitorUdev())
                 {
                     errorCount++;
-                    Debug.LogError($"udev monitoring failed! {(errorCount < errorThreshold ? "Trying again" : "Falling back to periodic re-enumeration of hidapi")}");
+                    LogError($"udev monitoring failed! {(errorCount < errorThreshold ? "Trying again" : "Falling back to periodic re-enumeration of hidapi")}");
                 }
             }
 #endif
@@ -221,7 +221,7 @@ namespace HIDrogen.Backend
             var udev = udev_new();
             if (udev == null || udev.IsInvalid)
             {
-                Debug.LogError($"Failed to initialize udev context: {errno}");
+                LogError($"Failed to initialize udev context: {errno}");
                 return false;
             }
 
@@ -231,21 +231,21 @@ namespace HIDrogen.Backend
                 var monitor = udev_monitor_new_from_netlink(udev, "udev");
                 if (monitor == null || monitor.IsInvalid)
                 {
-                    Debug.LogError($"Failed to initialize device monitor: {errno}");
+                    LogError($"Failed to initialize device monitor: {errno}");
                     return false;
                 }
 
                 // Add filter for hidraw devices
                 if (udev_monitor_filter_add_match_subsystem_devtype(monitor, "hidraw", null) < 0)
                 {
-                    Debug.LogError($"Failed to add filter to device monitor: {errno}");
+                    LogError($"Failed to add filter to device monitor: {errno}");
                     return false;
                 }
 
                 // Enable monitor
                 if (udev_monitor_enable_receiving(monitor) < 0)
                 {
-                    Debug.LogError($"Failed to enable receiving on device monitor: {errno}");
+                    LogError($"Failed to enable receiving on device monitor: {errno}");
                     return false;
                 }
 
@@ -255,7 +255,7 @@ namespace HIDrogen.Backend
                     var fd = udev_monitor_get_fd(monitor);
                     if (udev == null || udev.IsInvalid)
                     {
-                        Debug.LogError($"Failed to get device monitor file descriptor: {errno}");
+                        LogError($"Failed to get device monitor file descriptor: {errno}");
                         return false;
                     }
 
@@ -272,10 +272,10 @@ namespace HIDrogen.Backend
                                 if (result < 0) // Error
                                 {
                                     errorCount++;
-                                    Debug.LogError($"Error while polling for device monitor events: {errno}");
+                                    LogError($"Error while polling for device monitor events: {errno}");
                                     if (errorCount >= errorThreshold)
                                     {
-                                        Debug.LogError($"Error threshold reached, stopping udev monitoring");
+                                        LogError($"Error threshold reached, stopping udev monitoring");
                                         return false;
                                     }
                                     continue;
@@ -289,7 +289,7 @@ namespace HIDrogen.Backend
                             var dev = udev_monitor_receive_device(monitor);
                             if (dev == null || dev.IsInvalid)
                             {
-                                Debug.LogError($"Failed to get changed device: {errno}");
+                                LogError($"Failed to get changed device: {errno}");
                                 continue;
                             }
 
@@ -397,7 +397,7 @@ namespace HIDrogen.Backend
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogError($"Error when flushing an event: {ex}");
+                    LogError($"Error when flushing an event: {ex}");
                 }
             }
             buffer.Reset();
@@ -405,10 +405,17 @@ namespace HIDrogen.Backend
 
         [Conditional("HIDROGEN_VERBOSE_LOGGING")]
         internal static void LogVerbose(string message)
-            => Debug.Log(message);
+            => Debug.Log($"[HIDrogen] {message}");
+
+        internal static void LogWarning(string message)
+            => Debug.LogWarning($"[HIDrogen] {message}");
+
+        internal static void LogError(string message)
+            => Debug.LogError($"[HIDrogen] {message}");
 
         internal static void LogInteropError(string message)
         {
+            message = $"[HIDrogen] {message}";
             #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
             Debug.LogError(string.Format(message, errno));
             #else

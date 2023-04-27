@@ -105,7 +105,7 @@ namespace HIDrogen.Backend
             }
             catch (Exception ex)
             {
-                Debug.LogError($"Failed to add device to the system!\n{ex}");
+                HidApiBackend.LogError($"Failed to add device to the system!\n{ex}");
                 return null;
             }
 
@@ -131,7 +131,7 @@ namespace HIDrogen.Backend
             {
                 if (!GetHidRawReportDescriptor(fd, out buffer))
                 {
-                    Debug.Log($"Error getting descriptor: {errno}");
+                    HidApiBackend.LogError($"Error getting descriptor: {errno}");
                     descriptor = default;
                     inputPrependCount = 0;
                     return false;
@@ -329,7 +329,7 @@ namespace HIDrogen.Backend
             var stateSize = m_ReadBuffer.Length + m_PrependCount;
             if (stateSize > kMaxStateSize)
             {
-                Debug.LogError($"State buffer size ({stateSize}) exceeds maximum supported state size ({kMaxStateSize})");
+                HidApiBackend.LogError($"State buffer size ({stateSize}) exceeds maximum supported state size ({kMaxStateSize})");
                 return;
             }
             int eventSize = UnsafeUtility.SizeOf<StateEvent>() - 1 + stateSize; // StateEvent already includes 1 byte at the end
