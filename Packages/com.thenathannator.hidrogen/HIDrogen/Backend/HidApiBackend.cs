@@ -54,11 +54,7 @@ namespace HIDrogen.Backend
             int result = hid_init();
             if (result < 0)
             {
-                #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
-                Debug.LogError($"Failed to initialize hidapi: {errno}");
-                #else
-                Debug.LogError($"Failed to initialize hidapi: {Marshal.GetLastWin32Error()}");
-                #endif
+                LogInteropError("Failed to initialize hidapi: {0}");
                 return false;
             }
 
@@ -122,11 +118,7 @@ namespace HIDrogen.Backend
             int result = hid_exit();
             if (result < 0)
             {
-                #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
-                Debug.LogError($"Error when freeing hidapi: {errno}");
-                #else
-                Debug.LogError($"Error when freeing hidapi: {Marshal.GetLastWin32Error()}");
-                #endif
+                LogInteropError("Error when freeing hidapi: {0}");
             }
         }
 
@@ -387,6 +379,15 @@ namespace HIDrogen.Backend
                 }
             }
             buffer.Reset();
+        }
+
+        internal static void LogInteropError(string message)
+        {
+            #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+            Debug.LogError(string.Format(message, errno));
+            #else
+            Debug.LogError(string.Format(message, Marshal.GetLastWin32Error()));
+            #endif
         }
     }
 }

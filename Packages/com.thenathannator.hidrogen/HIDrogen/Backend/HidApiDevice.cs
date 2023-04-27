@@ -76,11 +76,7 @@ namespace HIDrogen.Backend
             var handle = hid_open_path(info.path);
             if (handle == null || handle.IsInvalid)
             {
-                #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
-                Debug.LogError($"Error when opening HID device path: {hid_error()} ({errno})");
-                #else
-                Debug.LogError($"Error when opening HID device path: {hid_error()} ({Marshal.GetLastWin32Error()})");
-                #endif
+                HidApiBackend.LogInteropError($"Error when opening HID device path: {hid_error()} ({{0}})");
                 return null;
             }
 
@@ -270,11 +266,7 @@ namespace HIDrogen.Backend
                     #endif
 
                     m_ErrorCount++;
-                    #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
-                    Debug.LogError($"hid_read: {hid_error(m_Handle)} ({errno})\nError count: {m_ErrorCount}");
-                    #else
-                    Debug.LogError($"hid_read: {hid_error(m_Handle)} ({Marshal.GetLastWin32Error()})\nError count: {m_ErrorCount}");
-                    #endif
+                    HidApiBackend.LogInteropError($"hid_read: {hid_error(m_Handle)} ({{0}})\nError count: {m_ErrorCount}");
                     return m_ErrorCount < kRetryThreshold;
                 }
                 m_ErrorCount = 0;
