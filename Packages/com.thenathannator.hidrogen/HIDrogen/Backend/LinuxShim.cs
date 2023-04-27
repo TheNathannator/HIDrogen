@@ -8,29 +8,40 @@ namespace HIDrogen.Backend
     /// </summary>
     internal static class LinuxShim
     {
+        private const string kLinuxInterface = "Linux";
+        // private const string kSDLInterface = "SDL";
+
         internal static void Initialize()
         {
             InputSystem.onDeviceChange += OnDeviceChange;
+            
+            foreach (var device in InputSystem.devices)
+                RemoveIfShimmed(device);
+
+            foreach (var device in InputSystem.disconnectedDevices)
+                RemoveIfShimmed(device);
         }
 
         private static void OnDeviceChange(InputDevice device, InputDeviceChange change)
         {
-            string interfaceName = device.description.interfaceName;
-            if (interfaceName != "Linux") // && interfaceName != "SDL") // Not ignored as Xbox devices are not handled by hidraw
-                return;
-
             switch (change)
             {
                 case InputDeviceChange.Added:
                 case InputDeviceChange.Reconnected:
                 case InputDeviceChange.HardReset: // Occurs on domain reload
-                    // InputSystem.DisableDevice(device); // This causes a deadlock for an extended period, at least on my (lower-end) laptop
-                    InputSystem.RemoveDevice(device);
+                    RemoveIfShimmed(device);
                     break;
 
                 default:
                     break;
             }
+        }
+
+        private static void RemoveIfShimmed(InputDevice device)
+        {
+            if (device.description.interfaceName == kLinuxInterface) // || interfaceName != kSDLInterface) // Not ignored as Xbox devices are not handled by hidraw
+                InputSystem.RemoveDevice(device);
+                // InputSystem.DisableDevice(device); // This causes a deadlock for an extended period, at least on my (lower-end) laptop
         }
     }
 }
