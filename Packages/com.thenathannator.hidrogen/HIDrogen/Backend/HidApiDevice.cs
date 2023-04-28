@@ -84,7 +84,10 @@ namespace HIDrogen.Backend
 
             // Get descriptor
             if (!GetReportDescriptor(info, out var descriptor, out int inputPrependCount))
+            {
+                handle.Dispose();
                 return null;
+            }
 
             // hidapi's usage values are only valid in v0.10.1 and greater
             info.usagePage = (ushort)descriptor.usagePage;
@@ -96,6 +99,7 @@ namespace HIDrogen.Backend
                 usage.page == descriptor.usagePage && usage.usage == descriptor.usage))
             {
                 HidApiBackend.LogVerbose($"Found device with unsupported usage page {descriptor.usagePage} and usage {descriptor.usage}, ignoring\nVID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
+                handle.Dispose();
                 return null;
             }
 
@@ -119,6 +123,7 @@ namespace HIDrogen.Backend
             catch (Exception ex)
             {
                 HidApiBackend.LogError($"Failed to add device to the system!\n{ex}");
+                handle.Dispose();
                 return null;
             }
 
