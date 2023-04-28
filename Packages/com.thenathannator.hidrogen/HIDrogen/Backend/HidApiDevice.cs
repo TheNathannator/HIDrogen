@@ -85,6 +85,7 @@ namespace HIDrogen.Backend
             // Get descriptor
             if (!GetReportDescriptor(info, out var descriptor, out int inputPrependCount))
             {
+                HidApiBackend.LogError($"Could not get descriptor for device!\nVID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
                 handle.Dispose();
                 return null;
             }
