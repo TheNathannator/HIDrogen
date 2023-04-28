@@ -25,6 +25,9 @@ namespace HIDrogen.Backend
 
         private static void OnDeviceChange(InputDevice device, InputDeviceChange change)
         {
+            if (device.description.interfaceName == kLinuxInterface || device.description.interfaceName == "HID")
+                HidApiBackend.LogVerbose($"Device change {change} on device {device}");
+
             switch (change)
             {
                 case InputDeviceChange.Added:
