@@ -12,6 +12,10 @@ using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.HID;
 using UnityEngine.InputSystem.LowLevel;
 
+#if !UNITY_EDITOR
+using UnityEngine;
+#endif
+
 using Debug = UnityEngine.Debug;
 
 namespace HIDrogen.Backend
