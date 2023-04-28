@@ -38,6 +38,7 @@ namespace HIDrogen.Backend
         private const int kRetryThreshold = 3; // Max allowed number of consecutive errors
 
         // Format codes
+        public const string InterfaceName = "HID";
         public static readonly FourCC InputFormat = new FourCC('H', 'I', 'D');
         public static readonly FourCC OutputFormat = new FourCC('H', 'I', 'D', 'O');
 
@@ -107,7 +108,7 @@ namespace HIDrogen.Backend
             // Create input device description and add it to the system
             var description = new InputDeviceDescription()
             {
-                interfaceName = "HID",
+                interfaceName = InterfaceName,
                 manufacturer = info.manufacturerName,
                 product = info.productName,
                 serial = info.serialNumber,

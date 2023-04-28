@@ -140,7 +140,7 @@ namespace HIDrogen.Backend
 
         private static unsafe long? DeviceCommand(InputDevice device, InputDeviceCommand* command)
         {
-            if (device == null || device.description.interfaceName != "HID")
+            if (device == null || device.description.interfaceName != HidApiDevice.InterfaceName)
                 return null;
             if (command == null)
                 return InputDeviceCommand.GenericFailure;
