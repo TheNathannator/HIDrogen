@@ -85,7 +85,7 @@ namespace HIDrogen.Backend
             // Get descriptor
             if (!GetReportDescriptor(info, out var descriptor, out int inputPrependCount))
             {
-                HidApiBackend.LogError($"Could not get descriptor for device!\nVID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
+                HidApiBackend.LogError($"Could not get descriptor for device! VID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
                 handle.Dispose();
                 return null;
             }
@@ -99,7 +99,7 @@ namespace HIDrogen.Backend
             if (!HIDSupport.supportedHIDUsages.Any((usage) =>
                 usage.page == descriptor.usagePage && usage.usage == descriptor.usage))
             {
-                HidApiBackend.LogVerbose($"Found device with unsupported usage page {descriptor.usagePage} and usage {descriptor.usage}, ignoring\nVID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
+                HidApiBackend.LogVerbose($"Found device with unsupported usage page {descriptor.usagePage} and usage {descriptor.usage}, ignoring. VID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
                 handle.Dispose();
                 return null;
             }
@@ -287,7 +287,7 @@ namespace HIDrogen.Backend
                     #endif
 
                     m_ErrorCount++;
-                    HidApiBackend.LogInteropError($"hid_read: {hid_error(m_Handle)} ({{0}})\nError count: {m_ErrorCount}");
+                    HidApiBackend.LogInteropError($"hid_read: {hid_error(m_Handle)} ({{0}}) - Error count: {m_ErrorCount}");
                     return m_ErrorCount < kRetryThreshold;
                 }
                 m_ErrorCount = 0;

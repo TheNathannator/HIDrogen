@@ -201,7 +201,7 @@ namespace HIDrogen.Backend
             {
                 if (!s_DeviceLookup.Values.Any((entry) => entry.path == info.path))
                 {
-                    LogVerbose($"Found new device, adding to addition queue\nVID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
+                    LogVerbose($"Found new device, adding to addition queue. VID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
                     s_AdditionQueue.Add(info);
                 }
             }
@@ -355,7 +355,7 @@ namespace HIDrogen.Backend
 
         private static void AddDevice(hid_device_info info)
         {
-            LogVerbose($"Adding new device to input system\nVID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
+            LogVerbose($"Adding new device to input system. VID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
             var device = HidApiDevice.TryCreate(info);
             if (device == null || device.deviceId == InputDevice.InvalidDeviceId ||
                 !s_DeviceLookup.TryAdd(device.deviceId, device))
