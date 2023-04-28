@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Dates are relative to UTC.
 
+## Unreleased
+
+### Fixed
+
+- Re-added using directive that's needed for actual Unity player builds.
+- Fixed HID usage check always failing for hidapi versions below v0.10.1.
+- Fixed Linux shim device removals always being logged, even if the device wasn't actually removed.
+- Fixed hidapi handles not being disposed immediately when failing to add devices to the input system.
+
+### Added
+
+- Added device path to device open failure log ([GH-2](https://github.com/TheNathannator/HIDrogen/pull/2)).
+- Added additional logging for device change events for the `Linux` and `HID` interfaces.
+
+### Changed
+
+- Removed explicit newlines in most log messages, to keep things on a single line in log files.
+
 ## [0.1.7] - 2023/27/04
 
 ### Fixed
