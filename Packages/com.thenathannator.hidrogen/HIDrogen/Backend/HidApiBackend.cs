@@ -199,14 +199,6 @@ namespace HIDrogen.Backend
             LogVerbose("Enumerating hidapi devices");
             foreach (var info in hid_enumerate())
             {
-                // Ignore unsupported devices
-                if (!HIDSupport.supportedHIDUsages.Any((usage) =>
-                    (int)usage.page == info.usagePage && usage.usage == info.usage))
-                {
-                    LogVerbose($"Found device with unsupported usage page {info.usagePage} and usage {info.usage}, ignoring\nVID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
-                    continue;
-                }
-
                 if (!s_DeviceLookup.Values.Any((entry) => entry.path == info.path))
                 {
                     LogVerbose($"Found new device, adding to addition queue\nVID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");

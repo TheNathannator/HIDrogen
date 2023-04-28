@@ -86,6 +86,19 @@ namespace HIDrogen.Backend
             if (!GetReportDescriptor(info, out var descriptor, out int inputPrependCount))
                 return null;
 
+            // hidapi's usage values are only valid in v0.10.1 and greater
+            info.usagePage = (ushort)descriptor.usagePage;
+            info.usage = (ushort)descriptor.usage;
+
+            // Ignore unsupported usages
+            // This check must be done after descriptor parsing since hidapi v0.10.0 and earlier don't parse it
+            if (!HIDSupport.supportedHIDUsages.Any((usage) =>
+                usage.page == descriptor.usagePage && usage.usage == descriptor.usage))
+            {
+                HidApiBackend.LogVerbose($"Found device with unsupported usage page {descriptor.usagePage} and usage {descriptor.usage}, ignoring\nVID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
+                return null;
+            }
+
             // Create input device description and add it to the system
             var description = new InputDeviceDescription()
             {
