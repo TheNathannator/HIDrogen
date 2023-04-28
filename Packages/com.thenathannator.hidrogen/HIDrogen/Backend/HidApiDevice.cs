@@ -78,7 +78,7 @@ namespace HIDrogen.Backend
             var handle = hid_open_path(info.path);
             if (handle == null || handle.IsInvalid)
             {
-                HidApiBackend.LogInteropError($"Error when opening HID device path: {info.path} {hid_error()} ({{0}})");
+                HidApiBackend.LogInteropError($"Error when opening HID device path '{info.path}': {hid_error()} ({{0}})");
                 return null;
             }
 
