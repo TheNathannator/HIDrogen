@@ -40,10 +40,12 @@ namespace HIDrogen.Backend
 
         private static void RemoveIfShimmed(InputDevice device)
         {
-            HidApiBackend.LogVerbose($"Removing device {device}");
             if (device.description.interfaceName == kLinuxInterface) // || interfaceName != kSDLInterface) // Not ignored as Xbox devices are not handled by hidraw
+            {
+                HidApiBackend.LogVerbose($"Removing device {device}");
                 InputSystem.RemoveDevice(device);
                 // InputSystem.DisableDevice(device); // This causes a deadlock for an extended period, at least on my (lower-end) laptop
+            }
         }
     }
 }
