@@ -20,6 +20,7 @@ Dates are relative to UTC.
 
 - Added device path to device open failure log ([GH-2](https://github.com/TheNathannator/HIDrogen/pull/2)).
 - Added additional logging for device change events for the `Linux` and `HID` interfaces.
+- Added `HIDROGEN_KEEP_NATIVE_DEVICES` compile define to allow for keeping the native-backend versions of devices instead of removing them.
 
 ### Changed
 
