@@ -60,7 +60,7 @@ See the [Unity documentation](https://docs.unity3d.com/Manual/upm-git.html) for 
 #### Via URL
 
 1. Open the Unity Package Manager and hit the + button, then select `Add package from git URL`.
-2. Paste in `https://github.com/TheNathannator/HIDrogen.git?path=/Packages/com.thenathannator.hidrogen#v0.1.2` and hit Add.
+2. Paste in `https://github.com/TheNathannator/HIDrogen.git?path=/Packages/com.thenathannator.hidrogen#v0.2.0` and hit Add.
 
 To update, just repeat these steps with the same URL, and the package manager will automatically update from the latest Git commit.
 
@@ -79,7 +79,7 @@ In your Packages > `manifest.json` file, add the following line to your `depende
 ```diff
 {
   "dependencies": {
-+   "com.thenathannator.hidrogen": "https://github.com/TheNathannator/HIDrogen.git?path=/Packages/com.thenathannator.hidrogen#v0.1.2"
++   "com.thenathannator.hidrogen": "https://github.com/TheNathannator/HIDrogen.git?path=/Packages/com.thenathannator.hidrogen#v0.2.0"
   }
 }
 ```
@@ -90,7 +90,7 @@ To update, go into Packages > `package-lock.json` and remove the `hash` field fr
 {
   "dependencies": {
     "com.thenathannator.hidrogen": {
-      "version": "https://github.com/TheNathannator/HIDrogen.git?path=/Packages/com.thenathannator.hidrogen#v0.1.2",
+      "version": "https://github.com/TheNathannator/HIDrogen.git?path=/Packages/com.thenathannator.hidrogen#v0.2.0",
       "depth": 0,
       "source": "git",
       "dependencies": {
