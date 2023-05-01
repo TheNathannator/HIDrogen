@@ -147,7 +147,7 @@ namespace HIDrogen.Backend
 
             if (!s_DeviceLookup.TryGetValue(device.deviceId, out var entry))
             {
-                LogWarning($"Could not find hidapi device for device {device} (ID {device.deviceId})!");
+                LogWarningVerbose($"Could not find hidapi device for device {device} (ID {device.deviceId})!");
                 return null;
             }
 

@@ -296,7 +296,7 @@ namespace HIDrogen.Backend
                     #endif
 
                     m_ErrorCount++;
-                    HidApiBackend.LogInteropError($"hid_read: {hid_error(m_Handle)} ({{0}}) - Error count: {m_ErrorCount}");
+                    HidApiBackend.LogInteropErrorVerbose($"hid_read: {hid_error(m_Handle)} ({{0}}) - Error count: {m_ErrorCount}");
                     return m_ErrorCount < kRetryThreshold;
                 }
                 m_ErrorCount = 0;
