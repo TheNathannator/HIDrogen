@@ -462,6 +462,9 @@ namespace HIDrogen.Backend
 
         public void Remove()
         {
+            if (m_Device == null)
+                return;
+
             var removeEvent = DeviceRemoveEvent.Create(m_Device.deviceId);
             InputSystem.QueueEvent(ref removeEvent);
             m_Device = null;
