@@ -8,7 +8,15 @@ Most device handling features are implemented, including raw input reports, devi
 
 If there's anything in the native Windows or Mac HID backends that is not implemented here, feel free to contribute!
 
-## Dependencies
+## Usage
+
+After installation, this package integrates and operates on its own. No manual initialization is required.
+
+### Notes
+
+As part of supporting HID devices properly, devices that come from the native backend under the `Linux` interface are automatically disabled.
+
+### Dependencies
 
 This project relies on the hidraw version of hidapi for input, along with libudev for device connection/disconnection monitoring. By installing this package, your project will become dependent on them as well on Linux. On distributions that use `apt`, the following commands should do the trick:
 
@@ -29,9 +37,13 @@ KERNEL=="hidraw*", TAG+="uaccess"
 
 The rules file should be placed in `/etc/udev/rules.d` or `/usr/lib/udev/rules.d/`, and it must come before `73-seat-late.rules`.
 
-## Notes
+### Configuration
 
-As part of supporting HID devices properly, devices that come from the native backend under the `Linux` interface are automatically disabled. This is only being mentioned for transparency's sake, there should be little to no consequences to it.
+Some configuration is available through compile-defines:
+
+- `HIDROGEN_VERBOSE_LOGGING` enables verbose logging to help debug issues with devices.
+- `HIDROGEN_FORCE_REPORT_IDS` will make device state events always include the report ID byte as the first byte. This behavior is disabled by default for parity with macOS, Windows is technically the outlier here.
+- `HIDROGEN_KEEP_NATIVE_DEVICES` will disable removal of the devices the native backend creates. *Be warned that you must be prepared to handle multiple devices with similar (or the same) inputs!*
 
 ## Installing
 
