@@ -12,10 +12,6 @@ If there's anything in the native Windows or Mac HID backends that is not implem
 
 After installation, this package integrates and operates on its own. No manual initialization is required.
 
-### Notes
-
-As part of supporting HID devices properly, devices that come from the native backend under the `Linux` interface are automatically disabled.
-
 ### Dependencies
 
 This project relies on the hidraw version of hidapi for input, along with libudev for device connection/disconnection monitoring. By installing this package, your project will become dependent on them as well on Linux. On distributions that use `apt`, the following commands should do the trick:
@@ -41,9 +37,9 @@ The rules file should be placed in `/etc/udev/rules.d` or `/usr/lib/udev/rules.d
 
 Some configuration is available through compile-defines:
 
-- `HIDROGEN_VERBOSE_LOGGING` enables verbose logging to help debug issues with devices.
-- `HIDROGEN_FORCE_REPORT_IDS` will make device state events always include the report ID byte as the first byte. This behavior is disabled by default for parity with macOS, Windows is technically the outlier here.
-- `HIDROGEN_KEEP_NATIVE_DEVICES` will disable removal of the devices the native backend creates. *Be warned that you must be prepared to handle multiple devices with similar (or the same) inputs!*
+- `HIDROGEN_VERBOSE_LOGGING`: Enables verbose logging to help debug issues with devices.
+- `HIDROGEN_FORCE_REPORT_IDS`: By default, report IDs are not provided if a device doesn't use them. This define will make state events always include the report ID byte as the first byte. This behavior is disabled by default for parity with macOS; Windows is technically the outlier here.
+- `HIDROGEN_KEEP_NATIVE_DEVICES`: As part of supporting HID devices properly, devices that come from the native backend under the `Linux` interface are automatically disabled. This define will disable removal of those devices. *Be warned that you must be prepared to handle multiple devices with similar (or the same) inputs!*
 
 ## Installing
 
