@@ -399,8 +399,7 @@ namespace HIDrogen.Backend
             buffer.Reset();
         }
 
-        [Conditional("HIDROGEN_VERBOSE_LOGGING")]
-        internal static void LogVerbose(string message)
+        internal static void Log(string message)
             => Debug.Log($"[HIDrogen] {message}");
 
         internal static void LogWarning(string message)
@@ -418,5 +417,21 @@ namespace HIDrogen.Backend
             Debug.LogError(string.Format(message, Marshal.GetLastWin32Error()));
             #endif
         }
+
+        [Conditional("HIDROGEN_VERBOSE_LOGGING")]
+        internal static void LogVerbose(string message)
+            => Log(message);
+
+        [Conditional("HIDROGEN_VERBOSE_LOGGING")]
+        internal static void LogWarningVerbose(string message)
+            => LogWarning(message);
+
+        [Conditional("HIDROGEN_VERBOSE_LOGGING")]
+        internal static void LogErrorVerbose(string message)
+            => LogError(message);
+
+        [Conditional("HIDROGEN_VERBOSE_LOGGING")]
+        internal static void LogInteropErrorVerbose(string message)
+            => LogInteropError(message);
     }
 }
