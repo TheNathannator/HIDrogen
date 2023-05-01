@@ -58,14 +58,15 @@ namespace HIDrogen.Backend
         private HidApiDevice(hid_device_info info, hid_device handle, InputDevice device, HID.HIDDeviceDescriptor descriptor,
             int inputPrependCount)
         {
+            int realInputSize = descriptor.inputReportSize - inputPrependCount;
             m_Info = info;
             m_Handle = handle;
             m_Device = device;
             m_Descriptor = descriptor;
-            m_ReadBuffer = new byte[descriptor.inputReportSize];
+            m_ReadBuffer = new byte[realInputSize];
             m_PrependCount = inputPrependCount;
 
-            HidApiBackend.LogVerbose($"Created new device '{device}' with report size of {descriptor.inputReportSize - inputPrependCount} and prepend count of {inputPrependCount}");
+            HidApiBackend.LogVerbose($"Created new device '{device}' with report size of {realInputSize} and prepend count of {inputPrependCount}");
         }
 
         ~HidApiDevice()

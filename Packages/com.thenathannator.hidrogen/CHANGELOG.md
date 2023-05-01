@@ -14,6 +14,7 @@ Dates are relative to UTC.
 - Fixed HID usage check always failing for hidapi versions below v0.10.1.
 - Fixed Linux shim device removals always being logged, even if the device wasn't actually removed.
 - Fixed hidapi handles not being disposed immediately when failing to add devices to the input system.
+- Fixed device read buffer size including the report ID prepend count.
 
 ### Added
 
