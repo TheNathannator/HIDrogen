@@ -65,6 +65,7 @@ namespace HIDrogen.Backend
             m_Descriptor = descriptor;
             m_ReadBuffer = new byte[realInputSize];
             m_PrependCount = inputPrependCount;
+            m_PrependCount = 0;
 
             HidApiBackend.LogVerbose($"Created new device '{device}' with report size of {realInputSize} and prepend count of {inputPrependCount}");
         }
@@ -185,10 +186,12 @@ namespace HIDrogen.Backend
             int inputSizeBits = 0;
             int outputSizeBits = 0;
             int featureSizeBits = 0;
+#if HIDROGEN_FORCE_REPORT_IDS
             // We also need to account for the case where there's no input report ID
             // No elements are provided for the report ID itself, so if any have an offset
             // less than 8 we know there's no report ID
             int inputStartOffsetBits = 8;
+#endif
             foreach (var element in descriptor.elements)
             {
                 int offsetBits = element.reportOffsetInBits;
@@ -198,8 +201,10 @@ namespace HIDrogen.Backend
                     case HID.HIDReportType.Input:
                         if (inputSizeBits < sizeBits)
                             inputSizeBits = sizeBits;
+#if HIDROGEN_FORCE_REPORT_IDS
                         if (inputStartOffsetBits > offsetBits)
                             inputStartOffsetBits = offsetBits;
+#endif
                         break;
 
                     case HID.HIDReportType.Output:
@@ -222,6 +227,7 @@ namespace HIDrogen.Backend
             descriptor.outputReportSize = outputSizeBits.AlignToMultipleOf(8) / 8;
             descriptor.featureReportSize = featureSizeBits.AlignToMultipleOf(8) / 8;
 
+#if HIDROGEN_FORCE_REPORT_IDS
             // Fix up offsets and set prepend count, such that there always is a report ID byte
             if (inputStartOffsetBits < 8)
             {
@@ -237,6 +243,7 @@ namespace HIDrogen.Backend
                     descriptor.elements[i] = element;
                 }
             }
+#endif
 
             return descriptor.inputReportSize > 0; // Output and feature reports aren't required for normal operation
         }

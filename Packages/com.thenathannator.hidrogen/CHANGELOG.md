@@ -25,6 +25,7 @@ Dates are relative to UTC.
 
 - Removed explicit newlines in most log messages, to keep things on a single line in log files.
 - Device removal is now handled by queuing a removal event instead of removing the device itself immediately, which allows them to show up as disconnected instead of just disappearing entirely.
+- **The report ID byte is no longer enforced by default.** The input system on Mac does not include the report ID in its HID support, so this was done to make it easier to account by only needing to include the report ID on Windows. The `HIDROGEN_FORCE_REPORT_IDS` compile define has been added if you wish to always have the report ID.
 
 ## [0.1.7] - 2023/27/04
 
