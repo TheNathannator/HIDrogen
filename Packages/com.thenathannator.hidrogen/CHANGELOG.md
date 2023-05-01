@@ -23,6 +23,7 @@ Dates are relative to UTC.
 ### Changed
 
 - Removed explicit newlines in most log messages, to keep things on a single line in log files.
+- Device removal is now handled by queuing a removal event instead of removing the device itself immediately, which allows them to show up as disconnected instead of just disappearing entirely.
 
 ## [0.1.7] - 2023/27/04
 

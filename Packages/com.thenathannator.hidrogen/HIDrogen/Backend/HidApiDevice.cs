@@ -452,6 +452,17 @@ namespace HIDrogen.Backend
             return buffer.Length; // Expected return is the size of the string buffer
         }
 
+        public void Remove()
+        {
+            var removeEvent = DeviceRemoveEvent.Create(m_Device.deviceId);
+            InputSystem.QueueEvent(ref removeEvent);
+            m_Device = null;
+            Dispose();
+        }
+
+        // Provided for clarity
+        public void RemoveImmediate() => Dispose();
+
         public void Dispose()
         {
             Dispose(true);
@@ -466,7 +477,7 @@ namespace HIDrogen.Backend
                 m_Handle?.Close();
                 m_Handle = null;
 
-                // Remove device from input system
+                // Forcibly remove device from input system if it's still present
                 if (m_Device != null)
                 {
                     InputSystem.RemoveDevice(m_Device);

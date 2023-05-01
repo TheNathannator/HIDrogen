@@ -114,7 +114,7 @@ namespace HIDrogen.Backend
             // Close devices
             foreach (var device in s_DeviceLookup.Values)
             {
-                device.Dispose();
+                device.RemoveImmediate();
             }
 
             // Dispose event buffers
@@ -348,7 +348,7 @@ namespace HIDrogen.Backend
                 if (s_DeviceLookup.ContainsKey(deviceId))
                     s_DeviceLookup.TryRemove(deviceId, out _);
 
-                device.Dispose();
+                device.Remove();
             }
             s_RemovalQueue.Clear();
         }
