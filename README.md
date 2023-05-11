@@ -62,15 +62,7 @@ See the [Unity documentation](https://docs.unity3d.com/Manual/upm-git.html) for 
 1. Open the Unity Package Manager and hit the + button, then select `Add package from git URL`.
 2. Paste in `https://github.com/TheNathannator/HIDrogen.git?path=/Packages/com.thenathannator.hidrogen#v0.2.0` and hit Add.
 
-To update, just repeat these steps with the same URL, and the package manager will automatically update from the latest Git commit.
-
-#### Via Cloning
-
-1. Clone this repository to somewhere on your system.
-2. Go to the Unity Package Manager and hit the + button, then pick `Add package from disk`.
-3. Navigate to the `Packages` > `com.thenathannator.hidrogen` folder inside the clone and select the `package.json` file.
-
-To update, pull the latest commits. Unity will detect the changes automatically.
+To update, increment the version number at the end of the URL to the new version number and repeat these steps with the new URL. Alternatively, you can edit the URL listed in your `manifest.json` file as described in the [Via Manifest](#via-manifest) section.
 
 #### Via Manifest
 
@@ -84,26 +76,15 @@ In your Packages > `manifest.json` file, add the following line to your `depende
 }
 ```
 
-To update, go into Packages > `package-lock.json` and remove the `hash` field from the package listing, along with the comma on the preceding field:
+To update, increment the version number at the end of the URL to the new version number. The package manager will automatically pull the new changes upon regaining focus.
 
-```diff
-{
-  "dependencies": {
-    "com.thenathannator.hidrogen": {
-      "version": "https://github.com/TheNathannator/HIDrogen.git?path=/Packages/com.thenathannator.hidrogen#v0.2.0",
-      "depth": 0,
-      "source": "git",
-      "dependencies": {
-        ...
--     }, // It is *important* that you remove the comma here! The package manager will error out otherwise
--     "hash": "..."
-+     }
-    }
-  }
-}
-```
+#### Via Cloning
 
-Unity will automatically restore from the latest Git commit upon regaining focus.
+1. Clone this repository to somewhere on your system.
+2. Go to the Unity Package Manager and hit the + button, then pick `Add package from disk`.
+3. Navigate to the `Packages` > `com.thenathannator.hidrogen` folder inside the clone and select the `package.json` file.
+
+To update, pull the latest commits. Unity will detect the changes automatically.
 
 ## License
 
