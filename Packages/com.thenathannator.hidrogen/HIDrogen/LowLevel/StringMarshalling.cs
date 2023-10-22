@@ -87,53 +87,35 @@ namespace HIDrogen.LowLevel
 
         public static byte[] ToNullTerminatedAscii(string str)
         {
-            // Get encoded bytes
-            var bytes = Encoding.ASCII.GetBytes(str);
-
-            // Add a null terminator
-            var buffer = new byte[bytes.Length + sizeof(byte)];
-            bytes.CopyTo(buffer, 0);
-            buffer[buffer.Length - 1] = 0;
-
-            return buffer;
+            return ToNullTerminatedCore(str, sizeof(byte), Encoding.ASCII);
         }
 
         public static byte[] ToNullTerminatedUtf16(string str)
         {
-            // Get encoded bytes
-            byte[] bytes;
-            if (BitConverter.IsLittleEndian)
-                bytes = Encoding.Unicode.GetBytes(str);
-            else
-                bytes = Encoding.BigEndianUnicode.GetBytes(str);
-
-            // Add a null terminator
-            var buffer = new byte[bytes.Length + sizeof(short)];
-            bytes.CopyTo(buffer, 0);
-            buffer[buffer.Length - 1] = 0;
-            buffer[buffer.Length - 2] = 0;
-
-            return buffer;
+            var encoding = BitConverter.IsLittleEndian ? Encoding.Unicode : Encoding.BigEndianUnicode;
+            return ToNullTerminatedCore(str, sizeof(short), encoding);
         }
 
         public static byte[] ToNullTerminatedUtf32(string str)
         {
+            var encoding = BitConverter.IsLittleEndian ? Encoding.UTF32 : s_BigEndianUTF32;
+            return ToNullTerminatedCore(str, sizeof(int), encoding);
+        }
+
+        private static byte[] ToNullTerminatedCore(string str, int charSize, Encoding encoding)
+        {
             // Get encoded bytes
-            byte[] bytes;
-            if (BitConverter.IsLittleEndian)
-                bytes = Encoding.UTF32.GetBytes(str);
-            else
-                bytes = s_BigEndianUTF32.GetBytes(str);
+            int byteLength = encoding.GetByteCount(str);
+            var bytes = new byte[byteLength + charSize];
+            encoding.GetBytes(str, 0, str.Length, bytes, 0);
 
-            // Add a null terminator
-            var buffer = new byte[bytes.Length + sizeof(int)];
-            bytes.CopyTo(buffer, 0);
-            buffer[buffer.Length - 1] = 0;
-            buffer[buffer.Length - 2] = 0;
-            buffer[buffer.Length - 3] = 0;
-            buffer[buffer.Length - 4] = 0;
+            // Ensure null terminated
+            for (int i = 1; i <= charSize; i++)
+            {
+                bytes[bytes.Length - i] = 0;
+            }
 
-            return buffer;
+            return bytes;
         }
     }
 }
