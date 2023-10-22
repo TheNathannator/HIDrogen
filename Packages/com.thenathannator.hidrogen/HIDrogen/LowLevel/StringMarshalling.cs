@@ -8,6 +8,8 @@ namespace HIDrogen.LowLevel
     /// </summary>
     internal static unsafe class StringMarshal
     {
+        private static readonly UTF32Encoding s_BigEndianUTF32 = new UTF32Encoding(true, false);
+
         public static string FromNullTerminatedAscii(byte* ptr)
         {
             if (ptr == null)
@@ -77,7 +79,10 @@ namespace HIDrogen.LowLevel
                 return string.Empty;
 
             // Convert the string
-            return Encoding.UTF32.GetString(ptr, length);
+            if (BitConverter.IsLittleEndian)
+                return Encoding.UTF32.GetString(ptr, length);
+            else
+                return s_BigEndianUTF32.GetString(ptr, length);
         }
 
         public static byte[] ToNullTerminatedAscii(string str)
@@ -96,7 +101,11 @@ namespace HIDrogen.LowLevel
         public static byte[] ToNullTerminatedUtf16(string str)
         {
             // Get encoded bytes
-            var bytes = Encoding.Unicode.GetBytes(str);
+            byte[] bytes;
+            if (BitConverter.IsLittleEndian)
+                bytes = Encoding.Unicode.GetBytes(str);
+            else
+                bytes = Encoding.BigEndianUnicode.GetBytes(str);
 
             // Add a null terminator
             var buffer = new byte[bytes.Length + sizeof(short)];
@@ -110,7 +119,11 @@ namespace HIDrogen.LowLevel
         public static byte[] ToNullTerminatedUtf32(string str)
         {
             // Get encoded bytes
-            var bytes = Encoding.UTF32.GetBytes(str);
+            byte[] bytes;
+            if (BitConverter.IsLittleEndian)
+                bytes = Encoding.UTF32.GetBytes(str);
+            else
+                bytes = s_BigEndianUTF32.GetBytes(str);
 
             // Add a null terminator
             var buffer = new byte[bytes.Length + sizeof(int)];
