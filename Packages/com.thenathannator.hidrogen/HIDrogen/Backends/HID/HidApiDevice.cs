@@ -19,6 +19,7 @@ namespace HIDrogen.Backend
 #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
     using static Libc;
     using static HidRaw;
+    using static Udev;
 #endif
 
     /// <summary>
@@ -107,6 +108,39 @@ namespace HIDrogen.Backend
                 return null;
             }
 
+            var version = info.releaseBcd;
+            if (version == 0) {
+                // Bluetooth devices won't have this filled in so we need to do it ourselves.
+                // Use statx to grab the device type and number, and then construct a udev device
+                statx(0, info.path, 0, 0, out var pathStats);
+                var udev = udev_new();
+                using (udev) {
+                    var udev_device = udev_device_new_from_devnum(udev, statx_device_type(pathStats), statx_device_num(pathStats)); 
+                    // Grab the root parent hid device that both the hidraw and input devices share
+                    var parent = udev_device_get_parent_with_subsystem_devtype(udev_device, "hid", null);
+                    // Find the input device by scanning the parents children for input devices, and grabbing the first one
+                    var enumerate = udev_enumerate_new(udev);
+                    using (enumerate) {
+                        udev_enumerate_add_match_parent(enumerate, parent);
+                        udev_enumerate_add_match_subsystem(enumerate, "input");
+                        udev_enumerate_scan_devices(enumerate);
+                        var entry = udev_enumerate_get_list_entry(enumerate);
+                        var path = udev_list_entry_get_name(entry);
+                        var dev2 = udev_device_new_from_syspath(udev, path);
+                        
+                        // List all attributes on a device
+                        // var attributes = udev_device_get_sysattr_list_entry(dev2);
+                        // while (attributes != IntPtr.Zero) {
+                        //     var name = udev_list_entry_get_name(attributes);
+                        //     HidApiBackend.LogError($"{name} = {udev_device_get_sysattr_value(dev2, name)}");
+                        //     attributes = udev_list_entry_get_next(attributes);
+                        // }
+                        // Grab the version number from that as it will exist there
+                        version = Convert.ToUInt16(udev_device_get_sysattr_value(dev2, "id/version"), 16);
+                    }
+                }
+            }
+
             // Create input device description and add it to the system
             var description = new InputDeviceDescription()
             {
@@ -114,7 +148,7 @@ namespace HIDrogen.Backend
                 manufacturer = info.manufacturerName,
                 product = info.productName,
                 serial = info.serialNumber,
-                version = info.releaseBcd.ToString(),
+                version = version.ToString(),
                 capabilities = JsonUtility.ToJson(descriptor)
             };
 
