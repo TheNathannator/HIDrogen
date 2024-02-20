@@ -115,28 +115,21 @@ namespace HIDrogen.Backend
                 statx(0, info.path, 0, 0, out var pathStats);
                 var udev = udev_new();
                 using (udev) {
-                    var udev_device = udev_device_new_from_devnum(udev, statx_device_type(pathStats), statx_device_num(pathStats)); 
+                    var hidrawUdevDevice = udev_device_new_from_devnum(udev, statx_device_type(pathStats), statx_device_num(pathStats)); 
                     // Grab the root parent hid device that both the hidraw and input devices share
-                    var parent = udev_device_get_parent_with_subsystem_devtype(udev_device, "hid", null);
+                    var hidUdevDevice = udev_device_get_parent_with_subsystem_devtype(hidrawUdevDevice, "hid", null);
                     // Find the input device by scanning the parents children for input devices, and grabbing the first one
                     var enumerate = udev_enumerate_new(udev);
                     using (enumerate) {
-                        udev_enumerate_add_match_parent(enumerate, parent);
+                        udev_enumerate_add_match_parent(enumerate, hidUdevDevice);
                         udev_enumerate_add_match_subsystem(enumerate, "input");
                         udev_enumerate_scan_devices(enumerate);
                         var entry = udev_enumerate_get_list_entry(enumerate);
                         var path = udev_list_entry_get_name(entry);
-                        var dev2 = udev_device_new_from_syspath(udev, path);
+                        var inputUdevDevice = udev_device_new_from_syspath(udev, path);
                         
-                        // List all attributes on a device
-                        // var attributes = udev_device_get_sysattr_list_entry(dev2);
-                        // while (attributes != IntPtr.Zero) {
-                        //     var name = udev_list_entry_get_name(attributes);
-                        //     HidApiBackend.LogError($"{name} = {udev_device_get_sysattr_value(dev2, name)}");
-                        //     attributes = udev_list_entry_get_next(attributes);
-                        // }
                         // Grab the version number from that as it will exist there
-                        version = Convert.ToUInt16(udev_device_get_sysattr_value(dev2, "id/version"), 16);
+                        version = Convert.ToUInt16(udev_device_get_sysattr_value(inputUdevDevice, "id/version"), 16);
                     }
                 }
             }
