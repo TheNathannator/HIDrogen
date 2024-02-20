@@ -112,7 +112,7 @@ namespace HIDrogen.Imports
         [DllImport(kLibName, SetLastError = true)]
         public static extern int udev_enumerate_add_match_parent(
             udev_enumerate udev_enumerate,
-            udev_device parent
+            IntPtr parent
         );
 
         [DllImport(kLibName, SetLastError = true)]
@@ -182,7 +182,7 @@ namespace HIDrogen.Imports
         );
 
         [DllImport(kLibName, SetLastError = true)]
-        public static extern udev_device udev_device_get_parent_with_subsystem_devtype(
+        public static extern IntPtr udev_device_get_parent_with_subsystem_devtype(
             udev_device device,
             [MarshalAs(UnmanagedType.LPStr)] string subsystem,
             [MarshalAs(UnmanagedType.LPStr)] string devtype
