@@ -352,8 +352,11 @@ namespace HIDrogen.Backend
         // Based on InputSystem.QueueStateEvent<T>
         private unsafe void QueueState()
         {
+            // Safety limit, to avoid allocating too much on the stack
+            // (InputSystem.StateEventBuffer.kMaxSize)
+            const int kMaxStateSize = 512;
+
             // Get event size
-            const int kMaxStateSize = 512; // TODO: Is this actually necessary? (InputSystem.StateEventBuffer.kMaxSize)
             var stateSize = m_ReadBuffer.Length + m_PrependCount;
             if (stateSize > kMaxStateSize)
             {
