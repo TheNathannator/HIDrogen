@@ -49,8 +49,7 @@ namespace HIDrogen.Backend
         // Input buffers
         // We use a custom buffering implementation because the built-in implementation is not friendly to managed threads,
         // despite what the docs for InputSystem.QueueEvent/QueueStateEvent may claim, so we need to flush events on the main thread.
-        private const int kInputBufferCount = 2;
-        private static readonly SlimEventBuffer[] s_InputBuffers = new SlimEventBuffer[kInputBufferCount];
+        private static readonly SlimEventBuffer[] s_InputBuffers = new SlimEventBuffer[2];
         private static readonly object s_BufferLock = new object();
         private static int s_CurrentBuffer = 0;
 
@@ -77,7 +76,7 @@ namespace HIDrogen.Backend
 #endif
 
             // Initialize event buffers
-            for (int i = 0; i < kInputBufferCount; i++)
+            for (int i = 0; i < s_InputBuffers.Length; i++)
             {
                 s_InputBuffers[i] = new SlimEventBuffer();
             }
@@ -118,7 +117,7 @@ namespace HIDrogen.Backend
             }
 
             // Dispose event buffers
-            for (int i = 0; i < kInputBufferCount; i++)
+            for (int i = 0; i < s_InputBuffers.Length; i++)
             {
                 s_InputBuffers[i].Dispose();
             }
@@ -382,7 +381,7 @@ namespace HIDrogen.Backend
             lock (s_BufferLock)
             {
                 buffer = s_InputBuffers[s_CurrentBuffer];
-                s_CurrentBuffer = (s_CurrentBuffer + 1) % kInputBufferCount;
+                s_CurrentBuffer = (s_CurrentBuffer + 1) % s_InputBuffers.Length;
             }
 
             foreach (var eventPtr in buffer)
