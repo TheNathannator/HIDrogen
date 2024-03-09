@@ -78,28 +78,14 @@ namespace HIDrogen.LowLevel
             m_UsedLength = 0;
         }
 
-        public IEnumerator<InputEventPtr> GetEnumerator()
+        public Enumerator GetEnumerator()
         {
-            int currentIndex = 0;
-            InputEventPtr currentEvent = m_FirstEvent;
-            while (currentIndex < m_EventCount)
-            {
-                if (!currentEvent.valid)
-                    break;
+            return new Enumerator(this);
+        }
 
-                yield return currentEvent;
-                currentEvent = getNextInMemory(currentEvent);
-                ++currentIndex;
-            }
-            yield break;
-
-            // Copied from InputEvent.GetNextInMemory
-            unsafe InputEventPtr getNextInMemory(InputEventPtr currentPtr)
-            {
-                Debug.Assert(currentPtr != null, "Event pointer must not be null!");
-                var alignedSizeInBytes = currentPtr.sizeInBytes.AlignToMultipleOf(kEventAlignment);
-                return (InputEvent*)((byte*)currentPtr.data + alignedSizeInBytes);
-            }
+        IEnumerator<InputEventPtr> IEnumerable<InputEventPtr>.GetEnumerator()
+        {
+            return GetEnumerator();
         }
 
         IEnumerator IEnumerable.GetEnumerator()
@@ -123,6 +109,65 @@ namespace HIDrogen.LowLevel
 
             m_UsedLength = 0;
             m_EventCount = 0;
+        }
+
+        public struct Enumerator : IEnumerator<InputEventPtr>
+        {
+            private readonly InputEvent* m_Buffer;
+            private readonly int m_EventCount;
+            private InputEvent* m_CurrentEvent;
+            private int m_CurrentIndex;
+
+            public Enumerator(SlimEventBuffer buffer)
+            {
+                m_Buffer = buffer.m_FirstEvent;
+                m_EventCount = buffer.m_EventCount;
+                m_CurrentEvent = null;
+                m_CurrentIndex = 0;
+            }
+
+            public bool MoveNext()
+            {
+                if (m_CurrentIndex == m_EventCount)
+                    return false;
+
+                if (m_CurrentEvent == null)
+                {
+                    m_CurrentEvent = m_Buffer;
+                    return m_CurrentEvent != null;
+                }
+
+                Debug.Assert(m_CurrentEvent != null, "Current event must not be null");
+
+                ++m_CurrentIndex;
+                if (m_CurrentIndex == m_EventCount)
+                    return false;
+
+                m_CurrentEvent = GetNextInMemory(m_CurrentEvent);
+                return true;
+            }
+
+            // Copied from InputEvent.GetNextInMemory
+            private static InputEventPtr GetNextInMemory(InputEventPtr currentPtr)
+            {
+                Debug.Assert(currentPtr != null, "Event pointer must not be null!");
+                var alignedSizeInBytes = currentPtr.sizeInBytes.AlignToMultipleOf(kEventAlignment);
+                return (InputEvent*)((byte*)currentPtr.data + alignedSizeInBytes);
+            }
+
+            public void Reset()
+            {
+                m_CurrentEvent = null;
+                m_CurrentIndex = 0;
+            }
+
+            public void Dispose()
+            {
+            }
+
+            public InputEventPtr Current => m_CurrentEvent;
+
+            object IEnumerator.Current => Current;
         }
     }
 }
