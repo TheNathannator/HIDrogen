@@ -19,6 +19,7 @@ namespace HIDrogen.Backend
 #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
     using static Libc;
     using static HidRaw;
+    using static Udev;
 #endif
 
     /// <summary>
@@ -107,6 +108,9 @@ namespace HIDrogen.Backend
                 return null;
             }
 
+            if (info.releaseBcd == 0)
+                FixupVersionNumber(ref info);
+
             // Create input device description and add it to the system
             var description = new InputDeviceDescription()
             {
@@ -126,7 +130,8 @@ namespace HIDrogen.Backend
             }
             catch (Exception ex)
             {
-                HidApiBackend.LogError($"Failed to add device to the system!\n{ex}");
+                HidApiBackend.LogError($"Failed to add device to the system! Description:\n{description.ToJson()}");
+                Debug.LogException(ex);
                 handle.Dispose();
                 return null;
             }
@@ -246,6 +251,87 @@ namespace HIDrogen.Backend
 #endif
 
             return descriptor.inputReportSize > 0; // Output and feature reports aren't required for normal operation
+        }
+
+        private static void FixupVersionNumber(ref hid_device_info info)
+        {
+#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+            // Bluetooth devices won't have this filled in so we need to do it ourselves.
+            // Use statx to grab the device type and number, and then construct a udev device
+            if (statx(0, info.path, 0, 0, out var pathStats) < 0)
+            {
+                HidApiBackend.LogError($"Error getting device type info: {errno}");
+                return;
+            }
+
+            var udev = udev_new();
+            if (udev == null || udev.IsInvalid)
+            {
+                HidApiBackend.LogError($"Failed to initialize udev context: {errno}");
+                return;
+            }
+
+            using (udev)
+            {
+                var hidrawUdevDevice = udev_device_new_from_devnum(udev, pathStats.DeviceType, pathStats.DeviceNumber);
+                if (hidrawUdevDevice == null || hidrawUdevDevice.IsInvalid)
+                {
+                    HidApiBackend.LogError($"Failed to get hidraw device instance: {errno}");
+                    return;
+                }
+
+                // Grab the root parent hid device that both the hidraw and input devices share
+                var hidUdevDevice = udev_device_get_parent_with_subsystem_devtype(hidrawUdevDevice, "hid", null);
+                if (hidUdevDevice == null || hidUdevDevice.IsInvalid)
+                {
+                    HidApiBackend.LogError($"Failed to get HID device instance: {errno}");
+                    return;
+                }
+
+                using (hidUdevDevice)
+                {
+                    // Find the input device by scanning the parent's children for input devices, and grabbing the first one
+                    var enumerate = udev_enumerate_new(udev);
+                    if (enumerate == null || enumerate.IsInvalid)
+                    {
+                        HidApiBackend.LogError($"Failed to make udev enumeration: {errno}");
+                        return;
+                    }
+
+                    using (enumerate)
+                    {
+                        // Scan for devices under the 'input' subsystem
+                        if (udev_enumerate_add_match_parent(enumerate, hidUdevDevice) < 0 ||
+                            udev_enumerate_add_match_subsystem(enumerate, "input") < 0 ||
+                            udev_enumerate_scan_devices(enumerate) < 0)
+                        {
+                            HidApiBackend.LogError($"Failed to scan udev devices: {errno}");
+                            return;
+                        }
+
+                        // Get the first device found
+                        IntPtr entry;
+                        string entryPath;
+                        udev_device inputUdevDevice;
+                        if ((entry = udev_enumerate_get_list_entry(enumerate)) == IntPtr.Zero ||
+                            string.IsNullOrEmpty(entryPath = udev_list_entry_get_name(entry)) ||
+                            (inputUdevDevice = udev_device_new_from_syspath(udev, entryPath)) == null ||
+                            inputUdevDevice.IsInvalid)
+                        {
+                            HidApiBackend.LogError($"Failed to get input device instance: {errno}");
+                            return;
+                        }
+
+                        // Grab the version number from the found device
+                        using (inputUdevDevice)
+                        {
+                            string versionStr = udev_device_get_sysattr_value(inputUdevDevice, "id/version");
+                            info.releaseBcd = Convert.ToUInt16(versionStr, 16);
+                        }
+                    }
+                }
+            }
+#endif
         }
 
 #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
