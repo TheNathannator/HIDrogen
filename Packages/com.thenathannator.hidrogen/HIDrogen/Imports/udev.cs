@@ -6,7 +6,8 @@ namespace HIDrogen.Imports
 {
     internal class udev : SafeHandleZeroIsInvalid
     {
-        private udev() : base() { }
+        internal udev() : base() { }
+        internal udev(IntPtr handle, bool ownsHandle) : base(handle, ownsHandle) { }
 
         protected override bool ReleaseHandle()
         {
@@ -17,7 +18,8 @@ namespace HIDrogen.Imports
 
     internal class udev_device : SafeHandleZeroIsInvalid
     {
-        private udev_device() : base() { }
+        internal udev_device() : base() { }
+        internal udev_device(IntPtr handle, bool ownsHandle) : base(handle, ownsHandle) { }
 
         protected override bool ReleaseHandle()
         {
@@ -28,7 +30,8 @@ namespace HIDrogen.Imports
 
     internal class udev_enumerate : SafeHandleZeroIsInvalid
     {
-        private udev_enumerate() : base() { }
+        internal udev_enumerate() : base() { }
+        internal udev_enumerate(IntPtr handle, bool ownsHandle) : base(handle, ownsHandle) { }
 
         protected override bool ReleaseHandle()
         {
@@ -39,7 +42,8 @@ namespace HIDrogen.Imports
 
     internal class udev_monitor : SafeHandleZeroIsInvalid
     {
-        private udev_monitor() : base() { }
+        internal udev_monitor() : base() { }
+        internal udev_monitor(IntPtr handle, bool ownsHandle) : base(handle, ownsHandle) { }
 
         protected override bool ReleaseHandle()
         {
@@ -112,7 +116,7 @@ namespace HIDrogen.Imports
         [DllImport(kLibName, SetLastError = true)]
         public static extern int udev_enumerate_add_match_parent(
             udev_enumerate udev_enumerate,
-            IntPtr parent
+            udev_device parent
         );
 
         [DllImport(kLibName, SetLastError = true)]
@@ -136,25 +140,14 @@ namespace HIDrogen.Imports
             IntPtr entry
         );
 
-        [DllImport(kLibName, EntryPoint="udev_list_entry_get_name", SetLastError = true)]
-        public unsafe static extern byte* _udev_list_entry_get_name(
+        [DllImport(kLibName, EntryPoint = "udev_list_entry_get_name", SetLastError = true)]
+        private unsafe static extern byte* _udev_list_entry_get_name(
             IntPtr entry
         );
 
-        [DllImport(kLibName, EntryPoint="udev_list_entry_get_value", SetLastError = true)]
-        public unsafe static extern byte* _udev_list_entry_get_value(
+        [DllImport(kLibName, EntryPoint = "udev_list_entry_get_value", SetLastError = true)]
+        private unsafe static extern byte* _udev_list_entry_get_value(
             IntPtr entry
-        );
-
-        [DllImport(kLibName, EntryPoint="udev_device_get_syspath", SetLastError = true)]
-        public unsafe static extern byte* _udev_device_get_syspath(
-            udev_device device
-        );
-
-        [DllImport(kLibName, EntryPoint="udev_device_get_sysattr_value", SetLastError = true)]
-        public unsafe static extern byte* _udev_device_get_sysattr_value(
-            udev_device device,
-            [MarshalAs(UnmanagedType.LPStr)] string attribute
         );
 
         public unsafe static string udev_list_entry_get_name(IntPtr entry) {
@@ -164,6 +157,17 @@ namespace HIDrogen.Imports
         public unsafe static string udev_list_entry_get_value(IntPtr entry) {
             return StringMarshal.FromNullTerminatedAscii(_udev_list_entry_get_value(entry));
         }
+
+        [DllImport(kLibName, EntryPoint = "udev_device_get_syspath", SetLastError = true)]
+        private unsafe static extern byte* _udev_device_get_syspath(
+            udev_device device
+        );
+
+        [DllImport(kLibName, EntryPoint = "udev_device_get_sysattr_value", SetLastError = true)]
+        private unsafe static extern byte* _udev_device_get_sysattr_value(
+            udev_device device,
+            [MarshalAs(UnmanagedType.LPStr)] string attribute
+        );
 
         public unsafe static string udev_device_get_sysattr_value(udev_device device, string attribute) {
             return StringMarshal.FromNullTerminatedAscii(_udev_device_get_sysattr_value(device, attribute));
@@ -181,12 +185,19 @@ namespace HIDrogen.Imports
             IntPtr udev_enumerate
         );
 
-        [DllImport(kLibName, SetLastError = true)]
-        public static extern IntPtr udev_device_get_parent_with_subsystem_devtype(
+        [DllImport(kLibName, EntryPoint = "udev_device_get_parent_with_subsystem_devtype", SetLastError = true)]
+        private static extern IntPtr _udev_device_get_parent_with_subsystem_devtype(
             udev_device device,
             [MarshalAs(UnmanagedType.LPStr)] string subsystem,
             [MarshalAs(UnmanagedType.LPStr)] string devtype
         );
+
+        public static udev_device udev_device_get_parent_with_subsystem_devtype(
+            udev_device device, string subsystem, string devtype)
+        {
+            IntPtr devPtr = _udev_device_get_parent_with_subsystem_devtype(device, subsystem, devtype);
+            return devPtr == IntPtr.Zero ? new udev_device() : new udev_device(devPtr, false); // The device is *not* owned by us here
+        }
 
         [DllImport(kLibName, SetLastError = true)]
         public static extern udev_device udev_device_new_from_devnum(

@@ -11,11 +11,13 @@ namespace HIDrogen.LowLevel
         protected SafeHandleZeroIsInvalid()
             : base(IntPtr.Zero, true)
         {
+            SetHandle(IntPtr.Zero);
         }
 
-        protected SafeHandleZeroIsInvalid(bool ownsHandle)
+        protected SafeHandleZeroIsInvalid(IntPtr handle, bool ownsHandle)
             : base(IntPtr.Zero, ownsHandle)
         {
+            SetHandle(handle);
         }
 
         public override bool IsInvalid => handle == IntPtr.Zero;
