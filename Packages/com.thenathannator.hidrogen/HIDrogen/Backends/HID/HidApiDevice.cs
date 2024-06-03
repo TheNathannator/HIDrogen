@@ -68,7 +68,7 @@ namespace HIDrogen.Backend
             m_PrependCount = inputPrependCount;
             m_PrependCount = 0;
 
-            HidApiBackend.LogVerbose($"Created new device '{device}' with report size of {realInputSize} and prepend count of {inputPrependCount}");
+            Logging.Verbose($"Created new device '{device}' with report size of {realInputSize} and prepend count of {inputPrependCount}");
         }
 
         ~HidApiDevice()
@@ -82,14 +82,14 @@ namespace HIDrogen.Backend
             var handle = hid_open_path(info.path);
             if (handle == null || handle.IsInvalid)
             {
-                HidApiBackend.LogInteropError($"Error when opening HID device path '{info.path}': {hid_error()} ({{0}})");
+                Logging.InteropError($"Error when opening HID device path '{info.path}': {hid_error()}");
                 return null;
             }
 
             // Get descriptor
             if (!GetReportDescriptor(info, out var descriptor, out int inputPrependCount))
             {
-                HidApiBackend.LogError($"Could not get descriptor for device! VID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
+                Logging.Error($"Could not get descriptor for device! VID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
                 handle.Dispose();
                 return null;
             }
@@ -103,7 +103,7 @@ namespace HIDrogen.Backend
             if (!HIDSupport.supportedHIDUsages.Any((usage) =>
                 usage.page == descriptor.usagePage && usage.usage == descriptor.usage))
             {
-                HidApiBackend.LogVerbose($"Found device with unsupported usage page {descriptor.usagePage} and usage {descriptor.usage}, ignoring. VID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
+                Logging.Verbose($"Found device with unsupported usage page {descriptor.usagePage} and usage {descriptor.usage}, ignoring. VID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
                 handle.Dispose();
                 return null;
             }
@@ -130,7 +130,7 @@ namespace HIDrogen.Backend
             }
             catch (Exception ex)
             {
-                HidApiBackend.LogError($"Failed to add device to the system! Description:\n{description.ToJson()}");
+                Logging.Error($"Failed to add device to the system! Description:\n{description.ToJson()}");
                 Debug.LogException(ex);
                 handle.Dispose();
                 return null;
@@ -158,7 +158,7 @@ namespace HIDrogen.Backend
             {
                 if (!GetHidRawReportDescriptor(fd, out buffer))
                 {
-                    HidApiBackend.LogError($"Error getting descriptor: {errno}");
+                    Logging.Error($"Error getting descriptor: {errno}");
                     descriptor = default;
                     inputPrependCount = 0;
                     return false;
@@ -260,14 +260,14 @@ namespace HIDrogen.Backend
             // Use statx to grab the device type and number, and then construct a udev device
             if (statx(0, info.path, 0, 0, out var pathStats) < 0)
             {
-                HidApiBackend.LogError($"Error getting device type info: {errno}");
+                Logging.Error($"Error getting device type info: {errno}");
                 return;
             }
 
             var udev = udev_new();
             if (udev == null || udev.IsInvalid)
             {
-                HidApiBackend.LogError($"Failed to initialize udev context: {errno}");
+                Logging.Error($"Failed to initialize udev context: {errno}");
                 return;
             }
 
@@ -276,7 +276,7 @@ namespace HIDrogen.Backend
                 var hidrawUdevDevice = udev_device_new_from_devnum(udev, pathStats.DeviceType, pathStats.DeviceNumber);
                 if (hidrawUdevDevice == null || hidrawUdevDevice.IsInvalid)
                 {
-                    HidApiBackend.LogError($"Failed to get hidraw device instance: {errno}");
+                    Logging.Error($"Failed to get hidraw device instance: {errno}");
                     return;
                 }
 
@@ -284,7 +284,7 @@ namespace HIDrogen.Backend
                 var hidUdevDevice = udev_device_get_parent_with_subsystem_devtype(hidrawUdevDevice, "hid", null);
                 if (hidUdevDevice == null || hidUdevDevice.IsInvalid)
                 {
-                    HidApiBackend.LogError($"Failed to get HID device instance: {errno}");
+                    Logging.Error($"Failed to get HID device instance: {errno}");
                     return;
                 }
 
@@ -294,7 +294,7 @@ namespace HIDrogen.Backend
                     var enumerate = udev_enumerate_new(udev);
                     if (enumerate == null || enumerate.IsInvalid)
                     {
-                        HidApiBackend.LogError($"Failed to make udev enumeration: {errno}");
+                        Logging.Error($"Failed to make udev enumeration: {errno}");
                         return;
                     }
 
@@ -305,7 +305,7 @@ namespace HIDrogen.Backend
                             udev_enumerate_add_match_subsystem(enumerate, "input") < 0 ||
                             udev_enumerate_scan_devices(enumerate) < 0)
                         {
-                            HidApiBackend.LogError($"Failed to scan udev devices: {errno}");
+                            Logging.Error($"Failed to scan udev devices: {errno}");
                             return;
                         }
 
@@ -318,7 +318,7 @@ namespace HIDrogen.Backend
                             (inputUdevDevice = udev_device_new_from_syspath(udev, entryPath)) == null ||
                             inputUdevDevice.IsInvalid)
                         {
-                            HidApiBackend.LogError($"Failed to get input device instance: {errno}");
+                            Logging.Error($"Failed to get input device instance: {errno}");
                             return;
                         }
 
@@ -382,7 +382,12 @@ namespace HIDrogen.Backend
                     #endif
 
                     m_ErrorCount++;
-                    HidApiBackend.LogInteropErrorVerbose($"hid_read: {hid_error(m_Handle)} ({{0}}) - Error count: {m_ErrorCount}");
+#if HIDROGEN_VERBOSE_LOGGING
+                    Logging.InteropError($"hid_read error (attempt {m_ErrorCount}): {hid_error(m_Handle)}");
+#else
+                    if (m_ErrorCount >= kRetryThreshold)
+                        Logging.InteropError($"hid_read error: {hid_error(m_Handle)}");
+#endif
                     return m_ErrorCount < kRetryThreshold;
                 }
                 m_ErrorCount = 0;
@@ -446,7 +451,7 @@ namespace HIDrogen.Backend
             var stateSize = m_ReadBuffer.Length + m_PrependCount;
             if (stateSize > kMaxStateSize)
             {
-                HidApiBackend.LogError($"State buffer size ({stateSize}) exceeds maximum supported state size ({kMaxStateSize})");
+                Logging.Error($"State buffer size ({stateSize}) exceeds maximum supported state size ({kMaxStateSize})");
                 return;
             }
             int eventSize = UnsafeUtility.SizeOf<StateEvent>() - 1 + stateSize; // StateEvent already includes 1 byte at the end
