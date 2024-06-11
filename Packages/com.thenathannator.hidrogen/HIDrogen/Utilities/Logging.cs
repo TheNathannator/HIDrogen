@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
@@ -15,6 +16,12 @@ namespace HIDrogen
 
         public static void Error(string message)
             => Debug.LogError($"[HIDrogen] {message}");
+
+        public static void Exception(string message, Exception ex)
+        {
+            Debug.LogError($"[HIDrogen] {message}");
+            Debug.LogException(ex);
+        }
 
         public static void InteropError(string message)
 #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX

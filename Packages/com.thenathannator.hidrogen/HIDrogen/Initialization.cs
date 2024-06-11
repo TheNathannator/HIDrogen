@@ -1,4 +1,4 @@
-using HIDrogen.Backend;
+using System;
 using UnityEditor;
 using UnityEngine;
 
@@ -10,7 +10,7 @@ namespace HIDrogen
 #if UNITY_EDITOR
     [InitializeOnLoad]
 #endif
-    internal static class Initialization
+    internal static partial class Initialization
     {
 #if UNITY_EDITOR
         static Initialization()
@@ -25,12 +25,40 @@ namespace HIDrogen
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         internal static void Initialize()
         {
-#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
-            if (HidApiBackend.Initialize())
-            {
-                LinuxShim.Initialize();
-            }
+#if UNITY_EDITOR
+            AssemblyReloadEvents.beforeAssemblyReload += Uninitialize;
+            EditorApplication.quitting += Uninitialize;
+#else
+            Application.quitting += Uninitialize;
 #endif
+
+            try
+            {
+                PlatformInitialize();
+            }
+            catch (Exception ex)
+            {
+                Logging.Exception("Failed to initialize backends", ex);
+            }
+        }
+
+        internal static void Uninitialize()
+        {
+#if UNITY_EDITOR
+            AssemblyReloadEvents.beforeAssemblyReload -= Uninitialize;
+            EditorApplication.quitting -= Uninitialize;
+#else
+            Application.quitting -= Uninitialize;
+#endif
+
+            try
+            {
+                PlatformUninitialize();
+            }
+            catch (Exception ex)
+            {
+                Logging.Exception("Failed to uninitialize backends", ex);
+            }
         }
     }
 }

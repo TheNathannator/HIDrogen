@@ -1,401 +1,331 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Runtime.InteropServices;
+using System.Reflection;
 using System.Threading;
 using HIDrogen.Imports;
-using HIDrogen.LowLevel;
-using UnityEditor;
+using HIDrogen.Utilities;
+using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.HID;
+using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
-
-#if !UNITY_EDITOR
-using UnityEngine;
-#endif
-
-using Debug = UnityEngine.Debug;
+using UnityEngine.InputSystem.Utilities;
 
 namespace HIDrogen.Backend
 {
     using static HidApi;
 
-#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
-    using static Libc;
-    using static Udev;
-#endif
-
     /// <summary>
     /// Provides input through the hidapi library.
     /// </summary>
-    internal static class HidApiBackend
+    internal partial class HidApiBackend : CustomInputBackend<HidApiDevice>
     {
-        // Keeps track of available devices
-        private static readonly ConcurrentDictionary<int, HidApiDevice> s_DeviceLookup = new ConcurrentDictionary<int, HidApiDevice>();
-
-        // Queue for new devices; they must be added on the main thread
-        private static readonly ConcurrentBag<hid_device_info> s_AdditionQueue = new ConcurrentBag<hid_device_info>();
-
-        // Workaround for not being able to remove from a collection while enumerating it
-        private static readonly List<HidApiDevice> s_RemovalQueue = new List<HidApiDevice>();
-
-        // Processing threads
-        private static Thread s_EnumerationThread;
-        private static Thread s_ReadingThread;
-        private static readonly EventWaitHandle s_ThreadStop = new EventWaitHandle(false, EventResetMode.ManualReset);
-
-        // Input buffers
-        // We use a custom buffering implementation because the built-in implementation is not friendly to managed threads,
-        // despite what the docs for InputSystem.QueueEvent/QueueStateEvent may claim, so we need to flush events on the main thread.
-        private static readonly SlimEventBuffer[] s_InputBuffers = new SlimEventBuffer[2];
-        private static readonly object s_BufferLock = new object();
-        private static int s_CurrentBuffer = 0;
-
-        internal static unsafe bool Initialize()
+        private class DeviceAddContext
         {
-            Logging.Verbose("Initializing hidapi backend");
+            public string path;
+            public int inputPrependCount;
+            public HID.HIDDeviceDescriptor descriptor;
+        }
 
+        public const string InterfaceName = "HID";
+        public static readonly FourCC InputFormat = new FourCC('H', 'I', 'D');
+        public static readonly FourCC OutputFormat = new FourCC('H', 'I', 'D', 'O');
+
+        // Get built-in HID descriptor parsing so we don't have to implement our own
+        private unsafe delegate bool HIDParser_ParseReportDescriptor(byte[] buffer, ref HID.HIDDeviceDescriptor deviceDescriptor);
+        private static readonly HIDParser_ParseReportDescriptor s_ParseReportDescriptor = (HIDParser_ParseReportDescriptor)
+            Assembly.GetAssembly(typeof(HID))
+            .GetType("UnityEngine.InputSystem.HID.HIDParser")
+            .GetMethod("ParseReportDescriptor",
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static, null,
+                new Type[] { typeof(byte).MakeArrayType(), typeof(HID.HIDDeviceDescriptor).MakeByRefType() }, null)
+            .CreateDelegate(typeof(HIDParser_ParseReportDescriptor));
+
+        private readonly Thread m_EnumerationThread;
+        private readonly EventWaitHandle m_ThreadStop = new EventWaitHandle(false, EventResetMode.ManualReset);
+
+        // This lookup is used by the enumeration thread in addition to the main thread
+        private readonly ConcurrentDictionary<string, HidApiDevice> m_DevicesByPath
+            = new ConcurrentDictionary<string, HidApiDevice>();
+
+        public HidApiBackend()
+        {
             // Initialize hidapi
             int result = hid_init();
             if (result < 0)
             {
                 Logging.InteropError("Failed to initialize hidapi");
-                return false;
+                throw new Exception("Failed to initialize hidapi!");
             }
 
-            // Register events
-            InputSystem.onBeforeUpdate += Update;
-            InputSystem.onDeviceCommand += DeviceCommand;
-#if UNITY_EDITOR
-            AssemblyReloadEvents.beforeAssemblyReload += Uninitialize;
-            EditorApplication.quitting += Uninitialize;
-#else
-            Application.quitting += Uninitialize;
-#endif
-
-            // Initialize event buffers
-            for (int i = 0; i < s_InputBuffers.Length; i++)
-            {
-                s_InputBuffers[i] = new SlimEventBuffer();
-            }
+            // Initialize platform-specific resources
+            PlatformInitialize();
 
             // Start threads
-            s_EnumerationThread = new Thread(DeviceDiscoveryThread) { IsBackground = true };
-            s_EnumerationThread.Start();
-            // Read thread is started when adding a device
-
-            return true;
+            m_EnumerationThread = new Thread(DeviceDiscoveryThread) { IsBackground = true };
+            m_EnumerationThread.Start();
         }
 
-        private static unsafe void Uninitialize()
+        protected override void OnDispose()
         {
-            Logging.Verbose("Uninitializing hidapi backend");
-
             // Stop threads
-            s_ThreadStop.Set();
-            s_EnumerationThread?.Join();
-            s_EnumerationThread = null;
-            s_ReadingThread?.Join();
-            s_ReadingThread = null;
+            m_ThreadStop.Set();
+            m_EnumerationThread.Join();
 
-            // Unregister events
-            InputSystem.onBeforeUpdate -= Update;
-            InputSystem.onDeviceCommand -= DeviceCommand;
-#if UNITY_EDITOR
-            AssemblyReloadEvents.beforeAssemblyReload -= Uninitialize;
-            EditorApplication.quitting -= Uninitialize;
-#else
-            Application.quitting -= Uninitialize;
-#endif
-
-            // Close devices
-            foreach (var device in s_DeviceLookup.Values)
-            {
-                device.RemoveImmediate();
-            }
-
-            // Dispose event buffers
-            for (int i = 0; i < s_InputBuffers.Length; i++)
-            {
-                s_InputBuffers[i].Dispose();
-            }
+            // Clean up platform-specific resources
+            PlatformDispose();
 
             // Free hidapi
             int result = hid_exit();
             if (result < 0)
-            {
                 Logging.InteropError("Error when freeing hidapi");
-            }
         }
 
-        private static void Update()
+        private void DeviceDiscoveryThread()
         {
-            FlushEventBuffer();
-            HandleRemovalQueue();
-            HandleAdditionQueue();
-        }
-
-        private static unsafe long? DeviceCommand(InputDevice device, InputDeviceCommand* command)
-        {
-            if (device == null || device.description.interfaceName != HidApiDevice.InterfaceName)
-                return null;
-            if (command == null)
-                return InputDeviceCommand.GenericFailure;
-
-            if (!s_DeviceLookup.TryGetValue(device.deviceId, out var entry))
-            {
-                Logging.Warning($"Could not find hidapi device for device {device} (ID {device.deviceId})!");
-                return null;
-            }
-
-            Logging.Verbose($"Executing command for device {device} (ID {device.deviceId})");
-            return entry.ExecuteCommand(command);
-        }
-
-        private static void DeviceDiscoveryThread()
-        {
-            Logging.Verbose("Starting device discovery thread");
-
             // Initial device enumeration
             EnumerateDevices();
 
-#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
-            // Try using udev to monitor first
+            // Try using platform monitoring first
             int errorCount = 0;
             const int errorThreshold = 3;
-            while (errorCount < errorThreshold && !s_ThreadStop.WaitOne(5000))
+            while (errorCount < errorThreshold && !m_ThreadStop.WaitOne(5000))
             {
-                if (!MonitorUdev())
+                if (!PlatformMonitor())
                 {
                     errorCount++;
-                    Logging.Error($"udev monitoring failed! {(errorCount < errorThreshold ? "Trying again" : "Falling back to periodic re-enumeration of hidapi")}");
+                    Logging.Error($"Device monitoring failed! {(errorCount < errorThreshold ? "Trying again" : "Falling back to periodic re-enumeration of hidapi")}");
                 }
             }
-#endif
 
             // Fall back to just periodically enumerating hidapi
-            while (!s_ThreadStop.WaitOne(2000))
+            while (!m_ThreadStop.WaitOne(2000))
             {
                 EnumerateDevices();
             }
         }
 
-        private static void ReadThread()
-        {
-            Logging.Verbose("Starting device read thread");
-
-            do
-            {
-                UpdateDevices();
-            }
-            while (s_DeviceLookup.Count > 0 && !s_ThreadStop.WaitOne(0));
-        }
-
-        private static void EnumerateDevices()
+        private void EnumerateDevices()
         {
             Logging.Verbose("Enumerating hidapi devices");
             foreach (var info in hid_enumerate())
             {
-                if (!s_DeviceLookup.Values.Any((entry) => entry.path == info.path))
+                if (!m_DevicesByPath.ContainsKey(info.path) &&
+                    MakeDeviceDescription(info, out var description, out var descriptor, out int inputPrependCount))
                 {
-                    Logging.Verbose($"Found new device, adding to addition queue. VID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
-                    s_AdditionQueue.Add(info);
+                    Logging.Verbose($"Found new device, VID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
+                    QueueDeviceAdd(description, new DeviceAddContext()
+                    {
+                        path = info.path,
+                        inputPrependCount = inputPrependCount,
+                        descriptor = descriptor,
+                    });
                 }
             }
         }
 
-#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
-        // Returns false if falling back to hidapi polling is necessary, returns true on exit
-        private static bool MonitorUdev()
+        protected override HidApiDevice OnDeviceAdded(InputDevice device, object _context)
         {
-            Logging.Verbose("Monitoring udev for devices");
+            var context = (DeviceAddContext)_context;
 
-            // Initialize udev
-            var udev = udev_new();
-            if (udev == null || udev.IsInvalid)
+            var hidDevice = new HidApiDevice(this, context.path, device, context.descriptor, context.inputPrependCount);
+            m_DevicesByPath.TryAdd(context.path, hidDevice);
+            return hidDevice;
+        }
+
+        protected override void OnDeviceRemoved(HidApiDevice device)
+        {
+            m_DevicesByPath.TryRemove(device.path, out _);
+            device.Dispose();
+        }
+
+        private unsafe bool MakeDeviceDescription(
+            in hid_device_info info,
+            out InputDeviceDescription description,
+            out HID.HIDDeviceDescriptor descriptor,
+            out int inputPrependCount
+        )
+        {
+            description = default;
+            inputPrependCount = default;
+            descriptor = default;
+
+            // Get descriptor
+            if (!PlatformGetDescriptor(info.path, out var descriptorBytes))
             {
-                Logging.Error($"Failed to initialize udev context: {errno}");
+                Logging.InteropError("Error getting descriptor");
                 return false;
             }
 
-            using (udev)
+            // Parse descriptor
+            descriptor = new HID.HIDDeviceDescriptor()
             {
-                // Set up device monitor
-                var monitor = udev_monitor_new_from_netlink(udev, "udev");
-                if (monitor == null || monitor.IsInvalid)
-                {
-                    Logging.Error($"Failed to initialize device monitor: {errno}");
-                    return false;
-                }
+                vendorId = info.vendorId,
+                productId = info.productId,
+                // These are set by the parsing routine below
+                // hidapi's values aren't always guaranteed to be accurate regardless,
+                // versions below v0.10.1 don't parse it out
+                // usagePage = (HID.UsagePage)info.usagePage,
+                // usage = info.usage
+            };
 
-                // Add filter for hidraw devices
-                if (udev_monitor_filter_add_match_subsystem_devtype(monitor, "hidraw", null) < 0)
-                {
-                    Logging.Error($"Failed to add filter to device monitor: {errno}");
-                    return false;
-                }
-
-                // Enable monitor
-                if (udev_monitor_enable_receiving(monitor) < 0)
-                {
-                    Logging.Error($"Failed to enable receiving on device monitor: {errno}");
-                    return false;
-                }
-
-                using (monitor)
-                {
-                    // Get monitor file descriptor
-                    var fd = udev_monitor_get_fd(monitor);
-                    if (udev == null || udev.IsInvalid)
-                    {
-                        Logging.Error($"Failed to get device monitor file descriptor: {errno}");
-                        return false;
-                    }
-
-                    using (fd)
-                    {
-                        int errorCount = 0;
-                        const int errorThreshold = 5;
-                        while (!s_ThreadStop.WaitOne(1000))
-                        {
-                            // Check if any events are available
-                            int result = poll(POLLIN, 0, fd);
-                            if (result <= 0) // No events, or an error occured
-                            {
-                                if (result < 0) // Error
-                                {
-                                    errorCount++;
-                                    Logging.Error($"Error while polling for device monitor events: {errno}");
-                                    if (errorCount >= errorThreshold)
-                                    {
-                                        Logging.Error($"Error threshold reached, stopping udev monitoring");
-                                        return false;
-                                    }
-                                    continue;
-                                }
-                                errorCount = 0;
-                                continue;
-                            }
-                            errorCount = 0;
-
-                            // Get device to clear it from the event buffer
-                            var dev = udev_monitor_receive_device(monitor);
-                            if (dev == null || dev.IsInvalid)
-                            {
-                                Logging.Error($"Failed to get changed device: {errno}");
-                                continue;
-                            }
-
-                            using (dev)
-                            {
-                                // Re-enumerate devices from hidapi, as we need the info it gives
-                                EnumerateDevices();
-                            }
-                        }
-                    }
-                }
+            if (!s_ParseReportDescriptor(descriptorBytes, ref descriptor))
+            {
+                Logging.Error("Could not get descriptor for device!");
+                return false;
             }
+
+            // Ignore unsupported usages
+            HID.UsagePage usagePage = descriptor.usagePage;
+            int usage = descriptor.usage;
+            if (!HIDSupport.supportedHIDUsages.Any((u) => usagePage == u.page && usage == u.usage))
+            {
+                Logging.Verbose($"Device has unsupported usage {(int)descriptor.usagePage}:{descriptor.usage}, ignoring.");
+                return false;
+            }
+
+            // Fix up report sizes
+            // The parser doesn't actually set the report lengths unfortunately, we need to fix them up ourselves
+            FixupReportLengths(info, ref descriptor, out inputPrependCount);
+            if (descriptor.inputReportSize < 1)
+            {
+                Logging.Verbose("Device has no input report data, ignoring.");
+                return false;
+            }
+
+            // Check against safety limit
+            if (descriptor.inputReportSize > kMaxStateSize)
+            {
+                Logging.Warning("Device has an excessive amount of input data, ignoring for safety.");
+                return false;
+            }
+
+            // Version may need to be fixed up as well
+            ushort version = info.releaseBcd;
+            if (version == 0 && PlatformGetVersionNumber(info.path, out ushort fixedVersion))
+                version = fixedVersion;
+
+            // Create final description
+            description = new InputDeviceDescription()
+            {
+                interfaceName = InterfaceName,
+                manufacturer = info.manufacturerName,
+                product = info.productName,
+                serial = info.serialNumber,
+                version = version.ToString(),
+                capabilities = JsonUtility.ToJson(descriptor)
+            };
 
             return true;
         }
+
+        private static unsafe void FixupReportLengths(
+            in hid_device_info info,
+            ref HID.HIDDeviceDescriptor descriptor,
+            out int inputPrependCount)
+        {
+            inputPrependCount = 0;
+
+            int inputSizeBits = 0;
+            int outputSizeBits = 0;
+            int featureSizeBits = 0;
+#if HIDROGEN_FORCE_REPORT_IDS
+            // We also need to account for the case where there's no input report ID
+            // No elements are provided for the report ID itself, so if any have an offset
+            // less than 8 we know there's no report ID
+            int inputStartOffsetBits = 8;
 #endif
-
-        private static void UpdateDevices()
-        {
-            foreach (var device in s_DeviceLookup.Values)
+            foreach (var element in descriptor.elements)
             {
-                // Update device state
-                if (!device.UpdateState())
+                int offsetBits = element.reportOffsetInBits;
+                int sizeBits = element.reportOffsetInBits + element.reportSizeInBits;
+                switch (element.reportType)
                 {
-                    // Queue for removal
-                    Logging.Verbose($"Queuing device {device} (ID {device.deviceId}) for removal");
-                    s_RemovalQueue.Add(device);
-                    continue;
+                    case HID.HIDReportType.Input:
+                        if (inputSizeBits < sizeBits)
+                            inputSizeBits = sizeBits;
+#if HIDROGEN_FORCE_REPORT_IDS
+                        if (inputStartOffsetBits > offsetBits)
+                            inputStartOffsetBits = offsetBits;
+#endif
+                        break;
+
+                    case HID.HIDReportType.Output:
+                        if (outputSizeBits < sizeBits)
+                            outputSizeBits = sizeBits;
+                        break;
+
+                    case HID.HIDReportType.Feature:
+                        if (featureSizeBits < sizeBits)
+                            featureSizeBits = sizeBits;
+                        break;
                 }
             }
 
-            // Remove devices queued for removal from the main list
-            if (s_RemovalQueue.Count > 0)
+            // Turn bit size into byte size, ensuring sizes are normalized to byte boundaries
+            descriptor.inputReportSize = inputSizeBits.AlignToMultipleOf(8) / 8;
+            descriptor.outputReportSize = outputSizeBits.AlignToMultipleOf(8) / 8;
+            descriptor.featureReportSize = featureSizeBits.AlignToMultipleOf(8) / 8;
+
+#if HIDROGEN_FORCE_REPORT_IDS
+            // Fix up offsets and set prepend count, such that there always is a report ID byte
+            if (inputStartOffsetBits < 8)
             {
-                foreach (var device in s_RemovalQueue)
+                descriptor.inputReportSize += 1;
+                inputPrependCount = 1;
+                for (int i = 0; i < descriptor.elements.Length; i++)
                 {
-                    int deviceId = device.deviceId;
-                    s_DeviceLookup.TryRemove(deviceId, out _);
+                    var element = descriptor.elements[i];
+                    if (element.reportType != HID.HIDReportType.Input)
+                        continue;
+
+                    element.reportOffsetInBits += 8;
+                    descriptor.elements[i] = element;
                 }
             }
+#endif
         }
 
-        private static void HandleAdditionQueue()
+        public unsafe void QueueStateEvent(InputDevice device, void* stateBuffer, int stateLength)
+            => QueueStateEvent(device, InputFormat, stateBuffer, stateLength);
+
+        protected override unsafe long? OnDeviceCommand(HidApiDevice device, InputDeviceCommand* command)
         {
-            while (!s_AdditionQueue.IsEmpty)
-            {
-                if (s_AdditionQueue.TryTake(out var info) && !s_DeviceLookup.Values.Any((entry) => entry.path == info.path))
-                {
-                    AddDevice(info);
-                }
-            }
-        }
+            // TODO
+            // System commands
+            // if (command->type == EnableDeviceCommand.Type)
+            //     return Enable(command);
+            // if (command->type == DisableDeviceCommand.Type)
+            //     return Disable(command);
+            // if (command->type == QueryEnabledStateCommand.Type)
+            //     return IsEnabled(command);
+            // if (command->type == RequestSyncCommand.Type)
+            //     return SyncState(command);
+            // if (command->type == RequestResetCommand.Type)
+            //     return ResetState(command);
+            // if (command->type == QueryCanRunInBackground.Type)
+            //     return CanRunInBackground(command);
 
-        private static void HandleRemovalQueue()
-        {
-            foreach (var device in s_RemovalQueue)
-            {
-                // Ensure device was removed from the list
-                int deviceId = device.deviceId;
-                if (s_DeviceLookup.ContainsKey(deviceId))
-                    s_DeviceLookup.TryRemove(deviceId, out _);
+            // Reports
+            if (command->type == OutputFormat)
+                return device.SendOutput(command->payloadPtr, command->payloadSizeInBytes);
+            // These don't have any (documented, at least) format codes
+            // if (command->type == HidDefinitions.GetFeatureFormat)
+            //     return GetFeature(command->payloadPtr, command->payloadSizeInBytes);
+            // if (command->type == HidDefinitions.SetFeatureFormat)
+            //     return SetFeature(command->payloadPtr, command->payloadSizeInBytes);
 
-                device.Remove();
-            }
-            s_RemovalQueue.Clear();
-        }
+            // Descriptors
+            if (command->type == HID.QueryHIDReportDescriptorSizeDeviceCommandType)
+                return device.GetReportDescriptorSize();
+            if (command->type == HID.QueryHIDReportDescriptorDeviceCommandType)
+                return device.GetReportDescriptor(command->payloadPtr, command->payloadSizeInBytes);
+            if (command->type == HID.QueryHIDParsedReportDescriptorDeviceCommandType)
+                return device.GetParsedReportDescriptor(command->payloadPtr, command->payloadSizeInBytes);
 
-        private static void AddDevice(hid_device_info info)
-        {
-            Logging.Verbose($"Adding new device to input system. VID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
-            var device = HidApiDevice.TryCreate(info);
-            if (device == null || device.deviceId == InputDevice.InvalidDeviceId ||
-                !s_DeviceLookup.TryAdd(device.deviceId, device))
-                return;
-
-            if (s_ReadingThread == null || !s_ReadingThread.IsAlive)
-            {
-                s_ReadingThread = new Thread(ReadThread) { IsBackground = true };
-                s_ReadingThread.Start();
-            }
-        }
-
-        internal static unsafe void QueueEvent(InputEventPtr eventPtr)
-        {
-            lock (s_BufferLock)
-            {
-                s_InputBuffers[s_CurrentBuffer].AppendEvent(eventPtr);
-            }
-        }
-
-        private static void FlushEventBuffer()
-        {
-            SlimEventBuffer buffer;
-            lock (s_BufferLock)
-            {
-                buffer = s_InputBuffers[s_CurrentBuffer];
-                s_CurrentBuffer = (s_CurrentBuffer + 1) % s_InputBuffers.Length;
-            }
-
-            foreach (var eventPtr in buffer)
-            {
-                try
-                {
-                    InputSystem.QueueEvent(eventPtr);
-                }
-                catch (Exception ex)
-                {
-                    Logging.Error($"Error when flushing an event: {ex}");
-                }
-            }
-            buffer.Reset();
+            return null;
         }
     }
 }
