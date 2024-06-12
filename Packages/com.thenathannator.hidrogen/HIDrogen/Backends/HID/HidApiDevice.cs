@@ -67,13 +67,12 @@ namespace HIDrogen.Backend
         {
             if (disposing)
             {
-                // Close hidapi handle
-                m_Handle?.Close();
-                m_Handle = null;
-
                 m_ThreadStop.Set();
                 m_ReadThread?.Join();
                 m_ReadThread = null;
+
+                m_Handle?.Dispose();
+                m_Handle = null;
             }
         }
 
