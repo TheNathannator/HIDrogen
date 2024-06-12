@@ -50,6 +50,10 @@ namespace HIDrogen.Backend
 #if !HIDROGEN_KEEP_NATIVE_DEVICES
         private static void RemoveIfShimmed(InputDevice device)
         {
+            // This happens sometimes on domain reload for some reason
+            if (device == null)
+                return;
+
             if (device.description.interfaceName == kLinuxInterface) // || interfaceName != kSDLInterface) // Not ignored as Xbox devices are not handled by hidraw
             {
                 Logging.Verbose($"Removing device {device}");
