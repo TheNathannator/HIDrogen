@@ -16,7 +16,7 @@ namespace HIDrogen.Backend
             InputSystem.onDeviceChange += OnDeviceChange;
 
 #if !HIDROGEN_KEEP_NATIVE_DEVICES
-            HidApiBackend.LogVerbose("Removing devices from the 'Linux' interface");
+            Logging.Verbose("Removing devices from the 'Linux' interface");
             foreach (var device in InputSystem.devices)
                 RemoveIfShimmed(device);
 
@@ -25,11 +25,13 @@ namespace HIDrogen.Backend
 #endif
         }
 
+        internal static void Uninitialize()
+        {
+            InputSystem.onDeviceChange -= OnDeviceChange;
+        }
+
         private static void OnDeviceChange(InputDevice device, InputDeviceChange change)
         {
-            if (device.description.interfaceName == kLinuxInterface || device.description.interfaceName == HidApiDevice.InterfaceName)
-                HidApiBackend.LogVerbose($"Device change {change} on device {device}");
-
 #if !HIDROGEN_KEEP_NATIVE_DEVICES
             switch (change)
             {
@@ -50,7 +52,7 @@ namespace HIDrogen.Backend
         {
             if (device.description.interfaceName == kLinuxInterface) // || interfaceName != kSDLInterface) // Not ignored as Xbox devices are not handled by hidraw
             {
-                HidApiBackend.LogVerbose($"Removing device {device}");
+                Logging.Verbose($"Removing device {device}");
                 InputSystem.RemoveDevice(device);
                 // InputSystem.DisableDevice(device); // This causes a deadlock for an extended period, at least on my (lower-end) laptop
             }
