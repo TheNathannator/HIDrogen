@@ -24,7 +24,6 @@ namespace HIDrogen
         // Queue for devices; they must be managed on the main thread
         private readonly ConcurrentBag<(InputDeviceDescription description, object context)> m_AdditionQueue
             = new ConcurrentBag<(InputDeviceDescription, object)>();
-        private readonly ConcurrentBag<InputDevice> m_RemovalQueue = new ConcurrentBag<InputDevice>();
 
         // We use a custom buffering implementation because the built-in implementation is
         // not friendly to managed threads, despite what the docs for InputSystem.QueueEvent/QueueStateEvent
@@ -40,6 +39,7 @@ namespace HIDrogen
             }
 
             InputSystem.onBeforeUpdate += Update;
+            InputSystem.onDeviceChange += OnDeviceChange;
             InputSystem.onDeviceCommand += DeviceCommand;
         }
 
@@ -54,6 +54,7 @@ namespace HIDrogen
             OnDispose();
 
             InputSystem.onBeforeUpdate -= Update;
+            InputSystem.onDeviceChange -= OnDeviceChange;
             InputSystem.onDeviceCommand -= DeviceCommand;
 
             foreach (var buffer in m_InputBuffers)
@@ -81,12 +82,6 @@ namespace HIDrogen
                     AddDevice(context.description, context.context);
             }
 
-            while (!m_RemovalQueue.IsEmpty)
-            {
-                if (m_RemovalQueue.TryTake(out var device))
-                    RemoveDevice(device);
-            }
-
             OnUpdate();
             FlushEventBuffer();
         }
@@ -95,7 +90,22 @@ namespace HIDrogen
             => m_AdditionQueue.Add((description, context));
 
         protected void QueueDeviceRemove(InputDevice device)
-            => m_RemovalQueue.Add(device);
+        {
+            var removeEvent = DeviceRemoveEvent.Create(device.deviceId);
+            QueueEvent(ref removeEvent);
+        }
+
+        private void OnDeviceChange(InputDevice device, InputDeviceChange change)
+        {
+            if (change == InputDeviceChange.Removed)
+            {
+                if (!m_DeviceLookup.TryGetValue(device, out var backendDevice))
+                    return;
+
+                OnDeviceRemoved(backendDevice);
+                m_DeviceLookup.Remove(device);
+            }
+        }
 
         private void AddDevice(InputDeviceDescription description, object context)
         {
@@ -127,18 +137,6 @@ namespace HIDrogen
                 Logging.Exception("Error in device added callback!", ex);
                 return;
             }
-        }
-
-        protected void RemoveDevice(InputDevice device)
-        {
-            if (!m_DeviceLookup.TryGetValue(device, out var backendDevice))
-                return;
-
-            OnDeviceRemoved(backendDevice);
-
-            m_DeviceLookup.Remove(device);
-            var removeEvent = DeviceRemoveEvent.Create(device.deviceId);
-            QueueEvent(ref removeEvent);
         }
 
         private void FlushEventBuffer()
