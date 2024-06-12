@@ -287,9 +287,6 @@ namespace HIDrogen.Backend
 #endif
         }
 
-        public unsafe void QueueStateEvent(InputDevice device, void* stateBuffer, int stateLength)
-            => QueueStateEvent(device, InputFormat, stateBuffer, stateLength);
-
         protected override unsafe long? OnDeviceCommand(HidApiDevice device, InputDeviceCommand* command)
         {
             // TODO

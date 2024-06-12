@@ -162,7 +162,7 @@ namespace HIDrogen
             buffer.Reset();
         }
 
-        protected unsafe void QueueEvent(InputEventPtr eventPtr)
+        public unsafe void QueueEvent(InputEventPtr eventPtr)
         {
             lock (m_InputBuffers)
             {
@@ -170,19 +170,19 @@ namespace HIDrogen
             }
         }
 
-        protected unsafe void QueueEvent<TEvent>(ref TEvent inputEvent)
+        public unsafe void QueueEvent<TEvent>(ref TEvent inputEvent)
             where TEvent : struct, IInputEventTypeInfo
         {
             QueueEvent((InputEvent*)UnsafeUtility.AddressOf(ref inputEvent));
         }
 
-        protected unsafe void QueueStateEvent<TState>(InputDevice device, TState state)
+        public unsafe void QueueStateEvent<TState>(InputDevice device, TState state)
             where TState : unmanaged, IInputStateTypeInfo
         {
             QueueStateEvent(device, state.format, &state, sizeof(TState));
         }
 
-        protected unsafe void QueueStateEvent(InputDevice device, FourCC format, byte[] stateBuffer)
+        public unsafe void QueueStateEvent(InputDevice device, FourCC format, byte[] stateBuffer)
         {
             fixed (byte* ptr = stateBuffer)
             {
@@ -191,7 +191,7 @@ namespace HIDrogen
         }
 
         // Based on InputSystem.QueueStateEvent<T>
-        protected unsafe void QueueStateEvent(InputDevice device, FourCC format, void* stateBuffer, int stateLength)
+        public unsafe void QueueStateEvent(InputDevice device, FourCC format, void* stateBuffer, int stateLength)
         {
             if (stateBuffer == null || stateLength < 1 || stateLength > kMaxStateSize)
                 return;

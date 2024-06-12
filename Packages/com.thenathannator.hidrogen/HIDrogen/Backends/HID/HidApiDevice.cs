@@ -114,7 +114,7 @@ namespace HIDrogen.Backend
                 errorCount = 0;
 
                 if (result > 0)
-                    m_Backend.QueueStateEvent(m_Device, readBuffer, readSize);
+                    m_Backend.QueueStateEvent(m_Device, HidApiBackend.InputFormat, readBuffer, readSize);
             }
 
             m_Backend.QueueDeviceRemove(m_Device);
