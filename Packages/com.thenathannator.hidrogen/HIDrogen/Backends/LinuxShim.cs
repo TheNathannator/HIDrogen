@@ -1,5 +1,9 @@
 #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+using System;
+using System.Reflection;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Layouts;
+using UnityEngine.InputSystem.LowLevel;
 
 namespace HIDrogen.Backend
 {
@@ -11,43 +15,55 @@ namespace HIDrogen.Backend
         private const string kLinuxInterface = "Linux";
         // private const string kSDLInterface = "SDL";
 
+        private static readonly InputDeviceFindControlLayoutDelegate s_SdlLayoutFinder =
+            (InputDeviceFindControlLayoutDelegate) Assembly.GetAssembly(typeof(InputSystem))
+                .GetType("UnityEngine.InputSystem.Linux.SDLLayoutBuilder")
+                .GetMethod("OnFindLayoutForDevice",
+                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
+                    null,
+                    new Type[] { typeof(InputDeviceDescription).MakeByRefType(), typeof(string), typeof(InputDeviceExecuteCommandDelegate) },
+                    null)
+                .CreateDelegate(typeof(InputDeviceFindControlLayoutDelegate));
+
         internal static void Initialize()
         {
-            InputSystem.onDeviceChange += OnDeviceChange;
+            // Delay to first input system update
+            InputSystem.onBeforeUpdate += OnUpdate;
+        }
 
-#if !HIDROGEN_KEEP_NATIVE_DEVICES
-            Logging.Verbose("Removing devices from the 'Linux' interface");
+        internal static void Uninitialize()
+        {
+            InputSystem.onBeforeUpdate -= OnUpdate;
+            InputSystem.onFindLayoutForDevice -= OnFindLayoutForDevice;
+        }
+
+        private static void OnUpdate()
+        {
+            InputSystem.onBeforeUpdate -= OnUpdate;
+
+            // Remove SDL layout finder from layout find callbacks
+            InputSystem.onFindLayoutForDevice -= s_SdlLayoutFinder;
+            InputSystem.onFindLayoutForDevice += OnFindLayoutForDevice;
+
+            // Remove shimmed devices
             foreach (var device in InputSystem.devices)
                 RemoveIfShimmed(device);
 
             foreach (var device in InputSystem.disconnectedDevices)
                 RemoveIfShimmed(device);
-#endif
         }
 
-        internal static void Uninitialize()
+        private static string OnFindLayoutForDevice(ref InputDeviceDescription description, string matchedLayout,
+            InputDeviceExecuteCommandDelegate executeCommandDelegate)
         {
-            InputSystem.onDeviceChange -= OnDeviceChange;
+            if (description.interfaceName != kLinuxInterface)
+                return null;
+
+            // TODO: This does work, but it causes an exception internally
+            // Unsure if this'll affect things adversely; also causes log noise
+            return "Unsupported";
         }
 
-        private static void OnDeviceChange(InputDevice device, InputDeviceChange change)
-        {
-#if !HIDROGEN_KEEP_NATIVE_DEVICES
-            switch (change)
-            {
-                case InputDeviceChange.Added:
-                case InputDeviceChange.Reconnected:
-                case InputDeviceChange.HardReset: // Occurs on domain reload
-                    RemoveIfShimmed(device);
-                    break;
-
-                default:
-                    break;
-            }
-#endif
-        }
-
-#if !HIDROGEN_KEEP_NATIVE_DEVICES
         private static void RemoveIfShimmed(InputDevice device)
         {
             // This happens sometimes on domain reload for some reason
@@ -58,10 +74,8 @@ namespace HIDrogen.Backend
             {
                 Logging.Verbose($"Removing device {device}");
                 InputSystem.RemoveDevice(device);
-                // InputSystem.DisableDevice(device); // This causes a deadlock for an extended period, at least on my (lower-end) laptop
             }
         }
-#endif
     }
 }
 #endif
