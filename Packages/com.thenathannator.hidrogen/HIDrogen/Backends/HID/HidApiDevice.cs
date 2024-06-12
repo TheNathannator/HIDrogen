@@ -1,36 +1,27 @@
 using System;
-using System.Linq;
-using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using HIDrogen.Imports;
-using HIDrogen.Utilities;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.HID;
-using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
-using UnityEngine.InputSystem.Utilities;
 
 namespace HIDrogen.Backend
 {
     using static HidApi;
-#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
-    using static Libc;
-#endif
 
     /// <summary>
     /// An hidapi device.
     /// </summary>
     internal class HidApiDevice : IDisposable
     {
-        private HidApiBackend m_Backend;
+        private readonly HidApiBackend m_Backend;
 
         private hid_device m_Handle;
-        private InputDevice m_Device;
-        private HID.HIDDeviceDescriptor m_Descriptor;
+        private readonly InputDevice m_Device;
+        private readonly HID.HIDDeviceDescriptor m_Descriptor;
 
         private readonly int m_PrependCount; // Number of bytes to prepend to the queued input buffer
 
@@ -100,38 +91,34 @@ namespace HIDrogen.Backend
             {
                 // Get current state
                 int result = hid_read_timeout(m_Handle, readBuffer + readOffset, readSize, 500);
-                if (result <= 0)
+                if (result < 0)
                 {
-                    if (result == 0) // No reports available
-                    {
-                        errorCount = 0;
-                    }
-                    else if (result < 0) // Error
-                    {
 #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
-                        if (errno == Errno.ENOENT) // Device has been disconnected
-                            break;
+                    if (Libc.errno == Errno.ENOENT) // Device has been disconnected
+                        break;
 #endif
 
-                        errorCount++;
-                        if (errorCount >= retryThreshold)
-                        {
-                            Logging.InteropError($"hid_read error: {hid_error(m_Handle)}");
-                            break;
-                        }
-#if HIDROGEN_VERBOSE_LOGGING
-                        else
-                        {
-                            Logging.InteropError($"hid_read error (attempt {errorCount}): {hid_error(m_Handle)}");
-                        }
-#endif
+                    errorCount++;
+                    if (errorCount >= retryThreshold)
+                    {
+                        Logging.InteropError($"hid_read error: {hid_error(m_Handle)}");
+                        break;
                     }
+#if HIDROGEN_VERBOSE_LOGGING
+                    else
+                    {
+                        Logging.InteropError($"hid_read error (attempt {errorCount}): {hid_error(m_Handle)}");
+                    }
+#endif
                     continue;
                 }
                 errorCount = 0;
 
-                m_Backend.QueueStateEvent(m_Device, readBuffer, readSize);
+                if (result > 0)
+                    m_Backend.QueueStateEvent(m_Device, readBuffer, readSize);
             }
+
+            m_Backend.QueueDeviceRemove(m_Device);
         }
 
         public unsafe long SendOutput(void* buffer, int bufferSize)

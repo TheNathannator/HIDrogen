@@ -86,10 +86,10 @@ namespace HIDrogen
             FlushEventBuffer();
         }
 
-        protected void QueueDeviceAdd(InputDeviceDescription description, object context)
+        public void QueueDeviceAdd(InputDeviceDescription description, object context)
             => m_AdditionQueue.Add((description, context));
 
-        protected void QueueDeviceRemove(InputDevice device)
+        public void QueueDeviceRemove(InputDevice device)
         {
             var removeEvent = DeviceRemoveEvent.Create(device.deviceId);
             QueueEvent(ref removeEvent);
