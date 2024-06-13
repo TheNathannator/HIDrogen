@@ -95,7 +95,7 @@ namespace HIDrogen.Backend
             if ((currentStatus & GameInputDeviceStatus.Connected) != 0)
             {
                 var description = MakeDescription(permaDevice, info);
-                QueueDeviceAdd(description, permaDevice);
+                QueueDeviceAdd(description, permaDevice.Duplicate());
             }
             else
             {
@@ -128,7 +128,7 @@ namespace HIDrogen.Backend
             return description;
         }
 
-        protected override GameInputBackendDevice OnDeviceAdded(InputDevice device, object _context)
+        protected override GameInputBackendDevice OnDeviceAdded(InputDevice device, IDisposable _context)
         {
             var gipDevice = (IGameInputDevice)_context;
 

@@ -22,8 +22,8 @@ namespace HIDrogen
             = new Dictionary<InputDevice, TBackendDevice>();
 
         // Queue for devices; they must be managed on the main thread
-        private readonly ConcurrentBag<(InputDeviceDescription description, object context)> m_AdditionQueue
-            = new ConcurrentBag<(InputDeviceDescription, object)>();
+        private readonly ConcurrentBag<(InputDeviceDescription description, IDisposable context)> m_AdditionQueue
+            = new ConcurrentBag<(InputDeviceDescription, IDisposable)>();
 
         // We use a custom buffering implementation because the built-in implementation is
         // not friendly to managed threads, despite what the docs for InputSystem.QueueEvent/QueueStateEvent
@@ -69,7 +69,7 @@ namespace HIDrogen
 
         protected virtual void OnUpdate() { }
 
-        protected abstract TBackendDevice OnDeviceAdded(InputDevice device, object context);
+        protected abstract TBackendDevice OnDeviceAdded(InputDevice device, IDisposable context);
         protected abstract void OnDeviceRemoved(TBackendDevice device);
 
         protected virtual unsafe long? OnDeviceCommand(TBackendDevice device, InputDeviceCommand* command) => null;
@@ -86,7 +86,7 @@ namespace HIDrogen
             FlushEventBuffer();
         }
 
-        public void QueueDeviceAdd(InputDeviceDescription description, object context)
+        public void QueueDeviceAdd(InputDeviceDescription description, IDisposable context)
             => m_AdditionQueue.Add((description, context));
 
         public void QueueDeviceRemove(InputDevice device)
@@ -107,35 +107,38 @@ namespace HIDrogen
             }
         }
 
-        private void AddDevice(InputDeviceDescription description, object context)
+        private void AddDevice(InputDeviceDescription description, IDisposable context)
         {
-            // The input system will throw if a device layout can't be found
-            InputDevice device;
-            try
+            using (context)
             {
-                device = InputSystem.AddDevice(description);
-            }
-            catch (ArgumentException)
-            {
-                // Ignore layout-not-found exception
-                return;
-            }
-            catch (Exception ex)
-            {
-                Logging.Exception("Failed to add device to the input system!", ex);
-                return;
-            }
+                // The input system will throw if a device layout can't be found
+                InputDevice device;
+                try
+                {
+                    device = InputSystem.AddDevice(description);
+                }
+                catch (ArgumentException)
+                {
+                    // Ignore layout-not-found exception
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    Logging.Exception("Failed to add device to the input system!", ex);
+                    return;
+                }
 
-            try
-            {
-                var backendDevice = OnDeviceAdded(device, context);
-                m_DeviceLookup.Add(device, backendDevice);
-            }
-            catch (Exception ex)
-            {
-                InputSystem.RemoveDevice(device);
-                Logging.Exception("Error in device added callback!", ex);
-                return;
+                try
+                {
+                    var backendDevice = OnDeviceAdded(device, context);
+                    m_DeviceLookup.Add(device, backendDevice);
+                }
+                catch (Exception ex)
+                {
+                    InputSystem.RemoveDevice(device);
+                    Logging.Exception("Error in device added callback!", ex);
+                    return;
+                }
             }
         }
 

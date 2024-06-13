@@ -21,11 +21,13 @@ namespace HIDrogen.Backend
     /// </summary>
     internal partial class HidApiBackend : CustomInputBackend<HidApiDevice>
     {
-        private class DeviceAddContext
+        private class DeviceAddContext : IDisposable
         {
             public string path;
             public int inputPrependCount;
             public HID.HIDDeviceDescriptor descriptor;
+
+            public void Dispose() {}
         }
 
         public const string InterfaceName = "HID";
@@ -125,7 +127,7 @@ namespace HIDrogen.Backend
             }
         }
 
-        protected override HidApiDevice OnDeviceAdded(InputDevice device, object _context)
+        protected override HidApiDevice OnDeviceAdded(InputDevice device, IDisposable _context)
         {
             var context = (DeviceAddContext)_context;
 
