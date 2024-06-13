@@ -5,7 +5,8 @@
     ],
     "includePlatforms": [
         "Editor",
-        "LinuxStandalone64"
+        "LinuxStandalone64",
+        "WindowsStandalone64"
     ],
     "excludePlatforms": [],
     "allowUnsafeCode": true,
