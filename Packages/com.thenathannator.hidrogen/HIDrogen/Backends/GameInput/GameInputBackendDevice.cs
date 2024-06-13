@@ -139,11 +139,13 @@ namespace HIDrogen.Backend
             try
             {
                 byte reportId = (byte)rawReport.ReportInfo.id;
-                UIntPtr size = rawReport.GetRawDataSize();
+                UIntPtr reportSize = rawReport.GetRawDataSize();
+                UIntPtr bufferSize = reportSize + 1;
 
-                byte* buffer = stackalloc byte[(int)size];
-                UIntPtr readSize = rawReport.GetRawData(size, buffer);
-                Debug.Assert(size == readSize);
+                byte* buffer = stackalloc byte[(int)bufferSize];
+                buffer[0] = reportId;
+                UIntPtr readSize = rawReport.GetRawData(reportSize, buffer + 1);
+                Debug.Assert(readSize == reportSize);
 
                 m_Backend.QueueStateEvent(device, GameInputDefinitions.InputFormat, buffer, (int)size);
             }
