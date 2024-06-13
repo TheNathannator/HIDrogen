@@ -4,6 +4,7 @@ using System.Threading;
 using SharpGameInput;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
 
 namespace HIDrogen.Backend
 {
@@ -147,7 +148,7 @@ namespace HIDrogen.Backend
                 UIntPtr readSize = rawReport.GetRawData(reportSize, buffer + 1);
                 Debug.Assert(readSize == reportSize);
 
-                m_Backend.QueueStateEvent(device, GameInputDefinitions.InputFormat, buffer, (int)size);
+                m_Backend.QueueStateEvent(device, GameInputBackend.InputFormat, buffer, (int)bufferSize);
             }
             finally
             {
@@ -157,10 +158,10 @@ namespace HIDrogen.Backend
             return true;
         }
 
-        public unsafe GameInputCommandResult SendMessage(void* _buffer, int bufferLength)
+        public unsafe long SendMessage(void* _buffer, int bufferLength)
         {
             if (_buffer == null || bufferLength < 1)
-                return GameInputCommandResult.ArgumentError;
+                return InputDeviceCommand.GenericFailure;
 
             byte* buffer = (byte*)_buffer;
             byte reportId = *buffer++;
@@ -170,10 +171,10 @@ namespace HIDrogen.Backend
             if (hResult < 0)
             {
                 if (hResult == (int)GameInputResult.DeviceDisconnected)
-                    return GameInputCommandResult.Disconnected;
+                    return InputDeviceCommand.GenericFailure;
 
                 Logging.Error($"Failed to create raw report: 0x{hResult:X8}");
-                return GameInputCommandResult.Failure;
+                return InputDeviceCommand.GenericFailure;
             }
 
             // Unfolded `using (report)` statement due to C# 7.3 limitations
@@ -182,7 +183,7 @@ namespace HIDrogen.Backend
                 if (!report.SetRawData((UIntPtr)bufferLength, buffer))
                 {
                     Logging.Error("Failed to set raw report data!");
-                    return GameInputCommandResult.Failure;
+                    return InputDeviceCommand.GenericFailure;
                 }
 
                 hResult = m_GipDevice.SendRawDeviceOutput(report);
@@ -191,16 +192,16 @@ namespace HIDrogen.Backend
                     // This call is not implemented as of the time of writing,
                     // ignore and treat as success
                     if (hResult == E_NOTIMPL)
-                        return GameInputCommandResult.Success;
+                        return InputDeviceCommand.GenericSuccess;
 
                     if (hResult == (int)GameInputResult.DeviceDisconnected)
-                        return GameInputCommandResult.Disconnected;
+                        return InputDeviceCommand.GenericFailure;
 
                     Logging.Error($"Failed to send raw report: 0x{hResult:X8}");
-                    return GameInputCommandResult.Failure;
+                    return InputDeviceCommand.GenericFailure;
                 }
 
-                return GameInputCommandResult.Success;
+                return InputDeviceCommand.GenericSuccess;
             }
             finally
             {

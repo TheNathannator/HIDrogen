@@ -6,11 +6,16 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
+using UnityEngine.InputSystem.Utilities;
 
 namespace HIDrogen.Backend
 {
     internal partial class GameInputBackend : CustomInputBackend<GameInputBackendDevice>
     {
+        public const string InterfaceName = "GameInput";
+        public static readonly FourCC InputFormat = new FourCC('G', 'I', 'P');
+        public static readonly FourCC OutputFormat = new FourCC('G', 'I', 'P', 'O');
+
         private IGameInput m_GameInput;
 
         private readonly ConcurrentDictionary<IGameInputDevice, GameInputBackendDevice> m_DevicesByInstance
@@ -116,7 +121,7 @@ namespace HIDrogen.Backend
 
             var description = new InputDeviceDescription()
             {
-                interfaceName = GameInputDefinitions.InterfaceName,
+                interfaceName = InterfaceName,
                 serial = info.deviceId.ToString(),
                 version = info.revisionNumber.ToString(),
                 capabilities = JsonUtility.ToJson(capabilities)
@@ -161,7 +166,7 @@ namespace HIDrogen.Backend
             //     return CanRunInBackground(command);
 
             // Reports
-            if (command->type == GameInputDefinitions.OutputFormat)
+            if (command->type == OutputFormat)
                 return (long)device.SendMessage(command->payloadPtr, command->payloadSizeInBytes);
 
             return null;
