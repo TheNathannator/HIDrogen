@@ -92,16 +92,14 @@ namespace HIDrogen.Backend
             // Try using platform monitoring first
             int errorCount = 0;
             const int errorThreshold = 3;
-            while (errorCount < errorThreshold && !m_ThreadStop.WaitOne(5000))
+            while (errorCount < errorThreshold && !m_ThreadStop.WaitOne(1000))
             {
                 if (!PlatformMonitor())
-                {
                     errorCount++;
-                    Logging.Error($"Device monitoring failed! {(errorCount < errorThreshold ? "Trying again" : "Falling back to periodic re-enumeration of hidapi")}");
-                }
             }
 
             // Fall back to just periodically enumerating hidapi
+            Logging.Warning("Falling back to periodic re-enumeration of hidapi");
             while (!m_ThreadStop.WaitOne(2000))
             {
                 EnumerateDevices();
