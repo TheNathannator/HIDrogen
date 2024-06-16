@@ -85,7 +85,7 @@ namespace HIDrogen.Backend
             ref readonly var info = ref device.DeviceInfo;
 
             // We only cover Xbox One devices
-            if (info.deviceFamily != GameInputDeviceFamily.XboxOne)
+            if (info.deviceFamily != GameInputDeviceFamily.XboxOne && info.deviceFamily != GameInputDeviceFamily.Virtual)
                 return;
 
             // We only support devices with raw reports
