@@ -1,28 +1,25 @@
 using System;
 using UnityEditor;
+
+#if !UNITY_EDITOR
 using UnityEngine;
+#endif
 
 namespace HIDrogen
 {
     /// <summary>
     /// Handles initialization of the package.
     /// </summary>
-#if UNITY_EDITOR
-    [InitializeOnLoad]
-#endif
     internal static partial class Initialization
     {
-#if UNITY_EDITOR
-        static Initialization()
-        {
-            Initialize();
-        }
-#endif
-
         /// <summary>
         /// Initializes everything.
         /// </summary>
+#if UNITY_EDITOR
+        [InitializeOnLoadMethod]
+#else
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+#endif
         internal static void Initialize()
         {
 #if UNITY_EDITOR
