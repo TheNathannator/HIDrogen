@@ -57,5 +57,8 @@ namespace HIDrogen
                 Logging.Exception("Failed to uninitialize backends", ex);
             }
         }
+
+        static partial void PlatformInitialize();
+        static partial void PlatformUninitialize();
     }
 }

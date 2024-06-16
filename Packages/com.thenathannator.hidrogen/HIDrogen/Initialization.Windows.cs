@@ -7,12 +7,13 @@ namespace HIDrogen
     {
         private static GameInputBackend s_GameInputBackend;
 
-        private static void PlatformInitialize()
+        static partial void PlatformInitialize()
         {
             s_GameInputBackend = new GameInputBackend();
         }
 
-        private static void PlatformUninitialize()
+
+        static partial void PlatformUninitialize()
         {
             s_GameInputBackend?.Dispose();
         }

@@ -7,13 +7,13 @@ namespace HIDrogen
     {
         private static HidApiBackend s_HidApiBackend;
 
-        private static void PlatformInitialize()
+        static partial void PlatformInitialize()
         {
             s_HidApiBackend = new HidApiBackend();
             LinuxShim.Initialize();
         }
 
-        private static void PlatformUninitialize()
+        static partial void PlatformUninitialize()
         {
             s_HidApiBackend?.Dispose();
             LinuxShim.Uninitialize();
