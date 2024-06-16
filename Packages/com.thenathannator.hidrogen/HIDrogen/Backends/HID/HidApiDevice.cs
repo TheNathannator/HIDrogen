@@ -149,7 +149,7 @@ namespace HIDrogen.Backend
 
         public unsafe long GetReportDescriptorSize()
         {
-            if (!HidApiBackend.PlatformGetDescriptorSize(path, out int size))
+            if (!m_Backend.PlatformGetDescriptorSize(path, out int size))
                 return InputDeviceCommand.GenericFailure;
 
             // Expected return is the size of the descriptor
@@ -158,7 +158,7 @@ namespace HIDrogen.Backend
 
         public unsafe long GetReportDescriptor(void* buffer, int bufferSize)
         {
-            if (!HidApiBackend.PlatformGetDescriptor(path, buffer, bufferSize, out int bytesWritten))
+            if (!m_Backend.PlatformGetDescriptor(path, buffer, bufferSize, out int bytesWritten))
                 return InputDeviceCommand.GenericFailure;
 
             // Expected return is the size of the descriptor

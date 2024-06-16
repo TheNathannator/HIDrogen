@@ -1,5 +1,6 @@
 #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
 using System;
+using System.Globalization;
 using HIDrogen.Imports;
 using Unity.Collections.LowLevel.Unsafe;
 
@@ -13,7 +14,7 @@ namespace HIDrogen.Backend
     {
         private udev m_Udev;
 
-        private void PlatformInitialize()
+        partial void PlatformInitialize()
         {
             // Initialize udev
             m_Udev = udev_new();
@@ -24,20 +25,21 @@ namespace HIDrogen.Backend
             }
         }
 
-        private void PlatformDispose()
+        partial void PlatformDispose()
         {
             m_Udev.Dispose();
         }
 
         // Returns false if falling back to hidapi polling is necessary, returns true on exit
-        private bool PlatformMonitor()
+        partial void PlatformMonitor(ref bool success)
         {
             // Set up device monitor
             var monitor = udev_monitor_new_from_netlink(m_Udev, "udev");
             if (monitor == null || monitor.IsInvalid)
             {
                 Logging.InteropError("Failed to initialize device monitor");
-                return false;
+                success = false;
+                return;
             }
 
             using (monitor)
@@ -46,14 +48,16 @@ namespace HIDrogen.Backend
                 if (udev_monitor_filter_add_match_subsystem_devtype(monitor, "hidraw", null) < 0)
                 {
                     Logging.InteropError("Failed to add filter to device monitor");
-                    return false;
+                    success = false;
+                    return;
                 }
 
                 // Enable monitor
                 if (udev_monitor_enable_receiving(monitor) < 0)
                 {
                     Logging.InteropError("Failed to enable receiving on device monitor");
-                    return false;
+                    success = false;
+                    return;
                 }
 
                 // Get monitor file descriptor
@@ -61,7 +65,8 @@ namespace HIDrogen.Backend
                 if (fd == null || fd.IsInvalid)
                 {
                     Logging.InteropError("Failed to get device monitor file descriptor");
-                    return false;
+                    success = false;
+                    return;
                 }
 
                 using (fd)
@@ -72,23 +77,22 @@ namespace HIDrogen.Backend
                     {
                         // Check if any events are available
                         int result = poll(POLLIN, 0, fd);
-                        if (result <= 0) // No events, or an error occured
+                        if (result < 0) // Error
                         {
-                            if (result < 0) // Error
+                            errorCount++;
+                            Logging.InteropError("Error while polling for device monitor events");
+                            if (errorCount >= errorThreshold)
                             {
-                                errorCount++;
-                                Logging.InteropError("Error while polling for device monitor events");
-                                if (errorCount >= errorThreshold)
-                                {
-                                    Logging.Error($"Error threshold reached, stopping udev monitoring");
-                                    return false;
-                                }
-                                continue;
+                                Logging.Error($"Error threshold reached, stopping udev monitoring");
+                                success = false;
+                                return;
                             }
-                            errorCount = 0;
                             continue;
                         }
+
                         errorCount = 0;
+                        if (result == 0) // No events
+                            continue;
 
                         // Get device to clear it from the event buffer
                         var dev = udev_monitor_receive_device(monitor);
@@ -107,7 +111,7 @@ namespace HIDrogen.Backend
                 }
             }
 
-            return true;
+            success = true;
         }
 
         private static bool PlatformOpenHandle(string path, out fd fd)
@@ -116,49 +120,57 @@ namespace HIDrogen.Backend
             return fd != null && !fd.IsInvalid;
         }
 
-        internal static unsafe bool PlatformGetDescriptor(string path, out byte[] descriptor)
+        partial void PlatformGetDescriptor(string path, ref byte[] descriptor, ref bool success)
         {
-            descriptor = null;
             if (!PlatformOpenHandle(path, out var fd))
-                return false;
+            {
+                success = false;
+                return;
+            }
 
             using (fd)
             {
                 if (!PlatformGetDescriptorSize(fd, out int descriptorSize))
-                    return false;
+                {
+                    success = false;
+                    return;
+                }
 
                 descriptor = new byte[descriptorSize];
-                fixed (byte* ptr = descriptor)
+                unsafe
                 {
-                    return PlatformGetDescriptor(fd, ptr, descriptor.Length, out _);
+                    fixed (byte* ptr = descriptor)
+                        success = PlatformGetDescriptor(fd, ptr, descriptor.Length, out _);
                 }
             }
         }
 
-        internal static unsafe bool PlatformGetDescriptor(string path, void* buffer, int bufferLength, out int bytesWritten)
+        unsafe partial void PlatformGetDescriptor(string path, void* buffer, int bufferLength,
+            ref int bytesWritten, ref bool success)
         {
-            bytesWritten = 0;
-            if (buffer == null)
-                return false;
-
             if (!PlatformOpenHandle(path, out var fd))
-                return false;
+            {
+                success = false;
+                return;
+            }
 
             using (fd)
             {
-                return PlatformGetDescriptor(fd, buffer, bufferLength, out bytesWritten);
+                success = PlatformGetDescriptor(fd, buffer, bufferLength, out bytesWritten);
             }
         }
 
-        internal static unsafe bool PlatformGetDescriptorSize(string path, out int size)
+        partial void PlatformGetDescriptorSize(string path, ref int size, ref bool success)
         {
-            size = default;
             if (!PlatformOpenHandle(path, out var fd))
-                return false;
+            {
+                success = false;
+                return;
+            }
 
             using (fd)
             {
-                return PlatformGetDescriptorSize(fd, out size);
+                success = PlatformGetDescriptorSize(fd, out size);
             }
         }
 
@@ -190,7 +202,7 @@ namespace HIDrogen.Backend
             return true;
         }
 
-        private bool PlatformGetVersionNumber(string path, out ushort version)
+        partial void PlatformGetVersionNumber(string path, ref ushort version, ref bool success)
         {
             version = default;
 
@@ -199,14 +211,16 @@ namespace HIDrogen.Backend
             if (statx(0, path, 0, 0, out var pathStats) < 0)
             {
                 Logging.InteropError("Error getting device type info");
-                return false;
+                success = false;
+                return;
             }
 
             var hidrawDevice = udev_device_new_from_devnum(m_Udev, pathStats.DeviceType, pathStats.DeviceNumber);
             if (hidrawDevice == null || hidrawDevice.IsInvalid)
             {
                 Logging.InteropError("Failed to get hidraw device instance");
-                return false;
+                success = false;
+                return;
             }
 
             // Grab the root parent hid device that both the hidraw and input devices share
@@ -214,7 +228,8 @@ namespace HIDrogen.Backend
             if (hidDevice == null || hidDevice.IsInvalid)
             {
                 Logging.InteropError("Failed to get HID device instance");
-                return false;
+                success = false;
+                return;
             }
 
             using (hidDevice)
@@ -224,7 +239,8 @@ namespace HIDrogen.Backend
                 if (enumerate == null || enumerate.IsInvalid)
                 {
                     Logging.InteropError("Failed to make udev enumeration");
-                    return false;
+                    success = false;
+                    return;
                 }
 
                 using (enumerate)
@@ -235,7 +251,8 @@ namespace HIDrogen.Backend
                         udev_enumerate_scan_devices(enumerate) < 0)
                     {
                         Logging.InteropError("Failed to scan udev devices");
-                        return false;
+                        success = false;
+                        return;
                     }
 
                     // Get the first device found
@@ -248,15 +265,15 @@ namespace HIDrogen.Backend
                         inputDevice.IsInvalid)
                     {
                         Logging.InteropError("Failed to get input device instance");
-                        return false;
+                        success = false;
+                        return;
                     }
 
                     // Grab the version number from the found device
                     using (inputDevice)
                     {
                         string versionStr = udev_device_get_sysattr_value(inputDevice, "id/version");
-                        version = Convert.ToUInt16(versionStr, 16);
-                        return true;
+                        success = ushort.TryParse(versionStr, NumberStyles.HexNumber, null, out version);
                     }
                 }
             }
