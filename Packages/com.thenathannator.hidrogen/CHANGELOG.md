@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Dates are relative to UTC.
 
+## Unreleased
+
+### Added
+
+- A new backend has been added for the GameInput API on Windows. This backend allows creating custom layouts and receiving/sending raw inputs/outputs for Xbox One devices.
+  - To note: as of the time of writing, the GameInput function that is responsible for sending raw output reports is not currently implemented. All output commands will silently fail until it gets implemented on their end. (Only the `E_NOTIMPL` HRESULT is treated as success, all others will be logged and generate a proper failure code.)
+  - Gamepads reported through GameInput are ignored, no duplicate devices will occur between GameInput and XInput, for example.
+
+### Changes
+
+- Some memory allocations that occur in the core backend update loop have been eliminated. All memory allocations that come from HIDrogen should now only happen during device connection/disconnection.
+- Shimming of the native input system's devices on Linux has been changed so that no `InputDevice` instances will be created for them whatsoever.
+  - Before, the device instance would exist for at least one frame before getting removed by the shim.
+  - As a side-effect, this unfortunately causes an exception to be thrown/logged internally in the input system. I haven't evaluated whether or not this causes problems, but it *should* be fine, as the exception is also caught internally.
+
+### Fixed
+
+- A workaround has been implemented to retrieve the version number for Bluetooth HID devices on Linux.
+- Calling `InputSystem.RemoveDevice` with a HIDrogen device will now also remove the backend device that feeds events to it.
+
 ## [0.2.0] - 2023/01/05
 
 ### Fixed
