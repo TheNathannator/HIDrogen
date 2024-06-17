@@ -141,7 +141,7 @@ namespace HIDrogen.Backend
         {
             if (!reading.GetRawReport(out var rawReport))
             {
-                Logging.Error("Could not get GameInput raw report!");
+                Logging.Error("Couldn't get GameInput raw report!");
                 return false;
             }
 

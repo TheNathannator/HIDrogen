@@ -23,18 +23,15 @@ namespace HIDrogen
             Debug.LogException(ex);
         }
 
-        public static void InteropError(string message)
+        public static string MakeInteropErrorMessage(string message)
 #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
-            => InteropError(message, Imports.Libc.errno);
-
-        public static void InteropError(string message, Imports.Errno result)
+            => $"{message} ({Imports.Libc.errno})";
 #else
-            => InteropError(message, Marshal.GetLastWin32Error());
-
-        public static void InteropError(string message, int result)
+            => $"{message} (0x{Marshal.GetLastWin32Error():X8})";
 #endif
 
-            => Debug.LogError($"[HIDrogen] {message} ({result})");
+        public static void InteropError(string message)
+            => Debug.LogError($"[HIDrogen] {MakeInteropErrorMessage(message)}");
 
         [Conditional("HIDROGEN_VERBOSE_LOGGING")]
         public static void Verbose(string message)

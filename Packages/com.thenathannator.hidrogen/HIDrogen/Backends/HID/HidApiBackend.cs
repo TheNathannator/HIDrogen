@@ -56,10 +56,7 @@ namespace HIDrogen.Backend
             // Initialize hidapi
             int result = hid_init();
             if (result < 0)
-            {
-                Logging.InteropError("Failed to initialize hidapi");
-                throw new Exception("Failed to initialize hidapi!");
-            }
+                throw new Exception(Logging.MakeInteropErrorMessage("Failed to initialize hidapi"));
 
             // Initialize platform-specific resources
             PlatformInitialize();
@@ -108,7 +105,6 @@ namespace HIDrogen.Backend
 
         private void EnumerateDevices()
         {
-            Logging.Verbose("Enumerating hidapi devices");
             foreach (var info in hid_enumerate())
             {
                 if (!m_DevicesByPath.ContainsKey(info.path) &&
@@ -172,7 +168,7 @@ namespace HIDrogen.Backend
 
             if (!s_ParseReportDescriptor(descriptorBytes, ref descriptor))
             {
-                Logging.Error("Could not get descriptor for device!");
+                Logging.Error("Could not parse descriptor for device!");
                 return false;
             }
 

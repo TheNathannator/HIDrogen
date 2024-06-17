@@ -166,7 +166,7 @@ namespace HIDrogen
                 }
                 catch (Exception ex)
                 {
-                    Logging.Error($"Error when flushing an event: {ex}");
+                    Logging.Exception("Error when flushing an event!", ex);
                 }
             }
             buffer.Reset();

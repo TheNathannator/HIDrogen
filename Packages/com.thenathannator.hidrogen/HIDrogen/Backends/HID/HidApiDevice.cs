@@ -37,10 +37,7 @@ namespace HIDrogen.Backend
         {
             m_Handle = hid_open_path(path);
             if (m_Handle == null || m_Handle.IsInvalid)
-            {
-                Logging.InteropError($"Error when opening HID device path '{path}': {hid_error()}");
-                throw new Exception($"Error when opening HID device path: {hid_error()}");
-            }
+                throw new Exception(Logging.MakeInteropErrorMessage($"Error when opening HID device '{path}': {hid_error()}"));
 
             m_Backend = backend;
             this.path = path;
