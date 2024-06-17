@@ -58,13 +58,6 @@ namespace HIDrogen.Backend
             m_DeviceCallbackToken?.Unregister(1_000_000);
             m_DeviceCallbackToken = null;
 
-            foreach (var pair in m_DevicesByInstance)
-            {
-                pair.Key.Dispose();
-                pair.Value.Dispose();
-            }
-            m_DevicesByInstance.Clear();
-
             m_GameInput?.Dispose();
             m_GameInput = null;
         }

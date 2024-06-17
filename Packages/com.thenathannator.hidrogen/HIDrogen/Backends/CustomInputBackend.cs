@@ -51,11 +51,18 @@ namespace HIDrogen
 
         public unsafe void Dispose()
         {
-            OnDispose();
-
             InputSystem.onBeforeUpdate -= Update;
             InputSystem.onDeviceChange -= OnDeviceChange;
             InputSystem.onDeviceCommand -= DeviceCommand;
+
+            foreach (var pair in m_DeviceLookup)
+            {
+                OnDeviceRemoved(pair.Value);
+                InputSystem.RemoveDevice(pair.Key);
+            }
+            m_DeviceLookup.Clear();
+
+            OnDispose();
 
             foreach (var buffer in m_InputBuffers)
             {
