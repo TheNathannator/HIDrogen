@@ -93,6 +93,7 @@ namespace HIDrogen.Backend
             if ((currentStatus & GameInputDeviceStatus.Connected) != 0)
             {
                 var description = MakeDescription(permaDevice, info);
+                // Device instance is duplicated here, as it is not retained by GameInput after the callback ends
                 QueueDeviceAdd(description, permaDevice.Duplicate());
             }
             else
@@ -126,12 +127,11 @@ namespace HIDrogen.Backend
             return description;
         }
 
-        protected override GameInputBackendDevice OnDeviceAdded(InputDevice device, IDisposable _context)
+        protected override GameInputBackendDevice OnDeviceAdded(InputDevice device, IDisposable context)
         {
-            var gipDevice = (IGameInputDevice)_context;
-
-            var backendDevice = new GameInputBackendDevice(this, m_GameInput, gipDevice, device);
-            m_DevicesByInstance.TryAdd(gipDevice, backendDevice);
+            var backendDevice = new GameInputBackendDevice(this, m_GameInput, (IGameInputDevice)context, device);
+            // We don't use `context` as the key, as it is disposed after this callback
+            m_DevicesByInstance.TryAdd(backendDevice.gipDevice, backendDevice);
             return backendDevice;
         }
 
