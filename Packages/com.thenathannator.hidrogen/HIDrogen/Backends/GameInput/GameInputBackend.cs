@@ -160,7 +160,7 @@ namespace HIDrogen.Backend
 
             // Reports
             if (command->type == OutputFormat)
-                return (long)device.SendMessage(command->payloadPtr, command->payloadSizeInBytes);
+                return device.SendMessage(command->payloadPtr, command->payloadSizeInBytes);
 
             return null;
         }
