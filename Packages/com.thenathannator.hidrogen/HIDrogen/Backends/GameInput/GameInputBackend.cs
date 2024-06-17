@@ -85,9 +85,11 @@ namespace HIDrogen.Backend
             if ((info.supportedInput & GameInputKind.RawDeviceReport) == 0)
                 return;
 
+#if !HIDROGEN_TEST_PROJECT
             // Ignore gamepads, as those will already be handled
             if ((info.supportedInput & GameInputKind.Gamepad) != 0)
                 return;
+#endif
 
             var permaDevice = device.ToComPtr();
             if ((currentStatus & GameInputDeviceStatus.Connected) != 0)
