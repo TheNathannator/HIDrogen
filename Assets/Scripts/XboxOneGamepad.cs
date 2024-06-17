@@ -65,6 +65,75 @@ namespace HIDrogen.TestProject
         public short rightStickY;
     }
 
+    [StructLayout(LayoutKind.Sequential, Pack = 1, Size = kSize)]
+    internal struct XboxOneGamepadVibration : IInputDeviceCommandInfo
+    {
+        public enum Flags : byte
+        {
+            RightRumble = 0x01,
+            LeftRumble = 0x02,
+            RightTrigger = 0x04,
+            LeftTrigger = 0x08,
+        }
+
+        private const byte kReportId = 0x09;
+
+        internal const int kSize = InputDeviceCommand.BaseCommandSize + sizeof(byte) * 10;
+
+        public FourCC typeStatic => GameInputDefinitions.OutputFormat;
+
+        public InputDeviceCommand baseCommand;
+        private byte m_ReportId;
+
+        private byte unknown;
+        public Flags flags;
+
+        public byte leftTrigger;
+        public byte rightTrigger;
+        public byte leftRumble;
+        public byte rightRumble;
+
+        public byte duration;
+        public byte delay;
+        public byte repeat;
+
+        public XboxOneGamepadVibration(byte leftRumble, byte rightRumble)
+        {
+            baseCommand = new InputDeviceCommand(GameInputDefinitions.OutputFormat, kSize);
+            m_ReportId = kReportId;
+
+            unknown = 0;
+            flags = Flags.LeftRumble | Flags.RightRumble;
+
+            this.leftRumble = leftRumble;
+            this.rightRumble = rightRumble;
+            leftTrigger = 0;
+            rightTrigger = 0;
+
+            duration = 0xFF;
+            delay = 0;
+            repeat = 0xEB;
+        }
+
+        public XboxOneGamepadVibration(byte leftRumble, byte rightRumble, byte leftTrigger, byte rightTrigger)
+        {
+            baseCommand = new InputDeviceCommand(GameInputDefinitions.OutputFormat, kSize);
+            m_ReportId = kReportId;
+
+            unknown = 0;
+            flags = Flags.LeftRumble | Flags.RightRumble | Flags.LeftTrigger | Flags.RightTrigger;
+
+            this.leftRumble = leftRumble;
+            this.rightRumble = rightRumble;
+            this.leftTrigger = leftTrigger;
+            this.rightTrigger = rightTrigger;
+
+            duration = 0xFF;
+            delay = 0;
+            repeat = 0xEB;
+        }
+    }
+
     [InputControlLayout(stateType = typeof(XboxOneGamepadState))]
     internal class XboxOneGamepad : Gamepad, IInputStateCallbackReceiver
     {
@@ -123,6 +192,27 @@ namespace HIDrogen.TestProject
         {
             offset = 0;
             return true;
+        }
+
+        /// <inheritdoc/>
+        public override void MakeCurrent()
+        {
+            base.MakeCurrent();
+            current = this;
+        }
+
+        protected override void OnAdded()
+        {
+            base.OnAdded();
+            s_AllDevices.Add(this);
+        }
+
+        protected override void OnRemoved()
+        {
+            base.OnRemoved();
+            s_AllDevices.Remove(this);
+            if (current == this)
+                current = null;
         }
     }
 }
