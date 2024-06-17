@@ -150,7 +150,10 @@ namespace HIDrogen.Backend
             {
                 byte reportId = (byte)rawReport.ReportInfo.id;
                 UIntPtr bufferSize = rawReport.GetRawDataSize();
+                // Add 1 to accomodate report ID
                 bufferSize += 1;
+                // hack: ensure at least 10 bytes are allocated, for PlasticBand state translation purposes
+                bufferSize = (UIntPtr)Math.Max((ulong)bufferSize, 10);
 
                 byte* buffer = stackalloc byte[(int)bufferSize];
                 buffer[0] = reportId;
