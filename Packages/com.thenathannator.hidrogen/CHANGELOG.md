@@ -14,7 +14,7 @@ Dates are relative to UTC.
   - To note: as of the time of writing, the GameInput function that is responsible for sending raw output reports is not currently implemented. All output commands will silently fail until it gets implemented on their end. (Only the `E_NOTIMPL` HRESULT is treated as success, all others will be logged and generate a proper failure code.)
   - Gamepads reported through GameInput are ignored, no duplicate devices will occur between GameInput and XInput, for example.
 
-### Changes
+### Changed
 
 - Some memory allocations that occur in the core backend update loop have been eliminated. All memory allocations that come from HIDrogen should now only happen during device connection/disconnection.
 - Shimming of the native input system's devices on Linux has been changed so that no `InputDevice` instances will be created for them whatsoever.
@@ -25,6 +25,11 @@ Dates are relative to UTC.
 
 - A workaround has been implemented to retrieve the version number for Bluetooth HID devices on Linux.
 - Calling `InputSystem.RemoveDevice` with a HIDrogen device will now also remove the backend device that feeds events to it.
+- Other device removal issues have been fixed.
+
+### Removed
+
+- The `HIDROGEN_KEEP_NATIVE_DEVICES` define has been removed, as I can't think of any actual genuine use cases for it. All it will end up doing is creating duplicate device instances, and the native instance usually has broken controls.
 
 ## [0.2.0] - 2023/01/05
 
