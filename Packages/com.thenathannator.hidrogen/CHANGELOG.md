@@ -31,7 +31,7 @@ Dates are relative to UTC.
 
 - The `HIDROGEN_KEEP_NATIVE_DEVICES` define has been removed, as I can't think of any actual genuine use cases for it. All it will end up doing is creating duplicate device instances, and the native instance usually has broken controls.
 
-## [0.2.0] - 2023/01/05
+## [0.2.0] - 2023/05/01
 
 ### Fixed
 
@@ -54,7 +54,7 @@ Dates are relative to UTC.
   - I hoped this would allow them to show up as disconnected instead of just disappearing entirely, but it appears that's reserved for native devices only.
 - **The report ID byte is no longer enforced by default.** The input system on Mac does not include the report ID in its HID support, so this was done to make it easier to account by only needing to include the report ID on Windows. The `HIDROGEN_FORCE_REPORT_IDS` compile define has been added if you wish to always have the report ID.
 
-## [0.1.7] - 2023/27/04
+## [0.1.7] - 2023/04/27
 
 ### Fixed
 
@@ -64,13 +64,13 @@ Dates are relative to UTC.
 
 - A ton of verbose logging has been added, which can be enabled by defining `HIDROGEN_VERBOSE_LOGGING`.
 
-## [0.1.6] - 2023/24/04
+## [0.1.6] - 2023/04/24
 
 ### Fixed
 
 - HID output commands now work correctly ([GH-1](https://github.com/TheNathannator/HIDrogen/pull/1)).
 
-## [0.1.5] - 2023/20/04
+## [0.1.5] - 2023/04/20
 
 ### Fixed
 
@@ -78,7 +78,7 @@ Dates are relative to UTC.
 - Report ID detection also now adjusts the bit offsets and report lengths provided in the `capabilities` info to compensate for the additional byte being added to the input report data.
 - The library name used for imports has been changed, it should now load without requiring `libhidapi-dev` to be installed.
 
-## [0.1.4] - 2023/15/04
+## [0.1.4] - 2023/04/15
 
 ### Changed
 
@@ -87,13 +87,13 @@ Dates are relative to UTC.
 - Device removal is now properly detected and no longer relies on the error counting mechanism. This also means that errors are no longer logged when disconnecting a device.
 - Error logging for hidapi calls will now display error numbers/names alongside the message retrieved from hidapi.
 
-## [0.1.3] - 2023/15/04
+## [0.1.3] - 2023/04/15
 
 ### Fixed
 
 - The format of the device description's `version` property now matches how it is formatted on Windows. Instead of a point-separated version number, it is just the raw binary-coded decimal value turned into a base-10 string.
 
-## [0.1.2] - 2023/13/04
+## [0.1.2] - 2023/04/13
 
 ### Fixed
 
@@ -101,13 +101,13 @@ Dates are relative to UTC.
 - The package will no longer cause builds to fail on platforms that are not handled in the hidapi wide-string conversion method.
 - Added missing Linux #if directives around udev device monitoring to fix other compilation errors on non-Linux platforms.
 
-## [0.1.1] - 2023/10/04
+## [0.1.1] - 2023/04/10
 
 ### Changed
 
 - Devices with the `SDL` interface are no longer automatically removed, as they do not seem to coincide with hidapi devices.
 
-## [0.1.0] - 2023/09/04
+## [0.1.0] - 2023/04/09
 
 ### Added
 
