@@ -98,11 +98,14 @@ namespace HIDrogen.Backend
                 }
             }
 
-            // Fall back to just periodically enumerating hidapi
-            Logging.Warning("Falling back to periodic re-enumeration of hidapi");
-            while (!m_ThreadStop.WaitOne(2000))
+            if (errorCount >= errorThreshold)
             {
-                EnumerateDevices();
+                // Fall back to just periodically enumerating hidapi
+                Logging.Warning("Falling back to periodic re-enumeration of hidapi");
+                while (!m_ThreadStop.WaitOne(2000))
+                {
+                    EnumerateDevices();
+                }
             }
         }
 
