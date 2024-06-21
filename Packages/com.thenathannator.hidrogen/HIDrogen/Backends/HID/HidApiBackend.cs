@@ -92,7 +92,10 @@ namespace HIDrogen.Backend
             while (errorCount < errorThreshold && !m_ThreadStop.WaitOne(1000))
             {
                 if (!PlatformMonitor())
+                {
                     errorCount++;
+                    Logging.Error($"Device monitoring failed! (attempt {errorCount})");
+                }
             }
 
             // Fall back to just periodically enumerating hidapi
