@@ -71,6 +71,7 @@ namespace HIDrogen.Backend
             // Stop threads
             m_ThreadStop.Set();
             m_EnumerationThread.Join();
+            m_ThreadStop.Dispose();
 
             // Clean up platform-specific resources
             PlatformDispose();
