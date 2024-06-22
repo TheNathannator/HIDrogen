@@ -628,7 +628,7 @@ PlayerSettings:
   webGLThreadsSupport: 0
   webGLWasmStreaming: 0
   scriptingDefineSymbols:
-    1: HIDROGEN_TEST_PROJECT
+    1: HIDROGEN_TEST_PROJECT;HIDROGEN_VERBOSE_LOGGING
   platformArchitecture: {}
   scriptingBackend: {}
   il2cppCompilerConfiguration: {}
