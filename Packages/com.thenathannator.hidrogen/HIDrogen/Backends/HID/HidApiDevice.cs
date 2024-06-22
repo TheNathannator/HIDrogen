@@ -67,6 +67,7 @@ namespace HIDrogen.Backend
                 m_ThreadStop.Set();
                 m_ReadThread?.Join();
                 m_ReadThread = null;
+                m_ThreadStop.Dispose();
 
                 m_Handle?.Dispose();
                 m_Handle = null;
