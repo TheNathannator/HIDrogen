@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Dates are relative to UTC.
 
+## [0.3.1] - 2024/06/22
+
+### Fixed
+
+- The hidapi backend should no longer consistently fail with an interrupted syscall error.
+- The warning message for manual hidapi enumeration is no longer logged unconditionally on exit.
+- A couple wait handle "leaks" have been fixed (I forgot to dispose them up-front, they would get disposed late due to having to be disposed by the GC).
+
 ## [0.3.0] - 2024/06/18
 
 ### Added
