@@ -83,10 +83,10 @@ namespace HIDrogen.Backend
             const int retryThreshold = 3;
             int errorCount = 0;
 
-            while (!m_ThreadStop.WaitOne(0))
+            while (!m_ThreadStop.WaitOne(1))
             {
                 // Get current state
-                int result = hid_read_timeout(m_Handle, readBuffer + readOffset, readSize, 500);
+                int result = hid_read_timeout(m_Handle, readBuffer + readOffset, readSize, 0);
                 if (result < 0)
                 {
 #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
