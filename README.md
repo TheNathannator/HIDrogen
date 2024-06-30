@@ -1,5 +1,7 @@
 # HIDrogen
 
+[![openupm](https://img.shields.io/npm/v/com.thenathannator.hidrogen?label=openupm&registry_uri=https://package.openupm.com)](https://openupm.com/packages/com.thenathannator.hidrogen/)
+
 An add-on for the [Unity InputSystem](https://github.com/Unity-Technologies/InputSystem) package that provides additional input backends, including proper HID support on Linux, and raw Xbox One controller support via GameInput on Windows.
 
 Refer to the inner [package README](Packages/com.thenathannator.hidrogen/README.md) for more details.
@@ -9,6 +11,15 @@ Refer to the inner [package README](Packages/com.thenathannator.hidrogen/README.
 ## Installing
 
 Below are instructions for installing the package itself. Note that some backends have their own dependencies which must be installed separately alongside your application; refer to the inner [package README](Packages/com.thenathannator.hidrogen/README.md) for more details.
+
+### From OpenUPM
+
+Refer to the OpenUPM documentation:
+
+- [Unity Editor instructions](https://openupm.com/docs/getting-started.html)
+- [OpenUPM-CLI instructions](https://openupm.com/docs/getting-started-cli.html)
+
+The OpenUPM package page is [located here](https://openupm.com/packages/com.thenathannator.hidrogen).
 
 ### From the Releases Page
 
