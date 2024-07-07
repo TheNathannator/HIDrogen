@@ -43,7 +43,7 @@ namespace HIDrogen.Backend
         private unsafe void ReadThread()
         {
             uint lastPacketNumber = 0;
-            while (!m_ThreadStop.WaitOne(0))
+            while (!m_ThreadStop.WaitOne(1))
             {
                 var result = XInputGetState(userIndex, out var state);
                 if (result != ERROR_SUCCESS)
