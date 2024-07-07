@@ -9,7 +9,6 @@ using UnityEngine.InputSystem.Utilities;
 
 namespace HIDrogen.Backend
 {
-    using static XInput;
     using static Win32Error;
 
     internal class XInputQueueContext : IDisposable
@@ -27,8 +26,10 @@ namespace HIDrogen.Backend
         private const double kRefreshPeriod = 1.0;
         private double m_LastRefreshTime;
 
-        private readonly XInputBackendDevice[] m_Devices = new XInputBackendDevice[XUSER_MAX_COUNT];
-        private readonly bool[] m_BannedDevices = new bool[XUSER_MAX_COUNT];
+        private readonly XInputBackendDevice[] m_Devices = new XInputBackendDevice[XInput.MaxCount];
+        private readonly bool[] m_BannedDevices = new bool[XInput.MaxCount];
+
+        public readonly XInput xinput = new();
 
         public XInputBackend()
         {
@@ -39,6 +40,8 @@ namespace HIDrogen.Backend
         {
             foreach (var device in m_Devices)
                 device?.Dispose();
+
+            xinput.Dispose();
         }
 
         protected override void OnUpdate()
@@ -58,7 +61,7 @@ namespace HIDrogen.Backend
                 if (m_Devices[i] != null)
                     continue;
 
-                var result = XInputGetCapabilities(i, XInputCapabilityRequest.Gamepad, out var capabilities);
+                var result = xinput.GetCapabilities(i, XInputCapabilityRequest.Gamepad, out var capabilities);
                 if (result != ERROR_SUCCESS)
                 {
                     if (result == ERROR_DEVICE_NOT_CONNECTED)

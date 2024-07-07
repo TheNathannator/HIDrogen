@@ -7,6 +7,9 @@ using UnityEngine.InputSystem.Utilities;
 
 namespace HIDrogen.Imports
 {
+    using static Win32Error;
+    using static Kernel32;
+
     [Flags]
     internal enum XInputButton : ushort
     {
@@ -107,30 +110,115 @@ namespace HIDrogen.Imports
         Gamepad = 1,
     }
 
-    internal static class XInput
+    internal class XInput : SafeHandle
     {
-        internal const string kFileName = "xinput1_4.dll";
+        public const uint MaxCount = 4;
 
-        public const uint XUSER_MAX_COUNT = 4;
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate Win32Error XInputGetState(
+            uint UserIndex,
+            out XInputState State
+        );
 
-        [DllImport(kFileName)]
-        internal static extern Win32Error XInputGetCapabilities(
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate Win32Error XInputSetState(
+            uint UserIndex,
+            in XInputVibration Vibration
+        );
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate Win32Error XInputGetCapabilities(
             uint UserIndex,
             XInputCapabilityRequest Flags,
             out XInputCapabilities Capabilities
         );
 
-        [DllImport(kFileName)]
-        internal static extern Win32Error XInputGetState(
+        public override bool IsInvalid => handle == IntPtr.Zero;
+
+        private XInputGetState m_GetState;
+        private XInputSetState m_SetState;
+        private XInputGetCapabilities m_GetCapabilities;
+
+        public XInput()
+            : base(IntPtr.Zero, true)
+        {
+            var libHandle = LoadLibrary("xinput1_4.dll");
+            if (libHandle == IntPtr.Zero)
+            {
+                libHandle = LoadLibrary("xinput1_3.dll");
+                if (libHandle == IntPtr.Zero)
+                {
+                    // We don't attempt for xinput9_1_0.dll here, as that will only report devices as gamepads
+                    throw new Exception("Failed to load XInput!");
+                }
+            }
+
+            static void GetExport<T>(IntPtr lib, ref T field, string name)
+                where T : Delegate
+            {
+                var proc = GetProcAddress(lib, name);
+                if (proc == IntPtr.Zero)
+                {
+                    FreeLibrary(lib);
+                    throw new Exception($"Failed to load export {name}!");
+                }
+
+                field = Marshal.GetDelegateForFunctionPointer<T>(proc);
+            }
+
+            GetExport(libHandle, ref m_GetState, nameof(XInputGetState));
+            GetExport(libHandle, ref m_SetState, nameof(XInputSetState));
+            GetExport(libHandle, ref m_GetCapabilities, nameof(XInputGetCapabilities));
+
+            SetHandle(libHandle);
+        }
+
+        protected override bool ReleaseHandle()
+        {
+            m_GetState = null;
+            m_SetState = null;
+            m_GetCapabilities = null;
+            return FreeLibrary(handle);
+        }
+
+        public Win32Error GetState(
             uint UserIndex,
             out XInputState State
-        );
+        )
+        {
+            var getState = m_GetState;
+            if (getState != null)
+                return getState(UserIndex, out State);
 
-        [DllImport(kFileName)]
-        internal static extern Win32Error XInputSetState(
+            State = default;
+            return ERROR_DEVICE_NOT_CONNECTED;
+        }
+
+        public Win32Error SetState(
             uint UserIndex,
             in XInputVibration Vibration
-        );
+        )
+        {
+            var setState = m_SetState;
+            if (setState != null)
+                return setState(UserIndex, Vibration);
+
+            return ERROR_DEVICE_NOT_CONNECTED;
+        }
+
+        public Win32Error GetCapabilities(
+            uint UserIndex,
+            XInputCapabilityRequest Flags,
+            out XInputCapabilities Capabilities
+        )
+        {
+            var getCapabilities = m_GetCapabilities;
+            if (getCapabilities != null)
+                return getCapabilities(UserIndex, Flags, out Capabilities);
+
+            Capabilities = default;
+            return ERROR_DEVICE_NOT_CONNECTED;
+        }
     }
 }
 #endif

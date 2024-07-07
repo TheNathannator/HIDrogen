@@ -7,7 +7,6 @@ using UnityEngine.InputSystem.LowLevel;
 
 namespace HIDrogen.Backend
 {
-    using static XInput;
     using static Win32Error;
 
     internal class XInputBackendDevice : IDisposable
@@ -45,7 +44,7 @@ namespace HIDrogen.Backend
             uint lastPacketNumber = 0;
             while (!m_ThreadStop.WaitOne(1))
             {
-                var result = XInputGetState(userIndex, out var state);
+                var result = m_Backend.xinput.GetState(userIndex, out var state);
                 if (result != ERROR_SUCCESS)
                 {
                     if (result != ERROR_DEVICE_NOT_CONNECTED)
@@ -71,7 +70,7 @@ namespace HIDrogen.Backend
                 rightMotor = (ushort)(rumble->highFrequencyMotorSpeed * ushort.MaxValue),
             };
 
-            var result = XInputSetState(userIndex, vibration);
+            var result = m_Backend.xinput.SetState(userIndex, vibration);
             if (result != 0)
             {
                 if (result != ERROR_DEVICE_NOT_CONNECTED)
