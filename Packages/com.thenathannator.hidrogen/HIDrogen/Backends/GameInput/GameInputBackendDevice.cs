@@ -1,6 +1,7 @@
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
 using System;
 using System.Threading;
+using HIDrogen.Imports;
 using SharpGameInput;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -10,6 +11,8 @@ using UnityEngine.InputSystem.LowLevel;
 
 namespace HIDrogen.Backend
 {
+    using static HResult;
+
     [Serializable]
     internal struct GameInputDeviceCapabilities
     {
@@ -19,8 +22,6 @@ namespace HIDrogen.Backend
 
     internal class GameInputBackendDevice
     {
-        private const int E_NOTIMPL = unchecked((int)0x80004001);
-
         private readonly GameInputBackend m_Backend;
         private IGameInput m_GameInput;
         private IGameInputDevice m_GipDevice;
@@ -92,7 +93,7 @@ namespace HIDrogen.Backend
             {
                 // RegisterReadingCallback is not implemented at the time of writing,
                 // so we fall back to polling on failure
-                if (result != E_NOTIMPL)
+                if (result != (int)E_NOTIMPL)
                     Logging.Verbose($"Couldn't register GameInput reading callback, falling back to manual polling. Error result: 0x{result:X4}");
                 ReadThreaded();
             }
@@ -217,7 +218,7 @@ namespace HIDrogen.Backend
                 {
                     // This call is not implemented as of the time of writing,
                     // ignore and treat as success
-                    if (hResult == E_NOTIMPL)
+                    if (hResult == (int)E_NOTIMPL)
                         return InputDeviceCommand.GenericSuccess;
 
                     if (hResult == (int)GameInputResult.DeviceDisconnected)

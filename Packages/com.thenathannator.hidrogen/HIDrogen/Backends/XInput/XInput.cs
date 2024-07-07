@@ -101,20 +101,20 @@ namespace HIDrogen.Imports
         public const uint XUSER_MAX_COUNT = 4;
 
         [DllImport(kFileName)]
-        internal static extern int XInputGetCapabilities(
+        internal static extern Win32Error XInputGetCapabilities(
             uint UserIndex,
             int Flags,
             out XInputCapabilities Capabilities
         );
 
         [DllImport(kFileName)]
-        internal static extern int XInputGetState(
+        internal static extern Win32Error XInputGetState(
             uint UserIndex,
             out XInputState State
         );
 
         [DllImport(kFileName)]
-        internal static extern int XInputSetState(
+        internal static extern Win32Error XInputSetState(
             uint UserIndex,
             in XInputVibration Vibration
         );
