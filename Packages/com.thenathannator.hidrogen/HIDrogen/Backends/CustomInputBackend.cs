@@ -186,10 +186,10 @@ namespace HIDrogen
             QueueEvent((InputEvent*)UnsafeUtility.AddressOf(ref inputEvent));
         }
 
-        public unsafe void QueueStateEvent<TState>(InputDevice device, TState state)
+        public unsafe void QueueStateEvent<TState>(InputDevice device, ref TState state)
             where TState : unmanaged, IInputStateTypeInfo
         {
-            QueueStateEvent(device, state.format, &state, sizeof(TState));
+            QueueStateEvent(device, state.format, UnsafeUtility.AddressOf(ref state), sizeof(TState));
         }
 
         public unsafe void QueueStateEvent(InputDevice device, FourCC format, byte[] stateBuffer)

@@ -1,6 +1,9 @@
 #if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN) && UNITY_2022_2_OR_NEWER
 using System;
 using System.Runtime.InteropServices;
+using HIDrogen.Backend;
+using UnityEngine.InputSystem.LowLevel;
+using UnityEngine.InputSystem.Utilities;
 
 namespace HIDrogen.Imports
 {
@@ -24,16 +27,19 @@ namespace HIDrogen.Imports
         Y = 0x8000
     }
 
+    [Serializable]
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    internal struct XInputGamepad
+    internal struct XInputGamepad : IInputStateTypeInfo
     {
+        public readonly FourCC format => XInputBackend.InputFormat;
+
         public XInputButton buttons;
         public byte leftTrigger;
         public byte rightTrigger;
-        public short leftThumbX;
-        public short leftThumbY;
-        public short rightThumbX;
-        public short rightThumbY;
+        public short leftStickX;
+        public short leftStickY;
+        public short rightStickX;
+        public short rightStickY;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -43,16 +49,17 @@ namespace HIDrogen.Imports
         public XInputGamepad gamepad;
     }
 
+    [Serializable]
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     internal struct XInputVibration
     {
-        public ushort leftMotorSpeed;
-        public ushort rightMotorSpeed;
+        public ushort leftMotor;
+        public ushort rightMotor;
     }
 
     internal enum XInputDeviceType : byte
     {
-        Gamepad = 0,
+        Gamepad = 1,
     }
 
     internal enum XInputDeviceSubType : byte
@@ -84,6 +91,7 @@ namespace HIDrogen.Imports
         NoNavigation = 0x10,
     }
 
+    [Serializable]
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     internal struct XInputCapabilities
     {
@@ -94,16 +102,21 @@ namespace HIDrogen.Imports
         public XInputVibration vibration;
     }
 
+    internal enum XInputCapabilityRequest : uint
+    {
+        Gamepad = 1,
+    }
+
     internal static class XInput
     {
-        internal const string kFileName = "xinput9_1_0.dll";
+        internal const string kFileName = "xinput1_4.dll";
 
         public const uint XUSER_MAX_COUNT = 4;
 
         [DllImport(kFileName)]
         internal static extern Win32Error XInputGetCapabilities(
             uint UserIndex,
-            int Flags,
+            XInputCapabilityRequest Flags,
             out XInputCapabilities Capabilities
         );
 
