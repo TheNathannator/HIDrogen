@@ -15,6 +15,8 @@ An add-on for the [Unity InputSystem](https://github.com/Unity-Technologies/Inpu
   - [Xbox One Controllers on Windows via GameInput](#xbox-one-controllers-on-windows-via-gameinput)
     - [Dependencies](#dependencies-1)
     - [Notes](#notes)
+  - [XInput Backend on Windows for Unity 2022.2+](#xinput-backend-on-windows-for-unity-20222)
+    - [Notes](#notes-1)
 - [License](#license)
 
 ## Usage
@@ -74,6 +76,15 @@ This backend depends on GameInput being installed on the user's system. Although
 
 - As of the time of writing, the GameInput function that is responsible for sending raw output reports is not currently implemented. All output commands will silently fail until it gets implemented. (Only the `E_NOTIMPL` HRESULT is treated as success, all others will be logged and generate a proper failure code.)
 - Gamepads reported through GameInput are ignored, to ensure no duplicate devices will occur between GameInput and XInput.
+
+### XInput Backend on Windows for Unity 2022.2+
+
+This backend reintroduces XInput support to Unity 2022.2 and onward; starting from 2022.2 they switched to Windows.Gaming.Input for gamepad support. All existing XInput layouts and commands are supported through this backend, except for gamepads, which will be handled by the native backend already and are ignored.
+
+#### Notes
+
+- This backend will only enable itself in Unity 2022.2 and onward. No special setup is needed for it.
+- This backend does not respect the `InputSystem.pollingFrequency` setting currently, it uses a hard-set sleep time of 1 ms.
 
 ## License
 

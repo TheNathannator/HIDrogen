@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Dates are relative to UTC.
 
+## [0.4.0] - 2024/07/07
+
+### Added
+
+- A new backend has been implemented to re-introduce XInput device support on Unity 2022.2 and onward.
+  - Just about all functionality provided by the native backend in 2022.1 and earlier is supported in this new backend, so all layouts built for it will work here.
+  - Gamepad devices are ignored by this backend, as they will still be handled by the native backend through Windows.Gaming.Input.
+
+### Fixed
+
+- The GameInput backend no longer consumes excessive amounts of CPU due to not actually performing any thread sleeps.
+
 ## [0.3.1] - 2024/06/22
 
 ### Fixed
