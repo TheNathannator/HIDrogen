@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Dates are relative to UTC.
 
+## [0.4.1] - 2024/07/19
+
+### Fixed
+
+- There is no longer an unintended dependency on the development version of libudev, it now loads with just the standard `libudev0` package.
+
 ## [0.4.0] - 2024/07/07
 
 ### Added
