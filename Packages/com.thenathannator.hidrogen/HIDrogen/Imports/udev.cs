@@ -54,7 +54,7 @@ namespace HIDrogen.Imports
 
     internal static class Udev
     {
-        const string kLibName = "libudev.so";
+        const string kLibName = "libudev.so.0";
 
         [DllImport(kLibName, SetLastError = true)]
 	    public static extern udev udev_new();
