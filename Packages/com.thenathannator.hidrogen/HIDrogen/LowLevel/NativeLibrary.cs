@@ -14,6 +14,8 @@ namespace HIDrogen.LowLevel
             IntPtr handle;
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
             handle = Kernel32.LoadLibrary(name);
+#elif UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+            handle = Libc.dlopen(name, RTLD.LAZY);
 #else
             #warning "NativeLibrary.TryLoad not yet supported for the current platform"
             throw new NotSupportedException();
@@ -33,6 +35,8 @@ namespace HIDrogen.LowLevel
         {
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
             address = Kernel32.GetProcAddress(handle, name);
+#elif UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+            address = Libc.dlsym(handle, name);
 #else
             #warning "NativeLibrary.TryGetExport not yet supported for the current platform"
             throw new NotSupportedException();
@@ -44,6 +48,8 @@ namespace HIDrogen.LowLevel
         {
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
             return Kernel32.FreeLibrary(handle);
+#elif UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+            return Libc.dlclose(handle);
 #else
             #warning "NativeLibrary.ReleaseHandle not yet supported for the current platform"
             return false;
