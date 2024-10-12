@@ -2,6 +2,7 @@
 using System;
 using System.Runtime.InteropServices;
 using HIDrogen.Backend;
+using HIDrogen.LowLevel;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.InputSystem.Utilities;
 
@@ -110,7 +111,7 @@ namespace HIDrogen.Imports
         Gamepad = 1,
     }
 
-    internal class XInput : SafeHandle
+    internal class XInput
     {
         public const uint MaxCount = 4;
 
@@ -133,52 +134,46 @@ namespace HIDrogen.Imports
             out XInputCapabilities Capabilities
         );
 
-        public override bool IsInvalid => handle == IntPtr.Zero;
+        private NativeLibrary m_Library;
 
         private XInputGetState m_GetState;
         private XInputSetState m_SetState;
         private XInputGetCapabilities m_GetCapabilities;
 
         public XInput()
-            : base(IntPtr.Zero, true)
         {
-            var libHandle = LoadLibrary("xinput1_4.dll");
-            if (libHandle == IntPtr.Zero)
+            if (!NativeLibrary.TryLoad("xinput1_4.dll", out m_Library) &&
+                !NativeLibrary.TryLoad("xinput1_3.dll", out m_Library))
             {
-                libHandle = LoadLibrary("xinput1_3.dll");
-                if (libHandle == IntPtr.Zero)
-                {
-                    // We don't attempt for xinput9_1_0.dll here, as that will only report devices as gamepads
-                    throw new Exception("Failed to load XInput!");
-                }
+                // We don't attempt for xinput9_1_0.dll here, as that will only report devices as gamepads
+                throw new Exception("Failed to load XInput!");
             }
 
-            static void GetExport<T>(IntPtr lib, ref T field, string name)
+            static void GetExport<T>(NativeLibrary lib, ref T field, string name)
                 where T : Delegate
             {
-                var proc = GetProcAddress(lib, name);
-                if (proc == IntPtr.Zero)
+                if (!lib.TryGetExport(name, out var proc))
                 {
-                    FreeLibrary(lib);
+                    lib.Dispose();
                     throw new Exception($"Failed to load export {name}!");
                 }
 
                 field = Marshal.GetDelegateForFunctionPointer<T>(proc);
             }
 
-            GetExport(libHandle, ref m_GetState, nameof(XInputGetState));
-            GetExport(libHandle, ref m_SetState, nameof(XInputSetState));
-            GetExport(libHandle, ref m_GetCapabilities, nameof(XInputGetCapabilities));
-
-            SetHandle(libHandle);
+            GetExport(m_Library, ref m_GetState, nameof(XInputGetState));
+            GetExport(m_Library, ref m_SetState, nameof(XInputSetState));
+            GetExport(m_Library, ref m_GetCapabilities, nameof(XInputGetCapabilities));
         }
 
-        protected override bool ReleaseHandle()
+        public void Dispose()
         {
             m_GetState = null;
             m_SetState = null;
             m_GetCapabilities = null;
-            return FreeLibrary(handle);
+
+            m_Library?.Dispose();
+            m_Library = null;
         }
 
         public Win32Error GetState(
