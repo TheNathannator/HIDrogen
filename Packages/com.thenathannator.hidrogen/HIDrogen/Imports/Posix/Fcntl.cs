@@ -3,18 +3,18 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 
-namespace HIDrogen.Imports
+namespace HIDrogen.Imports.Posix
 {
     internal class fd : SafeHandleMinusOneIsInvalid
     {
         internal fd() : base(false) => SetHandle((IntPtr)(-1));
         internal fd(int fd, bool ownsHandle) : base(ownsHandle) => SetHandle((IntPtr)fd);
 
-        protected override bool ReleaseHandle() => Libc.close((int)handle) >= 0;
+        protected override bool ReleaseHandle() => Fcntl.close((int)handle) >= 0;
         public int DangerousGetFileDescriptor() => (int)DangerousGetHandle();
     }
 
-    internal static partial class Libc
+    internal static partial class Fcntl
     {
         private struct pollfd
         {
@@ -33,6 +33,8 @@ namespace HIDrogen.Imports
         public const short POLLIN = 0x001;
         public const short POLLPRI = 0x002;
         public const short POLLOUT = 0x004;
+
+        private const string kLibName = Linux.Libc.LibName;
 
         [DllImport(kLibName, EntryPoint = "open", SetLastError = true)]
         private static extern int _open(

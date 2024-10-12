@@ -1,16 +1,16 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using HIDrogen.Imports.Linux;
 
 namespace HIDrogen.Imports
 {
-    using static Libc;
-    using static HidRaw;
+    using static Ioctl;
 
     [StructLayout(LayoutKind.Sequential)]
     internal struct hidraw_report_descriptor
     {
         public int size;
-        public unsafe fixed byte value[HID_MAX_DESCRIPTOR_SIZE];
+        public unsafe fixed byte value[HidRaw.HID_MAX_DESCRIPTOR_SIZE];
     }
 
     struct hidraw_devinfo

@@ -1,11 +1,11 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using UnityEngine;
+using HIDrogen.Imports.Posix;
 
-namespace HIDrogen.Imports
+namespace HIDrogen.Imports.Linux
 {
-    internal static partial class Libc
+    internal static partial class Ioctl
     {
         public const int IOC_NRBITS = 8;
         public const int IOC_TYPEBITS = 8;
@@ -90,6 +90,8 @@ namespace HIDrogen.Imports
         public const int IOC_INOUT = (IOC_WRITE | IOC_READ) << IOC_DIRSHIFT;
         public const int IOCSIZE_MASK = IOC_SIZEMASK << IOC_SIZESHIFT;
         public const int IOCSIZE_SHIFT = IOC_SIZESHIFT;
+
+        private const string kLibName = Libc.LibName;
 
         [DllImport(kLibName, EntryPoint = "ioctl", SetLastError = true)]
         private static extern int _ioctl(

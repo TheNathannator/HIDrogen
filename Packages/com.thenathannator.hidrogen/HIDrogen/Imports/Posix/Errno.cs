@@ -1,8 +1,8 @@
 using System.Runtime.InteropServices;
 
-namespace HIDrogen.Imports
+namespace HIDrogen.Imports.Posix
 {
-    internal static partial class Libc
+    internal static partial class Posix
     {
         public static Errno errno => (Errno)Marshal.GetLastWin32Error();
     }

@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using HIDrogen.Imports.Posix;
 using HIDrogen.LowLevel;
 
 namespace HIDrogen.Imports

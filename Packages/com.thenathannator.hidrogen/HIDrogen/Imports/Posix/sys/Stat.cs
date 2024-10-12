@@ -1,8 +1,8 @@
 using System.Runtime.InteropServices;
 
-namespace HIDrogen.Imports
+namespace HIDrogen.Imports.Posix.Sys
 {
-    internal static partial class Libc
+    internal static partial class Stat
     {
         public const int S_IFCHR  = 0x2000;  // character device
         public const int S_IFBLK  = 0x6000;  // block device
@@ -104,6 +104,8 @@ namespace HIDrogen.Imports
             /// <summary>Nanoseconds since <see cref="Seconds"/>.</summary>
             public uint Nanoseconds;
         }
+
+        private const string kLibName = Linux.Libc.LibName;
 
         [DllImport(kLibName, SetLastError = true)]
         public static extern int statx(int dirfd, string path, int flags, uint mask, out Statx data);

@@ -2,12 +2,13 @@
 using System;
 using System.Globalization;
 using HIDrogen.Imports;
+using HIDrogen.Imports.Linux;
+using HIDrogen.Imports.Posix;
+using HIDrogen.Imports.Posix.Sys;
 using Unity.Collections.LowLevel.Unsafe;
 
 namespace HIDrogen.Backend
 {
-    using static Libc;
-    using static HidRaw;
     using static Udev;
 
     internal partial class HidApiBackend
@@ -76,7 +77,7 @@ namespace HIDrogen.Backend
                     while (!m_ThreadStop.WaitOne(1000))
                     {
                         // Check if any events are available
-                        int result = poll(POLLIN, 0, fd);
+                        int result = Fcntl.poll(Fcntl.POLLIN, 0, fd);
                         if (result < 0) // Error
                         {
                             errorCount++;
@@ -116,7 +117,7 @@ namespace HIDrogen.Backend
 
         private static bool PlatformOpenHandle(string path, out fd fd)
         {
-            fd = open(path, O_RDONLY);
+            fd = Fcntl.open(path, Fcntl.O_RDONLY);
             return fd != null && !fd.IsInvalid;
         }
 
@@ -181,7 +182,7 @@ namespace HIDrogen.Backend
             if (!PlatformGetDescriptorSize(fd, out descBuffer.size) || bufferLength < descBuffer.size)
                 return false;
 
-            if (ioctl(fd, HIDIOCGRDESC, &descBuffer) < 0)
+            if (Ioctl.ioctl(fd, HidRaw.HIDIOCGRDESC, &descBuffer) < 0)
                 return false;
 
             UnsafeUtility.MemCpy(buffer, descBuffer.value, descBuffer.size);
@@ -192,7 +193,7 @@ namespace HIDrogen.Backend
         private static unsafe bool PlatformGetDescriptorSize(fd fd, out int size)
         {
             int tempSize = default;
-            if (ioctl(fd, HIDIOCGRDESCSIZE, &tempSize) < 0)
+            if (Ioctl.ioctl(fd, HidRaw.HIDIOCGRDESCSIZE, &tempSize) < 0)
             {
                 size = default;
                 return false;
@@ -208,7 +209,7 @@ namespace HIDrogen.Backend
 
             // Bluetooth devices won't have this filled in so we need to do it ourselves.
             // Use statx to grab the device type and number, and then construct a udev device
-            if (statx(0, path, 0, 0, out var pathStats) < 0)
+            if (Stat.statx(0, path, 0, 0, out var pathStats) < 0)
             {
                 Logging.InteropError("Error getting device type info");
                 success = false;
