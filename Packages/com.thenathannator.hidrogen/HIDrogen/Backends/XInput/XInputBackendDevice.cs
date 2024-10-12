@@ -7,8 +7,6 @@ using UnityEngine.InputSystem.LowLevel;
 
 namespace HIDrogen.Backend
 {
-    using static Win32Error;
-
     internal class XInputBackendDevice : IDisposable
     {
         private readonly XInputBackend m_Backend;
@@ -45,9 +43,9 @@ namespace HIDrogen.Backend
             while (!m_ThreadStop.WaitOne(1))
             {
                 var result = m_Backend.xinput.GetState(userIndex, out var state);
-                if (result != ERROR_SUCCESS)
+                if (result != Win32Error.ERROR_SUCCESS)
                 {
-                    if (result != ERROR_DEVICE_NOT_CONNECTED)
+                    if (result != Win32Error.ERROR_DEVICE_NOT_CONNECTED)
                         Logging.Error($"Failed to get state for XInput user index {userIndex}: 0x{(int)result:X8}");
                     break;
                 }
@@ -73,7 +71,7 @@ namespace HIDrogen.Backend
             var result = m_Backend.xinput.SetState(userIndex, vibration);
             if (result != 0)
             {
-                if (result != ERROR_DEVICE_NOT_CONNECTED)
+                if (result != Win32Error.ERROR_DEVICE_NOT_CONNECTED)
                     Logging.Error($"Failed to set state for XInput user index {userIndex}: 0x{(int)result:X8}");
                 return InputDeviceCommand.GenericFailure;
             }

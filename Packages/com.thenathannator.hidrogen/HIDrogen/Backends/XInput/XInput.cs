@@ -8,9 +8,6 @@ using UnityEngine.InputSystem.Utilities;
 
 namespace HIDrogen.Imports
 {
-    using static Win32Error;
-    using static Kernel32;
-
     [Flags]
     internal enum XInputButton : ushort
     {
@@ -186,7 +183,7 @@ namespace HIDrogen.Imports
                 return getState(UserIndex, out State);
 
             State = default;
-            return ERROR_DEVICE_NOT_CONNECTED;
+            return Win32Error.ERROR_DEVICE_NOT_CONNECTED;
         }
 
         public Win32Error SetState(
@@ -198,7 +195,7 @@ namespace HIDrogen.Imports
             if (setState != null)
                 return setState(UserIndex, Vibration);
 
-            return ERROR_DEVICE_NOT_CONNECTED;
+            return Win32Error.ERROR_DEVICE_NOT_CONNECTED;
         }
 
         public Win32Error GetCapabilities(
@@ -212,7 +209,7 @@ namespace HIDrogen.Imports
                 return getCapabilities(UserIndex, Flags, out Capabilities);
 
             Capabilities = default;
-            return ERROR_DEVICE_NOT_CONNECTED;
+            return Win32Error.ERROR_DEVICE_NOT_CONNECTED;
         }
     }
 }

@@ -9,8 +9,6 @@ using UnityEngine.InputSystem.Utilities;
 
 namespace HIDrogen.Backend
 {
-    using static Win32Error;
-
     internal class XInputQueueContext : IDisposable
     {
         public uint userIndex;
@@ -73,9 +71,9 @@ namespace HIDrogen.Backend
                     continue;
 
                 var result = xinput.GetCapabilities(i, XInputCapabilityRequest.Gamepad, out var capabilities);
-                if (result != ERROR_SUCCESS)
+                if (result != Win32Error.ERROR_SUCCESS)
                 {
-                    if (result == ERROR_DEVICE_NOT_CONNECTED)
+                    if (result == Win32Error.ERROR_DEVICE_NOT_CONNECTED)
                         m_BannedDevices[i] = false;
                     else
                         Logging.Error($"Failed to get capabilities for XInput user index {i}: 0x{(int)result:X8}");
