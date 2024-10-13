@@ -8,21 +8,13 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace HIDrogen.Backend
 {
-    using static Udev;
-
     internal partial class HidApiBackend
     {
-        private udev m_Udev;
+        private Udev m_Udev;
 
         partial void PlatformInitialize()
         {
-            // Initialize udev
-            m_Udev = udev_new();
-            if (m_Udev == null || m_Udev.IsInvalid)
-            {
-                Logging.InteropError("Failed to initialize udev");
-                throw new Exception("Failed to initialize udev!");
-            }
+            m_Udev = new Udev();
         }
 
         partial void PlatformDispose()
@@ -34,7 +26,7 @@ namespace HIDrogen.Backend
         partial void PlatformMonitor(ref bool success)
         {
             // Set up device monitor
-            var monitor = udev_monitor_new_from_netlink(m_Udev, "udev");
+            var monitor = m_Udev.monitor_new_from_netlink("udev");
             if (monitor == null || monitor.IsInvalid)
             {
                 Logging.InteropError("Failed to initialize device monitor");
@@ -45,7 +37,7 @@ namespace HIDrogen.Backend
             using (monitor)
             {
                 // Add filter for hidraw devices
-                if (udev_monitor_filter_add_match_subsystem_devtype(monitor, "hidraw", null) < 0)
+                if (monitor.filter_add_match_subsystem_devtype("hidraw", null) < 0)
                 {
                     Logging.InteropError("Failed to add filter to device monitor");
                     success = false;
@@ -53,7 +45,7 @@ namespace HIDrogen.Backend
                 }
 
                 // Enable monitor
-                if (udev_monitor_enable_receiving(monitor) < 0)
+                if (monitor.enable_receiving() < 0)
                 {
                     Logging.InteropError("Failed to enable receiving on device monitor");
                     success = false;
@@ -61,7 +53,7 @@ namespace HIDrogen.Backend
                 }
 
                 // Get monitor file descriptor
-                var fd = udev_monitor_get_fd(monitor);
+                var fd = monitor.get_fd();
                 if (fd == null || fd.IsInvalid)
                 {
                     Logging.InteropError("Failed to get device monitor file descriptor");
@@ -95,7 +87,7 @@ namespace HIDrogen.Backend
                             continue;
 
                         // Get device to clear it from the event buffer
-                        var dev = udev_monitor_receive_device(monitor);
+                        var dev = monitor.receive_device();
                         if (dev == null || dev.IsInvalid)
                         {
                             Logging.InteropError("Failed to get changed device");
@@ -215,7 +207,7 @@ namespace HIDrogen.Backend
                 return;
             }
 
-            var hidrawDevice = udev_device_new_from_devnum(m_Udev, pathStats.DeviceType, pathStats.DeviceNumber);
+            var hidrawDevice = m_Udev.device_new_from_devnum(pathStats.DeviceType, pathStats.DeviceNumber);
             if (hidrawDevice == null || hidrawDevice.IsInvalid)
             {
                 Logging.InteropError("Failed to get hidraw device instance");
@@ -224,7 +216,7 @@ namespace HIDrogen.Backend
             }
 
             // Grab the root parent hid device that both the hidraw and input devices share
-            var hidDevice = udev_device_get_parent_with_subsystem_devtype(hidrawDevice, "hid", null);
+            var hidDevice = hidrawDevice.get_parent_with_subsystem_devtype("hid", null);
             if (hidDevice == null || hidDevice.IsInvalid)
             {
                 Logging.InteropError("Failed to get HID device instance");
@@ -235,7 +227,7 @@ namespace HIDrogen.Backend
             using (hidDevice)
             {
                 // Find the input device by scanning the parent's children for input devices, and grabbing the first one
-                var enumerate = udev_enumerate_new(m_Udev);
+                var enumerate = m_Udev.enumerate_new();
                 if (enumerate == null || enumerate.IsInvalid)
                 {
                     Logging.InteropError("Failed to make udev enumeration");
@@ -246,9 +238,9 @@ namespace HIDrogen.Backend
                 using (enumerate)
                 {
                     // Scan for devices under the 'input' subsystem
-                    if (udev_enumerate_add_match_parent(enumerate, hidDevice) < 0 ||
-                        udev_enumerate_add_match_subsystem(enumerate, "input") < 0 ||
-                        udev_enumerate_scan_devices(enumerate) < 0)
+                    if (enumerate.add_match_parent(hidDevice) < 0 ||
+                        enumerate.add_match_subsystem("input") < 0 ||
+                        enumerate.scan_devices() < 0)
                     {
                         Logging.InteropError("Failed to scan udev devices");
                         success = false;
@@ -256,12 +248,12 @@ namespace HIDrogen.Backend
                     }
 
                     // Get the first device found
-                    IntPtr entry;
+                    Udev.ListEntry entry;
                     string entryPath;
-                    udev_device inputDevice;
-                    if ((entry = udev_enumerate_get_list_entry(enumerate)) == IntPtr.Zero ||
-                        string.IsNullOrEmpty(entryPath = udev_list_entry_get_name(entry)) ||
-                        (inputDevice = udev_device_new_from_syspath(m_Udev, entryPath)) == null ||
+                    Udev.Device inputDevice;
+                    if ((entry = enumerate.get_list_entry()).IsInvalid ||
+                        string.IsNullOrEmpty(entryPath = entry.get_name()) ||
+                        (inputDevice = m_Udev.device_new_from_syspath(entryPath)) == null ||
                         inputDevice.IsInvalid)
                     {
                         Logging.InteropError("Failed to get input device instance");
@@ -272,7 +264,7 @@ namespace HIDrogen.Backend
                     // Grab the version number from the found device
                     using (inputDevice)
                     {
-                        string versionStr = udev_device_get_sysattr_value(inputDevice, "id/version");
+                        string versionStr = inputDevice.get_sysattr_value("id/version");
                         success = ushort.TryParse(versionStr, NumberStyles.HexNumber, null, out version);
                     }
                 }
