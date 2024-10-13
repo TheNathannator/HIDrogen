@@ -5,6 +5,7 @@
 #endif
 
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 #if NATIVELIB_WINDOWS
@@ -33,6 +34,7 @@ namespace HIDrogen.LowLevel
             throw new NotSupportedException();
 #endif
 
+            CheckLoadError(handle, "Failed to load library {0}", name);
             if (handle == IntPtr.Zero)
             {
                 library = null;
@@ -53,6 +55,7 @@ namespace HIDrogen.LowLevel
             #warning "NativeLibrary.TryGetExport not yet supported for the current platform"
             throw new NotSupportedException();
 #endif
+            CheckLoadError(address, "Failed to load export {0}", name);
             return address != IntPtr.Zero;
         }
 
@@ -88,6 +91,25 @@ namespace HIDrogen.LowLevel
             #warning "NativeLibrary.ReleaseHandle not yet supported for the current platform"
             return false;
 #endif
+        }
+
+        [Conditional("HIDROGEN_VERBOSE_LOGGING")]
+        private static void CheckLoadError(IntPtr handle, string format, string name)
+        {
+            if (handle != IntPtr.Zero)
+                return;
+
+            string message;
+#if NATIVELIB_WINDOWS
+            int error = Marshal.GetLastWin32Error();
+            message = $"{new System.ComponentModel.Win32Exception(error).Message} (0x{error:X8})";
+#elif NATIVELIB_POSIX
+            message = $"{Dlfcn.dlerror()} ({Posix.errno})";
+#else
+            #warning "NativeLibrary.CheckLoadError not yet supported for the current platform"
+            throw new NotSupportedException();
+#endif
+            Logging.Verbose($"{string.Format(format, name)}: {message}");
         }
     }
 }
