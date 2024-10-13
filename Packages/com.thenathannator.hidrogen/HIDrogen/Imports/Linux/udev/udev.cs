@@ -102,15 +102,16 @@ namespace HIDrogen.Imports.Linux
         public int scan_devices()
             => m_udev.enumerate_scan_devices(this);
 
-        public udev_list_entry get_list_entry()
-            => m_udev.enumerate_get_list_entry(this);
+        public udev_list_entry_enumerator GetEnumerator()
+            => new udev_list_entry_enumerator(m_udev, m_udev.enumerate_get_list_entry(this));
     }
 
-    public readonly ref struct udev_list_entry
+    internal readonly ref struct udev_list_entry
     {
         private readonly Udev m_udev;
         private readonly IntPtr m_Entry;
 
+        public IntPtr Handle => m_Entry;
         public bool IsInvalid => m_Entry == IntPtr.Zero;
 
         internal udev_list_entry(Udev udev, IntPtr entry)
@@ -119,14 +120,35 @@ namespace HIDrogen.Imports.Linux
             m_Entry = entry;
         }
 
-        public udev_list_entry get_next()
-            => m_udev.list_entry_get_next(m_Entry);
-
         public string get_name()
             => m_udev.list_entry_get_name(m_Entry);
 
         public string get_value()
             => m_udev.list_entry_get_value(m_Entry);
+    }
+
+    internal ref struct udev_list_entry_enumerator
+    {
+        private readonly Udev m_udev;
+        private readonly IntPtr m_Start;
+
+        public udev_list_entry Current { get; private set; }
+
+        public udev_list_entry_enumerator(Udev udev, IntPtr entry)
+        {
+            m_udev = udev;
+            m_Start = entry;
+
+            Current = new udev_list_entry(udev, IntPtr.Zero);
+        }
+
+        public bool MoveNext()
+        {
+            Current = new udev_list_entry(
+                m_udev, Current.IsInvalid ? m_Start : m_udev.list_entry_get_next(Current.Handle)
+            );
+            return !Current.IsInvalid;
+        }
     }
 
     internal class udev_device : SafeHandleZeroIsInvalid
@@ -488,13 +510,13 @@ namespace HIDrogen.Imports.Linux
         public int enumerate_scan_devices(udev_enumerate enumerate)
             => m_udev_enumerate_scan_devices(enumerate);
 
-        public udev_list_entry enumerate_get_list_entry(udev_enumerate enumerate)
-            => new udev_list_entry(this, m_udev_enumerate_get_list_entry(enumerate));
+        public IntPtr enumerate_get_list_entry(udev_enumerate enumerate)
+            => m_udev_enumerate_get_list_entry(enumerate);
         #endregion
 
         #region udev_list_entry
-        public udev_list_entry list_entry_get_next(IntPtr entry)
-            => new udev_list_entry(this, m_udev_list_entry_get_next(entry));
+        public IntPtr list_entry_get_next(IntPtr entry)
+            => m_udev_list_entry_get_next(entry);
 
         public string list_entry_get_name(IntPtr entry)
             => m_udev_list_entry_get_name(entry);

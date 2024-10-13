@@ -253,11 +253,11 @@ namespace HIDrogen.Backend
                     }
 
                     // Get the first device found
-                    udev_list_entry entry;
+                    var enumerator = enumerate.GetEnumerator();
                     string entryPath;
                     udev_device inputDevice;
-                    if ((entry = enumerate.get_list_entry()).IsInvalid ||
-                        string.IsNullOrEmpty(entryPath = entry.get_name()) ||
+                    if (!enumerator.MoveNext() ||
+                        string.IsNullOrEmpty(entryPath = enumerator.Current.get_name()) ||
                         (inputDevice = m_Udev.device_new_from_syspath(entryPath)) == null ||
                         inputDevice.IsInvalid)
                     {
