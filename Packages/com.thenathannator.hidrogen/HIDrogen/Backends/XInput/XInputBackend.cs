@@ -1,6 +1,6 @@
-#if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN) && UNITY_2022_2_OR_NEWER
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
 using System;
-using HIDrogen.Imports;
+using HIDrogen.Imports.Windows;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Layouts;
@@ -30,15 +30,13 @@ namespace HIDrogen.Backend
     internal class XInputBackend : CustomInputBackend<XInputBackendDevice>
     {
         public const string InterfaceName = "XInput";
-        public static readonly FourCC InputFormat = new('X', 'I', 'N', 'P');
+        public static readonly FourCC InputFormat = new FourCC('X', 'I', 'N', 'P');
 
         private const double kRefreshPeriod = 1.0;
         private double m_LastRefreshTime;
 
         private readonly XInputBackendDevice[] m_Devices = new XInputBackendDevice[XInput.MaxCount];
         private readonly bool[] m_BannedDevices = new bool[XInput.MaxCount];
-
-        public readonly XInput xinput = new();
 
         public XInputBackend()
         {
@@ -49,8 +47,6 @@ namespace HIDrogen.Backend
         {
             foreach (var device in m_Devices)
                 device?.Dispose();
-
-            xinput.Dispose();
         }
 
         protected override void OnUpdate()
@@ -70,7 +66,7 @@ namespace HIDrogen.Backend
                 if (m_Devices[i] != null)
                     continue;
 
-                var result = xinput.GetCapabilities(i, XInputCapabilityRequest.Gamepad, out var capabilities);
+                var result = XInput.Instance.GetCapabilities(i, XInputCapabilityRequest.Gamepad, out var capabilities);
                 if (result != Win32Error.ERROR_SUCCESS)
                 {
                     if (result == Win32Error.ERROR_DEVICE_NOT_CONNECTED)

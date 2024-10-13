@@ -1,7 +1,7 @@
-#if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN) && UNITY_2022_2_OR_NEWER
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
 using System;
 using System.Threading;
-using HIDrogen.Imports;
+using HIDrogen.Imports.Windows;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
 
@@ -15,7 +15,7 @@ namespace HIDrogen.Backend
         public InputDevice device { get; }
 
         private Thread m_ReadThread;
-        private EventWaitHandle m_ThreadStop = new(false, EventResetMode.ManualReset);
+        private EventWaitHandle m_ThreadStop = new EventWaitHandle(false, EventResetMode.ManualReset);
 
         public XInputBackendDevice(XInputBackend backend, uint userIndex, InputDevice device)
         {
@@ -42,7 +42,7 @@ namespace HIDrogen.Backend
             uint lastPacketNumber = 0;
             while (!m_ThreadStop.WaitOne(1))
             {
-                var result = m_Backend.xinput.GetState(userIndex, out var state);
+                var result = XInput.Instance.GetState(userIndex, out var state);
                 if (result != Win32Error.ERROR_SUCCESS)
                 {
                     if (result != Win32Error.ERROR_DEVICE_NOT_CONNECTED)
@@ -68,7 +68,7 @@ namespace HIDrogen.Backend
                 rightMotor = (ushort)(rumble->highFrequencyMotorSpeed * ushort.MaxValue),
             };
 
-            var result = m_Backend.xinput.SetState(userIndex, vibration);
+            var result = XInput.Instance.SetState(userIndex, vibration);
             if (result != 0)
             {
                 if (result != Win32Error.ERROR_DEVICE_NOT_CONNECTED)
