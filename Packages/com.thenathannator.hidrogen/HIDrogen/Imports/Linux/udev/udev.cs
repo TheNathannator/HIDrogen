@@ -362,9 +362,9 @@ namespace HIDrogen.Imports.Linux
                 !TryLoadLibrary("libudev.so.1")
                 // We're fine to use libudev.so.0 here since we don't make use of any of the functions removed in v1
                 // (udev_monitor_from_socket, udev_queue_get_failed_list_entry, udev_get_{dev,sys,run}_path)
-                || !TryLoadLibrary("libudev.so.0")
-                || !TryLoadLibrary("libudev.so")
-                || !TryLoadLibrary("libudev")
+                && !TryLoadLibrary("libudev.so.0")
+                && !TryLoadLibrary("libudev.so")
+                && !TryLoadLibrary("libudev")
             )
             {
                 // i better not see this exception in any logs or i'm gonna scream
