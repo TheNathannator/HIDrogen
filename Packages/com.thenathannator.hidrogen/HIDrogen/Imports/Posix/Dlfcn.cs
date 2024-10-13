@@ -17,7 +17,7 @@ namespace HIDrogen.Imports.Posix
 
     internal static partial class Dlfcn
     {
-        private const string kLibName = Posix.LibName;
+        private const string kLibName = "libdl";
 
         [DllImport(kLibName, SetLastError = true)]
         public static extern IntPtr dlopen(
