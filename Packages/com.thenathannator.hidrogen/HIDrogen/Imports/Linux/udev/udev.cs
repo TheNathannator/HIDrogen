@@ -15,19 +15,20 @@ namespace HIDrogen.Imports.Linux
         internal class Monitor : SafeHandleZeroIsInvalid
         {
             private readonly Udev m_udev;
+            private readonly bool m_AddedRef;
 
             internal Monitor(Udev udev, IntPtr handle, bool ownsHandle)
                 : base(handle, ownsHandle)
             {
                 m_udev = udev;
-                bool _ = false;
-                udev.DangerousAddRef(ref _);
+                udev.DangerousAddRef(ref m_AddedRef);
             }
 
             protected override bool ReleaseHandle()
             {
                 m_udev.m_udev_monitor_unref(handle);
-                m_udev.DangerousRelease();
+                if (m_AddedRef)
+                    m_udev.DangerousRelease();
                 return true;
             }
 
@@ -52,19 +53,20 @@ namespace HIDrogen.Imports.Linux
         public class Enumerate : SafeHandleZeroIsInvalid
         {
             private readonly Udev m_udev;
+            private readonly bool m_AddedRef;
 
             internal Enumerate(Udev udev, IntPtr handle, bool ownsHandle)
                 : base(handle, ownsHandle)
             {
                 m_udev = udev;
-                bool _ = false;
-                udev.DangerousAddRef(ref _);
+                udev.DangerousAddRef(ref m_AddedRef);
             }
 
             protected override bool ReleaseHandle()
             {
                 m_udev.m_udev_enumerate_unref(handle);
-                m_udev.DangerousRelease();
+                if (m_AddedRef)
+                    m_udev.DangerousRelease();
                 return true;
             }
 
@@ -107,19 +109,20 @@ namespace HIDrogen.Imports.Linux
         public class Device : SafeHandleZeroIsInvalid
         {
             private readonly Udev m_udev;
+            private readonly bool m_AddedRef;
 
             internal Device(Udev udev, IntPtr handle, bool ownsHandle)
                 : base(handle, ownsHandle)
             {
                 m_udev = udev;
-                bool _ = false;
-                udev.DangerousAddRef(ref _);
+                udev.DangerousAddRef(ref m_AddedRef);
             }
 
             protected override bool ReleaseHandle()
             {
                 m_udev.m_udev_device_unref(handle);
-                m_udev.DangerousRelease();
+                if (m_AddedRef)
+                    m_udev.DangerousRelease();
                 return true;
             }
 
