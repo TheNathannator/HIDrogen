@@ -10,11 +10,16 @@ namespace HIDrogen.Backend
 {
     internal partial class HidApiBackend
     {
-        private Udev m_Udev;
+        private udev_context m_Udev;
 
         partial void PlatformInitialize()
         {
-            m_Udev = new Udev();
+            m_Udev = Udev.Instance.context_new();
+            if (m_Udev == null || m_Udev.IsInvalid)
+            {
+                Logging.InteropError("Failed to initialize udev");
+                throw new Exception("Failed to initialize udev!");
+            }
         }
 
         partial void PlatformDispose()
@@ -248,9 +253,9 @@ namespace HIDrogen.Backend
                     }
 
                     // Get the first device found
-                    Udev.ListEntry entry;
+                    udev_list_entry entry;
                     string entryPath;
-                    Udev.Device inputDevice;
+                    udev_device inputDevice;
                     if ((entry = enumerate.get_list_entry()).IsInvalid ||
                         string.IsNullOrEmpty(entryPath = entry.get_name()) ||
                         (inputDevice = m_Udev.device_new_from_syspath(entryPath)) == null ||
