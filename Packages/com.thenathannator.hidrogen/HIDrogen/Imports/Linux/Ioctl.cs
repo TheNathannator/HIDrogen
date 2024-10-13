@@ -1,3 +1,4 @@
+#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -142,3 +143,4 @@ namespace HIDrogen.Imports.Linux
         }
     }
 }
+#endif

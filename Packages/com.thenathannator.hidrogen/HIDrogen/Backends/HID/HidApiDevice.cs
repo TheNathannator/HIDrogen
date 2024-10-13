@@ -8,6 +8,10 @@ using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.HID;
 using UnityEngine.InputSystem.LowLevel;
 
+#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+using HIDrogen.Imports.Posix;
+#endif
+
 namespace HIDrogen.Backend
 {
     using static HidApi;
@@ -91,7 +95,7 @@ namespace HIDrogen.Backend
                 if (result < 0)
                 {
 #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
-                    if (Libc.errno == Errno.ENOENT) // Device has been disconnected
+                    if (Posix.errno == Errno.ENOENT) // Device has been disconnected
                         break;
 #endif
 

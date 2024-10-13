@@ -34,7 +34,7 @@ namespace HIDrogen.Imports.Posix
         public const short POLLPRI = 0x002;
         public const short POLLOUT = 0x004;
 
-        private const string kLibName = Linux.Libc.LibName;
+        private const string kLibName = Posix.LibName;
 
         [DllImport(kLibName, EntryPoint = "open", SetLastError = true)]
         private static extern int _open(

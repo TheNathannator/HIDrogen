@@ -1,12 +1,11 @@
-#if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN) && UNITY_2022_2_OR_NEWER
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
 using System;
 using System.Runtime.InteropServices;
-using HIDrogen.Backend;
 using HIDrogen.LowLevel;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.InputSystem.Utilities;
 
-namespace HIDrogen.Imports
+namespace HIDrogen.Imports.Windows
 {
     [Flags]
     internal enum XInputButton : ushort
@@ -32,7 +31,8 @@ namespace HIDrogen.Imports
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     internal struct XInputGamepad : IInputStateTypeInfo
     {
-        public readonly FourCC format => XInputBackend.InputFormat;
+        public static readonly FourCC Format = new FourCC('X', 'I', 'N', 'P');
+        public FourCC format => Format;
 
         public XInputButton buttons;
         public byte leftTrigger;
@@ -143,24 +143,12 @@ namespace HIDrogen.Imports
                 !NativeLibrary.TryLoad("xinput1_3.dll", out m_Library))
             {
                 // We don't attempt for xinput9_1_0.dll here, as that will only report devices as gamepads
-                throw new Exception("Failed to load XInput!");
+                throw new DllNotFoundException("Failed to load XInput!");
             }
 
-            static void GetExport<T>(NativeLibrary lib, ref T field, string name)
-                where T : Delegate
-            {
-                if (!lib.TryGetExport(name, out var proc))
-                {
-                    lib.Dispose();
-                    throw new Exception($"Failed to load export {name}!");
-                }
-
-                field = Marshal.GetDelegateForFunctionPointer<T>(proc);
-            }
-
-            GetExport(m_Library, ref m_GetState, nameof(XInputGetState));
-            GetExport(m_Library, ref m_SetState, nameof(XInputSetState));
-            GetExport(m_Library, ref m_GetCapabilities, nameof(XInputGetCapabilities));
+            m_GetState = m_Library.GetExport<XInputGetState>("XInputGetState");
+            m_SetState = m_Library.GetExport<XInputSetState>("XInputSetState");
+            m_GetCapabilities = m_Library.GetExport<XInputGetCapabilities>("XInputGetCapabilities");
         }
 
         public void Dispose()

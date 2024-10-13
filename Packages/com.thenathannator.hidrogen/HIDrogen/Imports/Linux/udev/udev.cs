@@ -1,9 +1,10 @@
+#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
 using System;
 using System.Runtime.InteropServices;
 using HIDrogen.Imports.Posix;
 using HIDrogen.LowLevel;
 
-namespace HIDrogen.Imports
+namespace HIDrogen.Imports.Linux
 {
     internal class udev : SafeHandleZeroIsInvalid
     {
@@ -214,3 +215,4 @@ namespace HIDrogen.Imports
         );
     }
 }
+#endif

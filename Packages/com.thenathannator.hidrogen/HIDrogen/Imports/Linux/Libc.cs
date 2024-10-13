@@ -1,3 +1,4 @@
+#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
 namespace HIDrogen.Imports.Linux
 {
     internal static partial class Libc
@@ -5,3 +6,4 @@ namespace HIDrogen.Imports.Linux
         public const string LibName = "libc";
     }
 }
+#endif

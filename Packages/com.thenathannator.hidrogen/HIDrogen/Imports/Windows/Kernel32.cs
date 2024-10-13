@@ -2,7 +2,7 @@
 using System;
 using System.Runtime.InteropServices;
 
-namespace HIDrogen.Imports
+namespace HIDrogen.Imports.Windows
 {
     internal enum Win32Error : uint
     {

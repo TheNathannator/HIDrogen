@@ -1,7 +1,6 @@
 #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
 using System;
 using System.Globalization;
-using HIDrogen.Imports;
 using HIDrogen.Imports.Linux;
 using HIDrogen.Imports.Posix;
 using HIDrogen.Imports.Posix.Sys;

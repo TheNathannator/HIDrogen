@@ -1,8 +1,8 @@
+#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using HIDrogen.Imports.Linux;
 
-namespace HIDrogen.Imports
+namespace HIDrogen.Imports.Linux
 {
     using static Ioctl;
 
@@ -53,3 +53,4 @@ namespace HIDrogen.Imports
             => IOWR('H', 0x0A, len);
     }
 }
+#endif

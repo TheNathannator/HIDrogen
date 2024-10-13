@@ -1,7 +1,7 @@
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
 using System;
 using System.Threading;
-using HIDrogen.Imports;
+using HIDrogen.Imports.Windows;
 using SharpGameInput;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;

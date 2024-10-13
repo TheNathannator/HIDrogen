@@ -105,7 +105,7 @@ namespace HIDrogen.Imports.Posix.Sys
             public uint Nanoseconds;
         }
 
-        private const string kLibName = Linux.Libc.LibName;
+        private const string kLibName = Posix.LibName;
 
         [DllImport(kLibName, SetLastError = true)]
         public static extern int statx(int dirfd, string path, int flags, uint mask, out Statx data);
