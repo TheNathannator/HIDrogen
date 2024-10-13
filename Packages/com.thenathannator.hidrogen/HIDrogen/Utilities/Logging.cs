@@ -1,6 +1,11 @@
 using System;
 using System.Diagnostics;
+
+#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+using HIDrogen.Imports.Posix;
+#else
 using System.Runtime.InteropServices;
+#endif
 
 using Debug = UnityEngine.Debug;
 
@@ -25,7 +30,7 @@ namespace HIDrogen
 
         public static string MakeInteropErrorMessage(string message)
 #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
-            => $"{message} ({Imports.Libc.errno})";
+            => $"{message} ({Posix.errno})";
 #else
             => $"{message} (0x{Marshal.GetLastWin32Error():X8})";
 #endif
