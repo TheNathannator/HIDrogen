@@ -1,10 +1,3 @@
-using System;
-using UnityEditor;
-
-#if !UNITY_EDITOR
-using UnityEngine;
-#endif
-
 namespace HIDrogen
 {
     /// <summary>
@@ -12,28 +5,31 @@ namespace HIDrogen
     /// </summary>
     internal static partial class Initialization
     {
+// Ignore initialization if in editor and current build platform doesn't match editor runtime platform
+#if !UNITY_EDITOR || (UNITY_STANDALONE_WIN && UNITY_EDITOR_WIN) || (UNITY_STANDALONE_OSX && UNITY_EDITOR_OSX) || (UNITY_STANDALONE_LINUX && UNITY_EDITOR_LINUX)
         /// <summary>
         /// Initializes everything.
         /// </summary>
 #if UNITY_EDITOR
-        [InitializeOnLoadMethod]
+        [UnityEditor.InitializeOnLoadMethod]
 #else
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.BeforeSceneLoad)]
 #endif
         internal static void Initialize()
         {
 #if UNITY_EDITOR
-            AssemblyReloadEvents.beforeAssemblyReload += Uninitialize;
-            EditorApplication.quitting += Uninitialize;
+            UnityEditor.AssemblyReloadEvents.beforeAssemblyReload += Uninitialize;
+            UnityEditor.EditorApplication.quitting += Uninitialize;
 #else
-            Application.quitting += Uninitialize;
+            UnityEngine.Application.quitting += Uninitialize;
 #endif
 
             try
             {
+                Logging.Verbose("Initializing backends");
                 PlatformInitialize();
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 Logging.Exception("Failed to initialize backends", ex);
             }
@@ -42,21 +38,23 @@ namespace HIDrogen
         internal static void Uninitialize()
         {
 #if UNITY_EDITOR
-            AssemblyReloadEvents.beforeAssemblyReload -= Uninitialize;
-            EditorApplication.quitting -= Uninitialize;
+            UnityEditor.AssemblyReloadEvents.beforeAssemblyReload -= Uninitialize;
+            UnityEditor.EditorApplication.quitting -= Uninitialize;
 #else
-            Application.quitting -= Uninitialize;
+            UnityEngine.Application.quitting -= Uninitialize;
 #endif
 
             try
             {
+                Logging.Verbose("Uninitializing backends");
                 PlatformUninitialize();
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 Logging.Exception("Failed to uninitialize backends", ex);
             }
         }
+#endif
 
         static partial void PlatformInitialize();
         static partial void PlatformUninitialize();

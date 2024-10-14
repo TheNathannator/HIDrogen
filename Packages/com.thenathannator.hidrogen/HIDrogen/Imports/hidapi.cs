@@ -69,7 +69,7 @@ namespace HIDrogen.Imports
             public string productName => FromNullTerminatedWideStr(m_ProductName);
         }
 
-#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+#if UNITY_STANDALONE_LINUX
         const string kLibName = "libhidapi-hidraw.so.0";
 #else
         const string kLibName = "hidapi";
@@ -257,9 +257,9 @@ namespace HIDrogen.Imports
         private static string FromNullTerminatedWideStr(byte* ptr)
         {
             // While this is intended for Linux only, it's best to support everything correctly
-#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+#if UNITY_STANDALONE_LINUX || UNITY_STANDALONE_OSX
             return StringMarshal.FromNullTerminatedUtf32(ptr);
-#elif UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
+#elif UNITY_STANDALONE_WIN
             return StringMarshal.FromNullTerminatedUtf16(ptr);
 #else
             throw new NotImplementedException("Unhandled platform in wide string conversion!");

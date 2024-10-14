@@ -1,4 +1,4 @@
-#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+#if UNITY_STANDALONE_LINUX
 using System;
 using System.Reflection;
 using UnityEngine.InputSystem;

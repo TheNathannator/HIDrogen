@@ -8,7 +8,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.HID;
 using UnityEngine.InputSystem.LowLevel;
 
-#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+#if UNITY_STANDALONE_LINUX
 using HIDrogen.Imports.Posix;
 #endif
 
@@ -94,7 +94,7 @@ namespace HIDrogen.Backend
                 int result = hid_read_timeout(m_Handle, readBuffer + readOffset, readSize, 0);
                 if (result < 0)
                 {
-#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+#if UNITY_STANDALONE_LINUX
                     if (Posix.errno == Errno.ENOENT) // Device has been disconnected
                         break;
 #endif

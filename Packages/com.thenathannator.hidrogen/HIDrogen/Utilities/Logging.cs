@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
 
-#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+#if UNITY_STANDALONE_LINUX
 using HIDrogen.Imports.Posix;
 #else
 using System.Runtime.InteropServices;
@@ -35,7 +35,7 @@ namespace HIDrogen
         }
 
         public static string MakeInteropErrorMessage(string message)
-#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+#if UNITY_STANDALONE_LINUX
             => $"{message} ({Posix.errno})";
 #else
             => $"{message} (0x{Marshal.GetLastWin32Error():X8})";

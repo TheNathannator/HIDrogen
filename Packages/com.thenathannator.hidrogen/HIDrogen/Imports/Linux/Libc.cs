@@ -1,4 +1,4 @@
-#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+#if UNITY_STANDALONE_LINUX
 namespace HIDrogen.Imports.Linux
 {
     internal static partial class Libc
