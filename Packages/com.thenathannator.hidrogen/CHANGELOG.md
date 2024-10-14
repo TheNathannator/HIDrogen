@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Dates are relative to UTC.
 
+## [0.4.2] - 2024/10/14
+
+### Fixed
+
+- libudev should now, *finally*, load reliably on hopefully all distros. It is now loaded manually instead of `DllImport`ed, and multiple possible file names are checked to increase the chances of a successful load.
+  - Apologies for taking so long to address this lol
+- Switching to a build platform other than the current editor platform no longer results in compile errors. You can now cross-build a project which depends on HIDrogen within the same editor instance.
+  - Note that all initialization code is stubbed out in the editor when this is done, otherwise runtime errors would result due to being unable to load native libraries. You must switch the build platform back to the same platform as the editor for HIDrogen to function.
+
+### Changed
+
+- Error logging now contains file names and line numbers, to better assist with diagnosis of issues.
+
 ## [0.4.1] - 2024/07/19
 
 ### Fixed
