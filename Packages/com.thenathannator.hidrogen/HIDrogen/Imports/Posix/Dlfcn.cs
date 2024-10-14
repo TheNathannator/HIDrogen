@@ -15,33 +15,88 @@ namespace HIDrogen.Imports.Posix
         DEEPBIND = 0x00008,
     }
 
+    // Partially based on https://github.com/mellinoe/nativelibraryloader/blob/master/NativeLibraryLoader/Libdl.cs
     internal static partial class Dlfcn
     {
-        private const string kLibName = "libdl";
+        internal static class Libdl
+        {
+            private const string kLibName = "libdl";
 
-        [DllImport(kLibName, SetLastError = true)]
-        public static extern IntPtr dlopen(
-            [MarshalAs(UnmanagedType.LPStr)] string file,
-            RTLD mode
-        );
+            [DllImport(kLibName, SetLastError = true)]
+            public static extern IntPtr dlopen(
+                [MarshalAs(UnmanagedType.LPStr)] string file,
+                RTLD mode
+            );
 
-        [DllImport(kLibName, SetLastError = true, EntryPoint = "dlclose")]
-        private static extern int _dlclose(
-            IntPtr handle
-        );
+            [DllImport(kLibName, SetLastError = true)]
+            public static extern int dlclose(
+                IntPtr handle
+            );
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            [DllImport(kLibName, SetLastError = true)]
+            public static extern IntPtr dlsym(
+                IntPtr handle,
+                [MarshalAs(UnmanagedType.LPStr)] string name
+            );
+
+            [DllImport(kLibName, SetLastError = true)]
+            [return: MarshalAs(UnmanagedType.LPStr)]
+            public static extern string dlerror();
+        }
+
+        internal static class Libdl2
+        {
+            private const string kLibName = "libdl.so.2";
+
+            [DllImport(kLibName, SetLastError = true)]
+            public static extern IntPtr dlopen(
+                [MarshalAs(UnmanagedType.LPStr)] string file,
+                RTLD mode
+            );
+
+            [DllImport(kLibName, SetLastError = true)]
+            public static extern int dlclose(
+                IntPtr handle
+            );
+
+            [DllImport(kLibName, SetLastError = true)]
+            public static extern IntPtr dlsym(
+                IntPtr handle,
+                [MarshalAs(UnmanagedType.LPStr)] string name
+            );
+
+            [DllImport(kLibName, SetLastError = true)]
+            [return: MarshalAs(UnmanagedType.LPStr)]
+            public static extern string dlerror();
+        }
+
+        private static readonly bool s_UseLibdl2 = false;
+
+        static Dlfcn()
+        {
+            try
+            {
+                Libdl.dlerror();
+            }
+            catch
+            {
+                s_UseLibdl2 = true;
+            }
+        }
+
+        public static IntPtr dlopen(string file, RTLD mode)
+            => s_UseLibdl2 ? Libdl2.dlopen(file, mode) : Libdl.dlopen(file, mode);
+
         public static bool dlclose(IntPtr handle)
-            => _dlclose(handle) == 0; // 0 means success, non-0 means error
+        {
+            int result = s_UseLibdl2 ? Libdl2.dlclose(handle) : Libdl.dlclose(handle);
+            return result == 0; // 0 means success, non-0 means error
+        }
 
-        [DllImport(kLibName, SetLastError = true)]
-        public static extern IntPtr dlsym(
-            IntPtr handle,
-            [MarshalAs(UnmanagedType.LPStr)] string name
-        );
+        public static IntPtr dlsym(IntPtr handle, string name)
+            => s_UseLibdl2 ? Libdl2.dlsym(handle, name) : Libdl.dlsym(handle, name);
 
-        [DllImport(kLibName, SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.LPStr)]
-        public static extern string dlerror();
+        public static string dlerror()
+            => s_UseLibdl2 ? Libdl2.dlerror() : Libdl.dlerror();
     }
 }
