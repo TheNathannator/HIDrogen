@@ -16,6 +16,9 @@ namespace HIDrogen.Imports.Posix
     }
 
     // Partially based on https://github.com/mellinoe/nativelibraryloader/blob/master/NativeLibraryLoader/Libdl.cs
+    // Note: NativeLibrary is not used here, as this is the very class which powers it on Unix systems.
+    // We *must* rely on the .NET runtime to load things for us,
+    // hence two separate definitions referring to different file names.
     internal static partial class Dlfcn
     {
         internal static class Libdl
