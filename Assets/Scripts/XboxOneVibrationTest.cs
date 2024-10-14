@@ -25,12 +25,12 @@ namespace HIDrogen.TestProject
                 return;
             }
 
-            byte lx = (byte)(gamepad.leftStick.x.value * 255);
-            byte ly = (byte)(gamepad.leftStick.y.value * 255);
+            byte lx = (byte)(gamepad.leftStick.x.ReadValue() * 255);
+            byte ly = (byte)(gamepad.leftStick.y.ReadValue() * 255);
             byte lMax = Math.Max(lx, ly);
 
-            byte rx = (byte)(gamepad.rightStick.x.value * 255);
-            byte ry = (byte)(gamepad.rightStick.y.value * 255);
+            byte rx = (byte)(gamepad.rightStick.x.ReadValue() * 255);
+            byte ry = (byte)(gamepad.rightStick.y.ReadValue() * 255);
             byte rMax = Math.Max(rx, ry);
 
             byte max = Math.Max(lMax, rMax);
