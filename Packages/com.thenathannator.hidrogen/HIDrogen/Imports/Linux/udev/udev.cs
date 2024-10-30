@@ -204,7 +204,7 @@ namespace HIDrogen.Imports.Linux
         );
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate udev_device _udev_monitor_receive_device(
+        private delegate IntPtr _udev_monitor_receive_device(
             udev_monitor udev_monitor
         );
 
@@ -464,7 +464,7 @@ namespace HIDrogen.Imports.Linux
             => m_udev_monitor_enable_receiving(monitor);
 
         public udev_device monitor_receive_device(udev_monitor monitor)
-            => m_udev_monitor_receive_device(monitor);
+            => new udev_device(this, m_udev_monitor_receive_device(monitor), true);
 
         public fd monitor_get_fd(udev_monitor monitor)
         {
