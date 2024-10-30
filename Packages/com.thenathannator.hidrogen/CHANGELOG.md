@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Dates are relative to UTC.
 
+## [0.4.3] - 2024/10/30
+
+### Fixed
+
+- Fixed an an improper udev function import that caused an exception in the Linux HID backend.
+
 ## [0.4.2] - 2024/10/14
 
 ### Fixed
