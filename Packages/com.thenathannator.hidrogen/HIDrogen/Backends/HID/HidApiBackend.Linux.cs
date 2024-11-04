@@ -220,57 +220,60 @@ namespace HIDrogen.Backend
                 return;
             }
 
-            // Grab the root parent hid device that both the hidraw and input devices share
-            var hidDevice = hidrawDevice.get_parent_with_subsystem_devtype("hid", null);
-            if (hidDevice == null || hidDevice.IsInvalid)
+            using (hidrawDevice)
             {
-                Logging.InteropError("Failed to get HID device instance");
-                success = false;
-                return;
-            }
-
-            using (hidDevice)
-            {
-                // Find the input device by scanning the parent's children for input devices, and grabbing the first one
-                var enumerate = m_Udev.enumerate_new();
-                if (enumerate == null || enumerate.IsInvalid)
+                // Grab the root parent hid device that both the hidraw and input devices share
+                var hidDevice = hidrawDevice.get_parent_with_subsystem_devtype("hid", null);
+                if (hidDevice == null || hidDevice.IsInvalid)
                 {
-                    Logging.InteropError("Failed to make udev enumeration");
+                    Logging.InteropError("Failed to get HID device instance");
                     success = false;
                     return;
                 }
 
-                using (enumerate)
+                using (hidDevice)
                 {
-                    // Scan for devices under the 'input' subsystem
-                    if (enumerate.add_match_parent(hidDevice) < 0 ||
-                        enumerate.add_match_subsystem("input") < 0 ||
-                        enumerate.scan_devices() < 0)
+                    // Find the input device by scanning the parent's children for input devices, and grabbing the first one
+                    var enumerate = m_Udev.enumerate_new();
+                    if (enumerate == null || enumerate.IsInvalid)
                     {
-                        Logging.InteropError("Failed to scan udev devices");
+                        Logging.InteropError("Failed to make udev enumeration");
                         success = false;
                         return;
                     }
 
-                    // Get the first device found
-                    udev_list_entry entry;
-                    string entryPath;
-                    udev_device inputDevice;
-                    if ((entry = enumerate.get_list_entry()).IsInvalid ||
-                        string.IsNullOrEmpty(entryPath = entry.get_name()) ||
-                        (inputDevice = m_Udev.device_new_from_syspath(entryPath)) == null ||
-                        inputDevice.IsInvalid)
+                    using (enumerate)
                     {
-                        Logging.InteropError("Failed to get input device instance");
-                        success = false;
-                        return;
-                    }
+                        // Scan for devices under the 'input' subsystem
+                        if (enumerate.add_match_parent(hidDevice) < 0 ||
+                            enumerate.add_match_subsystem("input") < 0 ||
+                            enumerate.scan_devices() < 0)
+                        {
+                            Logging.InteropError("Failed to scan udev devices");
+                            success = false;
+                            return;
+                        }
 
-                    // Grab the version number from the found device
-                    using (inputDevice)
-                    {
-                        string versionStr = inputDevice.get_sysattr_value("id/version");
-                        success = ushort.TryParse(versionStr, NumberStyles.HexNumber, null, out version);
+                        // Get the first device found
+                        udev_list_entry entry;
+                        string entryPath;
+                        udev_device inputDevice;
+                        if ((entry = enumerate.get_list_entry()).IsInvalid ||
+                            string.IsNullOrEmpty(entryPath = entry.get_name()) ||
+                            (inputDevice = m_Udev.device_new_from_syspath(entryPath)) == null ||
+                            inputDevice.IsInvalid)
+                        {
+                            Logging.InteropError("Failed to get input device instance");
+                            success = false;
+                            return;
+                        }
+
+                        // Grab the version number from the found device
+                        using (inputDevice)
+                        {
+                            string versionStr = inputDevice.get_sysattr_value("id/version");
+                            success = ushort.TryParse(versionStr, NumberStyles.HexNumber, null, out version);
+                        }
                     }
                 }
             }
