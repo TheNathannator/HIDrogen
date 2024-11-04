@@ -7,23 +7,44 @@ using HIDrogen.LowLevel;
 namespace HIDrogen.Imports.Linux
 {
     #region Handles
-    internal class udev_context : SafeHandleZeroIsInvalid
+    internal abstract class UdevHandle : SafeHandleZeroIsInvalid
     {
-        private readonly Udev m_udev;
+        protected readonly Udev m_udev;
         private readonly bool m_AddedRef;
 
-        internal udev_context(Udev udev, IntPtr handle, bool ownsHandle)
+        internal UdevHandle(Udev udev, IntPtr handle, bool ownsHandle)
             : base(handle, ownsHandle)
         {
             m_udev = udev;
-            udev.DangerousAddRef(ref m_AddedRef);
+
+            // Explicitly suppress Udev finalizer until our own disposal,
+            // to ensure DangerousRelease is handled correctly in finalizers
+            GC.SuppressFinalize(m_udev);
+            m_udev.DangerousAddRef(ref m_AddedRef);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+            if (m_AddedRef)
+            {
+                GC.ReRegisterForFinalize(m_udev);
+                m_udev.DangerousRelease();
+            }
+        }
+
+    }
+
+    internal class udev_context : UdevHandle
+    {
+        internal udev_context(Udev udev, IntPtr handle, bool ownsHandle)
+            : base(udev, handle, ownsHandle)
+        {
         }
 
         protected override bool ReleaseHandle()
         {
             m_udev.context_unref(handle);
-            if (m_AddedRef)
-                m_udev.DangerousRelease();
             return true;
         }
 
@@ -40,23 +61,16 @@ namespace HIDrogen.Imports.Linux
             => m_udev.device_new_from_syspath(this, path);
     }
 
-    internal class udev_monitor : SafeHandleZeroIsInvalid
+    internal class udev_monitor : UdevHandle
     {
-        private readonly Udev m_udev;
-        private readonly bool m_AddedRef;
-
         internal udev_monitor(Udev udev, IntPtr handle, bool ownsHandle)
-            : base(handle, ownsHandle)
+            : base(udev, handle, ownsHandle)
         {
-            m_udev = udev;
-            udev.DangerousAddRef(ref m_AddedRef);
         }
 
         protected override bool ReleaseHandle()
         {
             m_udev.monitor_unref(handle);
-            if (m_AddedRef)
-                m_udev.DangerousRelease();
             return true;
         }
 
@@ -73,23 +87,16 @@ namespace HIDrogen.Imports.Linux
             => m_udev.monitor_get_fd(this);
     }
 
-    internal class udev_enumerate : SafeHandleZeroIsInvalid
+    internal class udev_enumerate : UdevHandle
     {
-        private readonly Udev m_udev;
-        private readonly bool m_AddedRef;
-
         internal udev_enumerate(Udev udev, IntPtr handle, bool ownsHandle)
-            : base(handle, ownsHandle)
+            : base(udev, handle, ownsHandle)
         {
-            m_udev = udev;
-            udev.DangerousAddRef(ref m_AddedRef);
         }
 
         protected override bool ReleaseHandle()
         {
             m_udev.enumerate_unref(handle);
-            if (m_AddedRef)
-                m_udev.DangerousRelease();
             return true;
         }
 
@@ -129,23 +136,16 @@ namespace HIDrogen.Imports.Linux
             => m_udev.list_entry_get_value(m_Entry);
     }
 
-    internal class udev_device : SafeHandleZeroIsInvalid
+    internal class udev_device : UdevHandle
     {
-        private readonly Udev m_udev;
-        private readonly bool m_AddedRef;
-
         internal udev_device(Udev udev, IntPtr handle, bool ownsHandle)
-            : base(handle, ownsHandle)
+            : base(udev, handle, ownsHandle)
         {
-            m_udev = udev;
-            udev.DangerousAddRef(ref m_AddedRef);
         }
 
         protected override bool ReleaseHandle()
         {
             m_udev.device_unref(handle);
-            if (m_AddedRef)
-                m_udev.DangerousRelease();
             return true;
         }
 
