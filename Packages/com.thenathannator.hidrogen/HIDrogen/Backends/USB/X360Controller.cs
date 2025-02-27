@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using HIDrogen.Imports;
 using HIDrogen.LowLevel;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -8,9 +9,7 @@ using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.InputSystem.Utilities;
 using System.Runtime.InteropServices;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Buffers.Binary;
-using LibUSBWrapper;
 
 namespace HIDrogen.Backend
 {
@@ -126,23 +125,21 @@ namespace HIDrogen.Backend
 	{
         private readonly X360Receiver m_Backend;
         public const string InterfaceName = "XInput";
-        public static readonly FourCC InputFormat = new FourCC('X', 'I', 'N', 'P');
 
-        private LibUSBDevice receiver;
+        private LibUSBDevice _receiver;
         public InputDevice device { get; set; }
+        private Thread m_interruptThread;
 
-        public uint userIndex { get; }
+        public uint _userIndex { get; }
         private bool connected = false;
         private int interfaceIndex;
         private uint controlEndpoint;
 
-        private CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
-
         public X360Controller(X360Receiver backend, LibUSBDevice receiver, uint userIndex)
         {
             m_Backend = backend;
-            this.receiver = receiver;
-            this.userIndex = userIndex;
+            _receiver = receiver;
+            _userIndex = userIndex;
 
             // The receiver has 8 endpoints,
             // E1: P1 Controller, E2: P1 Voice,
@@ -156,11 +153,41 @@ namespace HIDrogen.Backend
             // Claim the control interface.
             receiver.ClaimInterface(interfaceIndex);
 
-            // Listen for 32 byte interrupts on the control endpoint.
-            receiver.ListenForDeviceInterrupts(controlEndpoint, 32, (payload) =>
+            // Create a new thread to wait and handle to input.
+            m_interruptThread = new Thread(WaitForInterrupt);
+            m_interruptThread.Start();
+
+            // Controllers will automatically send a link control packet
+            // when first connected to the receiver. We will now request another
+            // in case this class was not listening when that happened.
+            SendInquiry();
+        }
+
+        public void WaitForInterrupt()
+        {
+            var payload = new byte[32];
+
+            int consecutiveFailures = 0;
+
+            while (consecutiveFailures < 3)
             {
-                // Loop over the first two bytes of the payload.
-                switch ((payload[0] << 8) | payload[1]) {
+                // This will block until data is ready.
+                var result = _receiver.InterruptTranferIn(controlEndpoint, payload);
+
+                if (result == LibUSBError.ERROR_NO_DEVICE)
+                {
+                    break;
+                }
+
+                if (result != LibUSBError.SUCCESS)
+                {
+                    consecutiveFailures++;
+                    continue;
+                }
+
+                // Loop over the first two bytes of the incoming payload.
+                switch ((payload[0] << 8) | payload[1])
+                {
                     case 0x0001: { 
                         // Device state update.
                         HIDUpdate(payload);
@@ -191,12 +218,7 @@ namespace HIDrogen.Backend
                         break;
                     }
                 }
-            }, cancellationTokenSource.Token);
-
-            // Controllers will automatically send a link control packet
-            // when first connected to the receiver. We will now request another
-            // in case this class was not listening when that happened.
-            SendInquiry();
+            }
         }
 
         public void AddDevice(byte[] bytes)
@@ -211,7 +233,7 @@ namespace HIDrogen.Backend
                 interfaceName = InterfaceName,
                 capabilities = JsonUtility.ToJson(new XInputDescriptionCapabilities()
                 {
-                    userIndex = userIndex,
+                    userIndex = _userIndex,
                     type = XInputDeviceType.Gamepad,
                     subType = subType,
                     flags = XInputDeviceFlags.Wireless | XInputDeviceFlags.Voice,
@@ -220,14 +242,12 @@ namespace HIDrogen.Backend
                 }),
             };
 
-            Debug.Log(description);
-
             m_Backend.QueueDeviceAdd(description, new USBQueueContext()
             {
-                userIndex = userIndex
+                userIndex = _userIndex
             });
 
-            switch (userIndex)
+            switch (_userIndex)
             {
                 case 0: {
                     SetLED(LEDState.LED_1);
@@ -255,7 +275,7 @@ namespace HIDrogen.Backend
             payload[2] = 0x0f;
             payload[3] = 0xc0;
 
-            receiver.InterruptTranferOut(controlEndpoint, payload);
+            _receiver.InterruptTranferOut(controlEndpoint, payload);
         }
 
         public void PowerDown()
@@ -263,7 +283,7 @@ namespace HIDrogen.Backend
             var payload = new byte[12];
             payload[2] = 8;
             payload[3] = 0xc0;
-            receiver.InterruptTranferOut(controlEndpoint, payload);
+            _receiver.InterruptTranferOut(controlEndpoint, payload);
         }
 
         public void SetLED(LEDState ledState)
@@ -271,7 +291,7 @@ namespace HIDrogen.Backend
             var payload = new byte[12];
             payload[2] = 8;
             payload[3] = (byte)((uint)ledState + 0x40);
-            receiver.InterruptTranferOut(controlEndpoint, payload);
+            _receiver.InterruptTranferOut(controlEndpoint, payload);
         }
 
         public void SetRumble(byte highFreq, byte lowFreq)
@@ -283,14 +303,12 @@ namespace HIDrogen.Backend
             payload[5] = highFreq;
             payload[6] = lowFreq;
 
-            receiver.InterruptTranferOut(controlEndpoint, payload);
+            _receiver.InterruptTranferOut(controlEndpoint, payload);
         }
 
 		public void Dispose()
         {
-            Debug.Log("[X360Controller] disposing");
-            cancellationTokenSource.Cancel();
-            receiver.ReleaseInterface(interfaceIndex);
+            _receiver.ReleaseInterface(interfaceIndex);
 
             if (connected)
             {

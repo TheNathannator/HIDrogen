@@ -1,8 +1,5 @@
 #if UNITY_STANDALONE_OSX
 using HIDrogen.Backend;
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
 
 namespace HIDrogen
 {

@@ -1,65 +1,58 @@
 using System;
 using System.Threading;
-using System.Threading.Tasks;
-using System.Runtime.InteropServices;
 using System.Collections.Generic;
-using UnityEngine;
-using LibUSBWrapper;
+using HIDrogen.Imports;
 
 namespace HIDrogen.Backend
 {
     internal class USBBackend : IDisposable
     {
-        private LibUSBWrapper.LibUSB _libusb;
+        private LibUSB _libusb;
 
         private List<IDisposable> m_Devices = new List<IDisposable>();
 
-        private CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+        private Thread m_watchThread;
+        private EventWaitHandle m_ThreadStop = new EventWaitHandle(false, EventResetMode.ManualReset);
 
         public USBBackend()
         {
-            Debug.Log("[USBBackend] init");
+            Logging.Verbose("Initializing USBBackend");
 
             try
             {
-                _libusb = new LibUSBWrapper.LibUSB();
+                _libusb = new LibUSB();
             }
             catch (Exception ex) {
-                Debug.Log($"Failed to init libusb. {ex}");
+                Logging.Exception("Failed to initialize libusb.", ex);
                 return;
             }
 
-            // Create a task to watch 
-            var token = cancellationTokenSource.Token;
+            // Create a new thread
+            Thread m_watchThread = new Thread(WatchForDevices);
 
-            Task.Run(() =>
-            {
-                while (!token.IsCancellationRequested)
-                {
-                    GetDevices();
-                    Thread.Sleep(1000);
-                }
-            }, token);
+            // Start the thread
+            m_watchThread.Start();
         }
 
-        void GetDevices()
+        private void WatchForDevices()
         {
             // We're only searching for one device at the moment.
-            if (m_Devices.Count == 1) return;
-
-            var devices = _libusb.GetDeviceList();
-
-            Debug.Log($"found {devices.Count} devices");
-
-            foreach (var device in devices)
+            while (m_Devices.Count != 1 && !m_ThreadStop.WaitOne(1000))
             {
-                InspectDevice(device);
-            }
+                var devices = _libusb.GetDeviceList();
 
-            _libusb.FreeDeviceList();
+                Logging.Verbose($"found {devices.Count} USB devices");
+
+                foreach (var device in devices)
+                {
+                    InspectDevice(device);
+                }
+
+                _libusb.FreeDeviceList();
+            }
         }
 
-        private void InspectDevice(LibUSBWrapper.LibUSBDevice device) {
+        private void InspectDevice(LibUSBDevice device) {
 
             // Microsoft USB Device
             if (device.VendorID == 0x045e)
@@ -67,7 +60,7 @@ namespace HIDrogen.Backend
                 // Known Product IDs for this dongle.
                 if (device.ProductID == 0x0291 || device.ProductID == 0x02a9 || device.ProductID == 0x0719)
                 {
-                    Debug.Log("Found X360Receiver");
+                    Logging.Verbose("Found X360Receiver");
                     device.Open();
                     m_Devices.Add(new X360Receiver(device));
                 }
@@ -76,10 +69,13 @@ namespace HIDrogen.Backend
 
         public void Dispose()
         {
-            Debug.Log("[USBBackend] disposing");
-
             // Stop watching for devices.
-            cancellationTokenSource.Cancel();
+            m_ThreadStop?.Set();
+            m_watchThread?.Join();
+            m_watchThread = null;
+
+            m_ThreadStop?.Dispose();
+            m_ThreadStop = null;
 
             foreach (var device in m_Devices)
                 device.Dispose();

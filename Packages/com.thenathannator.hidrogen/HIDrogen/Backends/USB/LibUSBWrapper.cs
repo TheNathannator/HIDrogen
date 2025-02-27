@@ -1,45 +1,112 @@
 using System;
 using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Runtime.InteropServices;
-using UnityEngine;
 
-namespace LibUSBWrapper {
+namespace HIDrogen.Imports {
 
-    public static class Global
+    // Define the device descriptor structure
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct LibUSBDeviceDescriptor
     {
-        // Ensure this DLL is available in /Assets/Plugins.
-        public const string LIBUSB_LIBRARY = "libusb-1.0.0";
+        public byte bLength;
+        public byte bDescriptorType;
+        public short bcdUSB;
+        public byte bDeviceClass;
+        public byte bDeviceSubClass;
+        public byte bDeviceProtocol;
+        public byte bMaxPacketSize0;
+        public ushort idVendor;
+        public ushort idProduct;
+        public ushort bcdDevice;
+        public byte iManufacturer;
+        public byte iProduct;
+        public byte iSerialNumber;
+        public byte bNumConfigurations;
     }
 
-    public class LibUSB : IDisposable
+    public enum LibUSBError
     {
+        SUCCESS = 0,
+        ERROR_IO = -1,
+        ERROR_INVALID_PARAM = -2,
+        ERROR_ACCESS = -3,
+        ERROR_NO_DEVICE = -4,
+        ERROR_NOT_FOUND = -5,
+        ERROR_BUSY = -6,
+        ERROR_TIMEOUT = -7,
+        ERROR_OVERFLOW = -8,
+        ERROR_PIPE = -9,
+        ERROR_INTERRUPTED = -10,
+        ERROR_NO_MEM = -11,
+        ERROR_NOT_SUPPORTED = -12,
+        ERROR_OTHER = -13
+    }
+
+    internal class Imports {
+
+        // Ensure this DLL is available in /Assets/Plugins.
+        private const string LIBUSB_LIBRARY = "libusb-1.0.0";
+
         // P/Invoke declarations
-        [DllImport(Global.LIBUSB_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-        private static extern int libusb_init(ref IntPtr handle);
+        [DllImport(LIBUSB_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
+        public static extern LibUSBError libusb_init(ref IntPtr handle);
 
-        [DllImport(Global.LIBUSB_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-        private static extern int libusb_get_device_list(IntPtr ctx, ref IntPtr list);
+        [DllImport(LIBUSB_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int libusb_get_device_list(IntPtr ctx, ref IntPtr list);
 
-        [DllImport(Global.LIBUSB_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-        private static extern void libusb_free_device_list(IntPtr list, int unref_devices);
+        [DllImport(LIBUSB_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void libusb_free_device_list(IntPtr list, int unref_devices);
 
-        [DllImport(Global.LIBUSB_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-        private static extern void libusb_exit(IntPtr handle);
+        [DllImport(LIBUSB_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void libusb_exit(IntPtr handle);
 
+        [DllImport(LIBUSB_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
+        public static extern LibUSBError libusb_claim_interface(IntPtr device_handle, int interface_number);
+
+        [DllImport(LIBUSB_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
+        public static extern LibUSBError libusb_interrupt_transfer(IntPtr device_handle, uint endpoint, byte[] data, int length, out int transferred, int timeout);
+
+        [DllImport(LIBUSB_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
+        public static extern LibUSBError libusb_release_interface(IntPtr device_handle, int interface_number);
+
+        [DllImport(LIBUSB_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
+        public static extern LibUSBError libusb_open(IntPtr dev, ref IntPtr handle);
+
+        [DllImport(LIBUSB_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void libusb_close(IntPtr handle);
+
+        [DllImport(LIBUSB_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
+        public static extern LibUSBError libusb_get_device_descriptor(IntPtr dev, ref LibUSBDeviceDescriptor desc);
+
+        [DllImport(LIBUSB_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr libusb_strerror(LibUSBError errcode);
+
+        public static string ErrorToString(LibUSBError errcode)
+        {
+            var ptr = Imports.libusb_strerror(errcode);
+            return Marshal.PtrToStringAnsi(ptr);
+        }
+    }
+
+    internal class LibUSB : IDisposable
+    {
         private IntPtr _context = IntPtr.Zero;
         private IntPtr _deviceList = IntPtr.Zero;
 
         public LibUSB()
         {
-            int result = libusb_init(ref _context);
+            var result = Imports.libusb_init(ref _context);
             if (result < 0)
             {
-                throw new Exception("[LibUSB] Failed to initialize, error code: " + result);
+                throw new Exception($"Failed to initialize LibUSB: {Imports.ErrorToString(result)} (0x{result:X8})");
             }
 
-            Debug.Log("[LibUSB] initialized successfully.");
+            Logging.Verbose("LibUSB loaded successfully.");
+        }
+
+        ~LibUSB()
+        {
+            Dispose();
         }
 
         // Return a list of LibUSBDevice objects
@@ -47,10 +114,10 @@ namespace LibUSBWrapper {
         {
             var devices = new List<LibUSBDevice>();
 
-            int result = libusb_get_device_list(_context, ref _deviceList);
+            int result = Imports.libusb_get_device_list(_context, ref _deviceList);
             if (result < 0)
             {
-                Debug.Log($"[LibUSBWrapper] failed to get device list {result}.");
+                Logging.Error($"Failed to get USB device list: {Imports.ErrorToString((LibUSBError)result)} (0x{result:X8})");
                 return devices;
             }
 
@@ -67,56 +134,21 @@ namespace LibUSBWrapper {
 
         public void FreeDeviceList()
         {
-            libusb_free_device_list(_deviceList, 1);
+            Imports.libusb_free_device_list(_deviceList, 1);
         }
 
         public void Dispose()
         {
-            Debug.Log("[LibUSB] Dispose");
-            libusb_exit(_context);
+            if (_context != IntPtr.Zero)
+            {
+                Imports.libusb_exit(_context);
+                _context = IntPtr.Zero;
+            }
         }
     }
 
-    public class LibUSBDevice : IDisposable
+    internal class LibUSBDevice : IDisposable
     {
-        [DllImport(Global.LIBUSB_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-        private static extern int libusb_claim_interface(IntPtr device_handle, int interface_number);
-
-        [DllImport(Global.LIBUSB_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-        private static extern int libusb_interrupt_transfer(IntPtr device_handle, uint endpoint, byte[] data, int length, out int transferred, int timeout);
-
-        [DllImport(Global.LIBUSB_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-        private static extern int libusb_release_interface(IntPtr device_handle, int interface_number);
-
-        [DllImport(Global.LIBUSB_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-        private static extern int libusb_open(IntPtr dev, ref IntPtr handle);
-
-        [DllImport(Global.LIBUSB_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-        private static extern void libusb_close(IntPtr handle);
-
-        [DllImport(Global.LIBUSB_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-        private static extern int libusb_get_device_descriptor(IntPtr dev, ref LibUSBDeviceDescriptor desc);
-
-        // Define the device descriptor structure
-        [StructLayout(LayoutKind.Sequential)]
-        private struct LibUSBDeviceDescriptor
-        {
-            public byte bLength;
-            public byte bDescriptorType;
-            public short bcdUSB;
-            public byte bDeviceClass;
-            public byte bDeviceSubClass;
-            public byte bDeviceProtocol;
-            public byte bMaxPacketSize0;
-            public ushort idVendor;
-            public ushort idProduct;
-            public ushort bcdDevice;
-            public byte iManufacturer;
-            public byte iProduct;
-            public byte iSerialNumber;
-            public byte bNumConfigurations;
-        }
-
         private readonly IntPtr _devicePointer;
         private readonly LibUSBDeviceDescriptor _descriptor;
         private IntPtr _handle = IntPtr.Zero;
@@ -124,13 +156,18 @@ namespace LibUSBWrapper {
         public LibUSBDevice(IntPtr devicePointer)
         {
             // Populate the device descriptor.
-            var result = libusb_get_device_descriptor(devicePointer, ref _descriptor);
+            var result = Imports.libusb_get_device_descriptor(devicePointer, ref _descriptor);
             if (result != 0)
             {
-                Debug.Log("Failed to populate device descriptor.");
+                Logging.Error($"Failed to retrieve USB device descriptor: {Imports.ErrorToString(result)} (0x{result:X8})");
             }
 
             _devicePointer = devicePointer;
+        }
+
+        ~LibUSBDevice()
+        {
+            Dispose();
         }
 
         // Get the Vendor ID
@@ -142,75 +179,69 @@ namespace LibUSBWrapper {
         // Open the device
         public void Open()
         {
-            int result = libusb_open(_devicePointer, ref _handle);
-            if (result != 0)
+            var result = Imports.libusb_open(_devicePointer, ref _handle);
+
+            if (result != LibUSBError.SUCCESS)
             {
-                Debug.Log("Failed to open device.");
+                Logging.Error($"Failed to open USB device: {Imports.ErrorToString(result)} (0x{(int)result:X8})");
             }
         }
 
         public void ClaimInterface(int interfaceIndex)
         {
-            int claimResult = libusb_claim_interface(_handle, interfaceIndex);
-            if (claimResult < 0)
+            var result = Imports.libusb_claim_interface(_handle, interfaceIndex);
+    
+            if (result != LibUSBError.SUCCESS)
             {
-                Debug.Log("Failed to claim interface, error code: " + claimResult);
+                Logging.Error($"Failed to claim USB interface: {Imports.ErrorToString(result)} (0x{(int)result:X8})");
             }
         }
 
         public void ReleaseInterface(int interfaceIndex)
         {
-            int releaseResult = libusb_release_interface(_handle, interfaceIndex);
-            if (releaseResult < 0)
+            var result = Imports.libusb_release_interface(_handle, interfaceIndex);
+
+            if (result != LibUSBError.SUCCESS)
             {
-                Debug.Log("[LibUSB] Failed to release interface, error code: " + releaseResult);
+                Logging.Error($"Failed to release USB interface: {Imports.ErrorToString(result)} (0x{(int)result:X8})");
             }
         }
 
-        public void InterruptTranferOut(uint endpoint, byte[] payload)
+        public LibUSBError InterruptTranferOut(uint endpoint, byte[] payload)
         {
             int transferred;
 
-            int transferResult = libusb_interrupt_transfer(_handle, endpoint, payload, payload.Length, out transferred, 1000);
+            var result = Imports.libusb_interrupt_transfer(_handle, endpoint, payload, payload.Length, out transferred, 1000);
 
-            if (transferResult < 0)
+            if (result != LibUSBError.SUCCESS)
             {
-                Debug.Log("Failed to send payload, error code: " + transferResult);
-                return;
+                Logging.Error($"Failed to send USB interrupt transfer: {Imports.ErrorToString(result)} (0x{(int)result:X8})");
             }
 
-            Debug.Log("sent payload");
+            return result;
         }
 
-        public void ListenForDeviceInterrupts(uint endpoint, int bufferSize, Action<byte[]> callback, CancellationToken cancellationToken)
+        public LibUSBError InterruptTranferIn(uint endpoint, byte[] buffer)
         {
-            byte[] interruptData = new byte[bufferSize];
-            
-            Task.Run(() =>
+            int transferred;
+
+            var result = Imports.libusb_interrupt_transfer(_handle, endpoint + 128, buffer, buffer.Length, out transferred, 0);
+
+            if (result != LibUSBError.SUCCESS)
             {
-                while (!cancellationToken.IsCancellationRequested)
-                {
-                    int transferred;
-                    int result = libusb_interrupt_transfer(_handle, endpoint + 128, interruptData, bufferSize, out transferred, 0);
+                Logging.Error($"Error while receiving USB interrupt transfer: {Imports.ErrorToString(result)} (0x{(int)result:X8})");
+            }
 
-                    if (result < 0)
-                    {
-                        Debug.Log($"Error during interrupt transfer: {result}");
-                        return;
-                    }
-
-                    if (transferred > 0)
-                    {
-                        callback(interruptData);
-                    }
-                }
-            }, cancellationToken);
+            return result;
         }
 
-        public void Dispose() {
-            Debug.Log("[LibUSBDevice] dispose");
-
-            libusb_close(_handle);
+        public void Dispose()
+        {
+            if (_handle != IntPtr.Zero)
+            {
+                Imports.libusb_close(_handle);
+                _handle = IntPtr.Zero;
+            }
         }
     }
 }

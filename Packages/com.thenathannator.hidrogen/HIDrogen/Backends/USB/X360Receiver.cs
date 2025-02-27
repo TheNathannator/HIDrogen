@@ -1,15 +1,10 @@
 using System;
-using HIDrogen.LowLevel;
-using UnityEngine;
+using HIDrogen.Imports;
 using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
-using UnityEngine.InputSystem.Utilities;
 using System.Runtime.InteropServices;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Buffers.Binary;
-using LibUSBWrapper;
 
 // The Xbox360 Wireless Receiver is a 'Vendor Specific' (0xFF) class device,
 // so will not be recognised by unity natively.
@@ -28,11 +23,11 @@ namespace HIDrogen.Backend
         // Each wireless receiver supports up to 4 controllers.
         private readonly X360Controller[] m_Controllers = new X360Controller[4];
 
-        private LibUSBWrapper.LibUSBDevice _usbDevice;
+        private LibUSBDevice _usbDevice;
 
-        public X360Receiver(LibUSBWrapper.LibUSBDevice usbDevice)
+        public X360Receiver(LibUSBDevice usbDevice)
         {
-            Debug.Log("[X360Receiver] init");
+            Logging.Verbose("[X360Receiver] init");
 
             for (uint i = 0; i < 4; i++) 
             {
@@ -44,7 +39,7 @@ namespace HIDrogen.Backend
 
         protected override void OnDispose()
         {
-            Debug.Log("[X360Receiver] OnDispose");
+            Logging.Verbose("[X360Receiver] OnDispose");
 
             for (uint i = 0; i < 4; i++) 
             {
@@ -62,7 +57,7 @@ namespace HIDrogen.Backend
 
         protected override X360Controller OnDeviceAdded(InputDevice device, IDisposable _context)
         {
-            Debug.Log("[X360Receiver] OnDeviceAdded");
+            Logging.Verbose("[X360Receiver] OnDeviceAdded");
 
             var context = (USBQueueContext)_context;
 
@@ -73,13 +68,11 @@ namespace HIDrogen.Backend
 
         protected override void OnDeviceRemoved(X360Controller device)
         {
-            Debug.Log("[X360Receiver] OnDeviceRemoved");
+            Logging.Verbose("[X360Receiver] OnDeviceRemoved");
         }
 
         protected override unsafe long? OnDeviceCommand(X360Controller device, InputDeviceCommand* command)
         {
-            Debug.Log($"[X360Receiver] OnDeviceCommand {command->type}");
-
             // System commands
             // if (command->type == EnableDeviceCommand.Type)
             //     return Enable(command);
@@ -98,10 +91,10 @@ namespace HIDrogen.Backend
             if (command->type == DualMotorRumbleCommand.Type)
             {
                 var cmd = (DualMotorRumbleCommand*)command;
-                var lowFreq = BitConverter.GetBytes(cmd->lowFrequencyMotorSpeed)[0];
-                var highFreq = BitConverter.GetBytes(cmd->highFrequencyMotorSpeed)[0];
+                var lowFreq = (byte)(Math.Clamp(cmd->lowFrequencyMotorSpeed, 0f, 1f) * 255f);
+                var highFreq = (byte)(Math.Clamp(cmd->highFrequencyMotorSpeed, 0f, 1f) * 255f);
                 device.SetRumble(highFreq, lowFreq);
-                return null;
+                return InputDeviceCommand.GenericSuccess;
             }
 
             return null;
