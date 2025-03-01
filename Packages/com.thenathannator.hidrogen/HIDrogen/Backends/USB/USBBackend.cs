@@ -9,7 +9,7 @@ namespace HIDrogen.Backend
     {
         private LibUSB _libusb;
 
-        private List<IDisposable> m_Devices = new List<IDisposable>();
+        private Dictionary<int, IDisposable> m_Devices = new Dictionary<int, IDisposable>();
 
         private Thread m_watchThread;
         private EventWaitHandle m_ThreadStop = new EventWaitHandle(false, EventResetMode.ManualReset);
@@ -36,8 +36,8 @@ namespace HIDrogen.Backend
 
         private void WatchForDevices()
         {
-            // We're only searching for one device at the moment.
-            while (m_Devices.Count != 1 && !m_ThreadStop.WaitOne(1000))
+            // Pause between GetDeviceList function calls.
+            while (!m_ThreadStop.WaitOne(1000))
             {
                 var devices = _libusb.GetDeviceList();
 
@@ -45,7 +45,8 @@ namespace HIDrogen.Backend
 
                 foreach (var device in devices)
                 {
-                    InspectDevice(device);
+                    if (!m_Devices.ContainsKey(device.Id))
+                        InspectDevice(device);
                 }
 
                 _libusb.FreeDeviceList();
@@ -62,7 +63,7 @@ namespace HIDrogen.Backend
                 {
                     Logging.Verbose("Found X360Receiver");
                     device.Open();
-                    m_Devices.Add(new X360Receiver(device));
+                    m_Devices.Add(device.Id, new X360Receiver(device));
                 }
             }
         }
@@ -77,8 +78,10 @@ namespace HIDrogen.Backend
             m_ThreadStop?.Dispose();
             m_ThreadStop = null;
 
-            foreach (var device in m_Devices)
-                device.Dispose();
+            foreach (KeyValuePair<int, IDisposable> kvp in m_Devices)
+                kvp.Value.Dispose();
+
+            m_Devices.Clear();
 
             _libusb.Dispose();
         }

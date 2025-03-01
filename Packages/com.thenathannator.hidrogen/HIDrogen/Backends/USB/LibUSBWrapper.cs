@@ -170,6 +170,10 @@ namespace HIDrogen.Imports {
             Dispose();
         }
 
+        // The pointer can serve as a unique ID, persisting
+        // between libusb_get_device_list calls.
+        public int Id => (int)_devicePointer;
+
         // Get the Vendor ID
         public ushort VendorID => _descriptor.idVendor;
 
