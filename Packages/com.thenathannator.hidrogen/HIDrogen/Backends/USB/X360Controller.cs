@@ -308,14 +308,13 @@ namespace HIDrogen.Backend
 
 		public void Dispose()
         {
-            _receiver.ReleaseInterface(interfaceIndex);
-
             if (connected)
             {
                 PowerDown();
                 m_Backend.QueueDeviceRemove(device);
             }
 
+            _receiver.ReleaseInterface(interfaceIndex);
             connected = false;
 		}
 
