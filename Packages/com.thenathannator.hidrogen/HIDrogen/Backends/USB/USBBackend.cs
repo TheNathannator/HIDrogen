@@ -14,6 +14,8 @@ namespace HIDrogen.Backend
         private Thread m_watchThread;
         private EventWaitHandle m_ThreadStop = new EventWaitHandle(false, EventResetMode.ManualReset);
 
+        private List<int> ignoredDeviceIDs = new List<int>();
+
         public USBBackend()
         {
             Logging.Verbose("Initializing USBBackend");
@@ -29,8 +31,6 @@ namespace HIDrogen.Backend
 
             // Create a new thread
             Thread m_watchThread = new Thread(WatchForDevices);
-
-            // Start the thread
             m_watchThread.Start();
         }
 
@@ -43,29 +43,51 @@ namespace HIDrogen.Backend
 
                 Logging.Verbose($"found {devices.Count} USB devices");
 
+                // Inspect each device that hasn't been ignored or connected already.
                 foreach (var device in devices)
-                {
-                    if (!m_Devices.ContainsKey(device.Id))
+                    if (!ignoredDeviceIDs.Contains(device.Id) && !m_Devices.ContainsKey(device.Id))
                         InspectDevice(device);
-                }
 
+                // Create a list of connected deviceIDs.
+                List<int> connectedIDs = devices.ConvertAll<int>(device => device.Id);
+
+                // Remove each existing device not in connectedIDs.
+                foreach (int deviceID in new List<int>(m_Devices.Keys))
+                    if (!connectedIDs.Contains(deviceID))
+                        RemoveDevice(deviceID);
+
+                // Disconnect and remove 
                 _libusb.FreeDeviceList();
             }
         }
 
         private void InspectDevice(LibUSBDevice device) {
 
+            Logging.Verbose("Inspecting new USB Device");
+
+            var descriptor = device.GetDescriptor();
+
             // Microsoft USB Device
-            if (device.VendorID == 0x045e)
+            if (descriptor.idVendor == 0x045e)
             {
                 // Known Product IDs for this dongle.
-                if (device.ProductID == 0x0291 || device.ProductID == 0x02a9 || device.ProductID == 0x0719)
+                if (descriptor.idProduct == 0x0291 || descriptor.idProduct == 0x02a9 || descriptor.idProduct == 0x0719)
                 {
                     Logging.Verbose("Found X360Receiver");
-                    device.Open();
                     m_Devices.Add(device.Id, new X360Receiver(device));
+                    return;
                 }
             }
+
+            // Device is not interesting, ignore it in future.
+            Logging.Verbose($"Ignoring USB Device (VID 0x{descriptor.idVendor:X4} PID 0x{descriptor.idProduct:X4})");
+            ignoredDeviceIDs.Add(device.Id);
+        }
+
+        private void RemoveDevice(int deviceID)
+        {
+            m_Devices[deviceID].Dispose();
+            m_Devices.Remove(deviceID);
         }
 
         public void Dispose()
@@ -78,10 +100,8 @@ namespace HIDrogen.Backend
             m_ThreadStop?.Dispose();
             m_ThreadStop = null;
 
-            foreach (KeyValuePair<int, IDisposable> kvp in m_Devices)
-                kvp.Value.Dispose();
-
-            m_Devices.Clear();
+            foreach (int deviceID in new List<int>(m_Devices.Keys))
+                RemoveDevice(deviceID);
 
             _libusb.Dispose();
         }

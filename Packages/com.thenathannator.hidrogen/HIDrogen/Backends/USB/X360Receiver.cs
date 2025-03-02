@@ -29,6 +29,8 @@ namespace HIDrogen.Backend
         {
             Logging.Verbose("[X360Receiver] init");
 
+            usbDevice.Open();
+
             for (uint i = 0; i < 4; i++) 
             {
                 m_Controllers[i] = new X360Controller(this, usbDevice, i);

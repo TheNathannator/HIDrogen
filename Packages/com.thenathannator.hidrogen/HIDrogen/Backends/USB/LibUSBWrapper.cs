@@ -6,7 +6,7 @@ namespace HIDrogen.Imports {
 
     // Define the device descriptor structure
     [StructLayout(LayoutKind.Sequential)]
-    internal struct LibUSBDeviceDescriptor
+    public struct LibUSBDeviceDescriptor
     {
         public byte bLength;
         public byte bDescriptorType;
@@ -150,18 +150,11 @@ namespace HIDrogen.Imports {
     internal class LibUSBDevice : IDisposable
     {
         private readonly IntPtr _devicePointer;
-        private readonly LibUSBDeviceDescriptor _descriptor;
+        private LibUSBDeviceDescriptor _descriptor;
         private IntPtr _handle = IntPtr.Zero;
 
         public LibUSBDevice(IntPtr devicePointer)
         {
-            // Populate the device descriptor.
-            var result = Imports.libusb_get_device_descriptor(devicePointer, ref _descriptor);
-            if (result != 0)
-            {
-                Logging.Error($"Failed to retrieve USB device descriptor: {Imports.ErrorToString(result)} (0x{result:X8})");
-            }
-
             _devicePointer = devicePointer;
         }
 
@@ -174,11 +167,16 @@ namespace HIDrogen.Imports {
         // between libusb_get_device_list calls.
         public int Id => (int)_devicePointer;
 
-        // Get the Vendor ID
-        public ushort VendorID => _descriptor.idVendor;
+        public LibUSBDeviceDescriptor GetDescriptor()
+        {
+            var result = Imports.libusb_get_device_descriptor(_devicePointer, ref _descriptor);
+            if (result != 0)
+            {
+                Logging.Error($"Failed to retrieve USB device descriptor: {Imports.ErrorToString(result)} (0x{result:X8})");
+            }
 
-        // Get the Product ID
-        public ushort ProductID => _descriptor.idProduct;
+            return _descriptor;
+        }
 
         // Open the device
         public void Open()
