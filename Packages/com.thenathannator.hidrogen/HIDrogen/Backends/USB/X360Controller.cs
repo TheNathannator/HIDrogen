@@ -196,8 +196,11 @@ namespace HIDrogen.Backend
 
                     case 0x000f: {
                         // The link control packet.
-                        AddDevice(payload);
-                        connected = true;
+                        if (!connected)
+                        {
+                            AddDevice(payload);
+                            connected = true;
+                        }
                         break;
                     }
 
