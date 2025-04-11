@@ -121,8 +121,8 @@ namespace HIDrogen.Backend
         public XInputVibration vibration;
     }
 
-	internal class X360Controller : IDisposable
-	{
+    internal class X360Controller : IDisposable
+    {
         private readonly X360Receiver m_Backend;
         public const string InterfaceName = "XInput";
 
@@ -153,7 +153,7 @@ namespace HIDrogen.Backend
             // Claim the control interface.
             receiver.ClaimInterface(interfaceIndex);
 
-            // Create a new thread to wait and handle to input.
+            // Create a new thread to wait for and handle input.
             m_interruptThread = new Thread(WaitForInterrupt);
             m_interruptThread.Start();
 
@@ -306,7 +306,7 @@ namespace HIDrogen.Backend
             _receiver.InterruptTranferOut(controlEndpoint, payload);
         }
 
-		public void Dispose()
+        public void Dispose()
         {
             if (connected)
             {
@@ -316,7 +316,7 @@ namespace HIDrogen.Backend
 
             _receiver.ReleaseInterface(interfaceIndex);
             connected = false;
-		}
+        }
 
         public void HIDUpdate(byte[] bytes)
         {
