@@ -61,6 +61,9 @@ namespace HIDrogen.Imports {
         public static extern void libusb_exit(IntPtr handle);
 
         [DllImport(LIBUSB_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void libusb_set_auto_detach_kernel_driver(IntPtr device_handle, int enable);
+
+        [DllImport(LIBUSB_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
         public static extern LibUSBError libusb_claim_interface(IntPtr device_handle, int interface_number);
 
         [DllImport(LIBUSB_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
@@ -187,6 +190,9 @@ namespace HIDrogen.Imports {
             {
                 Logging.Error($"Failed to open USB device: {Imports.ErrorToString(result)} (0x{(int)result:X8})");
             }
+
+            // Automatically detach/re-attach any kernel drivers that might be using this device. (linux only)
+            Imports.libusb_set_auto_detach_kernel_driver(_handle, 1);
         }
 
         public void ClaimInterface(int interfaceIndex)
