@@ -41,8 +41,6 @@ namespace HIDrogen.Backend
             {
                 var devices = _libusb.GetDeviceList();
 
-                Logging.Verbose($"found {devices.Count} USB devices");
-
                 // Inspect each device that hasn't been ignored or connected already.
                 foreach (var device in devices)
                     if (!ignoredDeviceIDs.Contains(device.Id) && !m_Devices.ContainsKey(device.Id))
