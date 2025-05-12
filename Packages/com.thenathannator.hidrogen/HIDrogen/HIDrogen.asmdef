@@ -1,6 +1,5 @@
 {
     "name": "HIDrogen",
-    "rootNamespace": "",
     "references": [
         "Unity.InputSystem"
     ],
@@ -12,8 +11,10 @@
     ],
     "excludePlatforms": [],
     "allowUnsafeCode": true,
-    "overrideReferences": false,
-    "precompiledReferences": [],
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "SharpGameInput.dll"
+    ],
     "autoReferenced": true,
     "defineConstraints": [],
     "versionDefines": [],
