@@ -9,12 +9,12 @@ namespace HIDrogen
 
         static partial void PlatformInitialize()
         {
-            s_USBBackend = new USBBackend();
+            TryInitializeBackend(ref s_USBBackend);
         }
 
         static partial void PlatformUninitialize()
         {
-            s_USBBackend?.Dispose();
+            TryUninitializeBackend(ref s_USBBackend);
         }
     }
 }

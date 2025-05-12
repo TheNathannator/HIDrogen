@@ -13,18 +13,18 @@ namespace HIDrogen
         static partial void PlatformInitialize()
         {
 #if UNITY_2022_2_OR_NEWER
-            s_XInputBackend = new XInputBackend();
+            TryInitializeBackend(ref s_XInputBackend);
 #endif
-            s_GameInputBackend = new GameInputBackend();
+            TryInitializeBackend(ref s_GameInputBackend);
         }
 
 
         static partial void PlatformUninitialize()
         {
 #if UNITY_2022_2_OR_NEWER
-            s_XInputBackend?.Dispose();
+            TryUninitializeBackend(ref s_XInputBackend);
 #endif
-            s_GameInputBackend?.Dispose();
+            TryUninitializeBackend(ref s_GameInputBackend);
         }
     }
 }

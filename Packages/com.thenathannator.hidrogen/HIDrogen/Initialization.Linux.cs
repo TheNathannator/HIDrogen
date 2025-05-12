@@ -10,15 +10,17 @@ namespace HIDrogen
 
         static partial void PlatformInitialize()
         {
-            s_USBBackend = new USBBackend();
-            s_HidApiBackend = new HidApiBackend();
-            LinuxShim.Initialize();
+            TryInitializeBackend(ref s_USBBackend);
+            if (TryInitializeBackend(ref s_HidApiBackend))
+            {
+                LinuxShim.Initialize();
+            }
         }
 
         static partial void PlatformUninitialize()
         {
-            s_USBBackend?.Dispose();
-            s_HidApiBackend?.Dispose();
+            TryUninitializeBackend(ref s_USBBackend);
+            TryUninitializeBackend(ref s_HidApiBackend);
             LinuxShim.Uninitialize();
         }
     }

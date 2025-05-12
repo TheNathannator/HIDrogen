@@ -1,3 +1,5 @@
+using System;
+
 namespace HIDrogen
 {
     /// <summary>
@@ -29,7 +31,7 @@ namespace HIDrogen
                 Logging.Verbose("Initializing backends");
                 PlatformInitialize();
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 Logging.Exception("Failed to initialize backends", ex);
             }
@@ -49,7 +51,7 @@ namespace HIDrogen
                 Logging.Verbose("Uninitializing backends");
                 PlatformUninitialize();
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 Logging.Exception("Failed to uninitialize backends", ex);
             }
@@ -58,5 +60,34 @@ namespace HIDrogen
 
         static partial void PlatformInitialize();
         static partial void PlatformUninitialize();
+
+        private static bool TryInitializeBackend<T>(ref T field)
+            where T : new()
+        {
+            try
+            {
+                field = new T();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logging.Exception($"Failed to initialize {typeof(T).Name} backend", ex);
+                return false;
+            }
+        }
+
+        private static void TryUninitializeBackend<T>(ref T field)
+            where T : IDisposable
+        {
+            try
+            {
+                field?.Dispose();
+                field = default;
+            }
+            catch (Exception ex)
+            {
+                Logging.Exception($"Failed to uninitialize {typeof(T).Name} backend", ex);
+            }
+        }
     }
 }
