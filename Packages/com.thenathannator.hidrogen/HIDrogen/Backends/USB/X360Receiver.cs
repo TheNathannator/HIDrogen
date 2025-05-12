@@ -1,10 +1,8 @@
 using System;
 using HIDrogen.Imports;
+using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
-using System.Runtime.InteropServices;
-using System.Threading;
-using System.Buffers.Binary;
 
 // The Xbox360 Wireless Receiver is a 'Vendor Specific' (0xFF) class device,
 // so will not be recognised by unity natively.
@@ -52,11 +50,6 @@ namespace HIDrogen.Backend
             _usbDevice.Dispose();
         }
 
-        public void Dispose()
-        {
-            OnDispose();
-        }
-
         protected override X360Controller OnDeviceAdded(InputDevice device, IDisposable _context)
         {
             Logging.Verbose("[X360Receiver] OnDeviceAdded");
@@ -93,8 +86,8 @@ namespace HIDrogen.Backend
             if (command->type == DualMotorRumbleCommand.Type)
             {
                 var cmd = (DualMotorRumbleCommand*)command;
-                var lowFreq = (byte)(Math.Clamp(cmd->lowFrequencyMotorSpeed, 0f, 1f) * 255f);
-                var highFreq = (byte)(Math.Clamp(cmd->highFrequencyMotorSpeed, 0f, 1f) * 255f);
+                var lowFreq = (byte)(Mathf.Clamp(cmd->lowFrequencyMotorSpeed, 0f, 1f) * 255f);
+                var highFreq = (byte)(Mathf.Clamp(cmd->highFrequencyMotorSpeed, 0f, 1f) * 255f);
                 device.SetRumble(highFreq, lowFreq);
                 return InputDeviceCommand.GenericSuccess;
             }

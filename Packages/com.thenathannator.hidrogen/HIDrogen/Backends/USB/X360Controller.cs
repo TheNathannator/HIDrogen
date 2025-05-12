@@ -1,15 +1,12 @@
 using System;
 using System.Threading;
 using HIDrogen.Imports;
-using HIDrogen.LowLevel;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.InputSystem.Utilities;
 using System.Runtime.InteropServices;
-using System.Threading;
-using System.Buffers.Binary;
 
 namespace HIDrogen.Backend
 {
