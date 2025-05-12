@@ -1,4 +1,3 @@
-#if UNITY_STANDALONE_WIN
 using System;
 using System.Runtime.InteropServices;
 using HIDrogen.LowLevel;
@@ -103,11 +102,23 @@ namespace HIDrogen.Imports.Windows
         public XInputVibration vibration;
     }
 
+    [Serializable]
+    internal struct XInputDescriptionCapabilities
+    {
+        public uint userIndex;
+        public XInputDeviceType type;
+        public XInputDeviceSubType subType;
+        public XInputDeviceFlags flags;
+        public XInputGamepad gamepad;
+        public XInputVibration vibration;
+    }
+
     internal enum XInputCapabilityRequest : uint
     {
         Gamepad = 1,
     }
 
+#if UNITY_STANDALONE_WIN
     internal class XInput
     {
         public const uint MaxCount = 4;
@@ -202,5 +213,5 @@ namespace HIDrogen.Imports.Windows
             return Win32Error.ERROR_DEVICE_NOT_CONNECTED;
         }
     }
-}
 #endif
+}

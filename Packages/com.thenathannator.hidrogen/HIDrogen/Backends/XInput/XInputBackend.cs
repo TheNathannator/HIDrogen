@@ -16,17 +16,6 @@ namespace HIDrogen.Backend
         public void Dispose() {}
     }
 
-    [Serializable]
-    internal struct XInputDescriptionCapabilities
-    {
-        public uint userIndex;
-        public XInputDeviceType type;
-        public XInputDeviceSubType subType;
-        public XInputDeviceFlags flags;
-        public XInputGamepad gamepad;
-        public XInputVibration vibration;
-    }
-
     internal class XInputBackend : CustomInputBackend<XInputBackendDevice>
     {
         public const string InterfaceName = "XInput";
