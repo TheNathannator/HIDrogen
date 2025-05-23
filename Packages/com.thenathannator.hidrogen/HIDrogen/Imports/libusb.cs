@@ -277,8 +277,13 @@ namespace HIDrogen.Imports
 
     internal static class libusb
     {
+#if UNITY_STANDALONE_LINUX
+        private const string kLibName = "libusb-1.0.so.0";
+#else
         // Ensure this DLL is available in /Assets/Plugins.
-        private const string kLibName = "libusb-1.0.0";
+        private const string kLibName = "libusb-1.0";
+#endif
+
         private const CallingConvention kCallConvention = CallingConvention.Winapi;
 
         #region libusb_context
@@ -601,6 +606,32 @@ namespace HIDrogen.Imports
             fixed (byte* ptr = data)
             {
                 return libusb_interrupt_transfer(dev_handle, endpoint, ptr, data.Length, out actual_length, timeout);
+            }
+        }
+
+        public static unsafe libusb_error libusb_interrupt_transfer(
+            libusb_device_handle dev_handle,
+            byte endpoint,
+            byte[] data,
+            int offset,
+            int length,
+            out int actual_length,
+            uint timeout
+        )
+        {
+            if (data.Length < offset)
+            {
+                throw new ArgumentOutOfRangeException(nameof(offset));
+            }
+
+            if ((data.Length - offset) < length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(length));
+            }
+
+            fixed (byte* ptr = data)
+            {
+                return libusb_interrupt_transfer(dev_handle, endpoint, ptr + offset, length, out actual_length, timeout);
             }
         }
 

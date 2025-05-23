@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Threading;
 using HIDrogen.Imports;
 using HIDrogen.Imports.Windows;
@@ -39,8 +40,38 @@ namespace HIDrogen.Backend
 
     internal class X360WirelessController : IDisposable
     {
+        private enum ConnectionState
+        {
+            /// <summary>
+            /// Controller is disconnected.
+            /// </summary>
+            Disconnected,
+
+            /// <summary>
+            /// Waiting for link control packet.
+            /// </summary>
+            LinkControl,
+
+            /// <summary>
+            /// Waiting for capabilities packet.
+            /// </summary>
+            Capabilities,
+
+            /// <summary>
+            /// Waiting for input system device addition.
+            /// </summary>
+            DeviceAddition,
+
+            /// <summary>
+            /// Controller is connected and initialized.
+            /// </summary>
+            Connected,
+        }
+
         private const int kMaxInputLength = 32;
         private const int kMaxOutputLength = 32;
+
+        private const int kOutputReportLength = 12;
 
         private const byte kOutputControllerRequest = 0;
         // private const byte kOutputVoiceRequest = 1; // not needed
@@ -78,12 +109,15 @@ namespace HIDrogen.Backend
         private readonly byte m_InEndpoint;
         private readonly byte m_OutEndpoint;
 
-        public bool connected { get; private set; } = false;
-
         private XInputCapabilities m_Capabilities = s_DefaultCapabilities;
+        private InputDevice m_Device;
+        private readonly uint m_ControllerIndex;
 
-        public InputDevice device { get; set; }
-        public uint controllerIndex { get; }
+
+        private ConnectionState m_ConnectionState;
+        private readonly Stopwatch m_StateTimer = new Stopwatch();
+
+        public bool connected => m_ConnectionState != ConnectionState.Disconnected;
 
         public X360WirelessController(
             X360Receiver receiver,
@@ -97,19 +131,17 @@ namespace HIDrogen.Backend
             m_Receiver = receiver;
             m_Handle = handle;
 
-            this.controllerIndex = controllerIndex;
+            m_ControllerIndex = controllerIndex;
             m_InterfaceIndex = interfaceIndex;
             m_InEndpoint = inEndpoint;
             m_OutEndpoint = outEndpoint;
 
-            // Create a new thread to wait for and handle input.
-            m_Thread = new Thread(PollReports) { IsBackground = true };
-            m_Thread.Start();
+            // Start initial state timer
+            SetConnectionState(ConnectionState.Disconnected);
 
-            // Controllers will automatically send a link control packet
-            // when first connected to the receiver. We will now request another
-            // in case this class was not listening when that happened.
-            RequestConnectionStatus();
+            // Create a new thread to wait for and handle input.
+            m_Thread = new Thread(PollThread) { IsBackground = true };
+            m_Thread.Start();
         }
 
         public void Dispose()
@@ -122,31 +154,41 @@ namespace HIDrogen.Backend
             m_ThreadStop?.Dispose();
             m_ThreadStop = null;
 
-            if (connected)
+            if (m_Device != null)
             {
-                PowerDown();
-                m_Receiver?.QueueDeviceRemove(device);
-                connected = false;
+                m_Receiver?.QueueDeviceRemove(m_Device);
+                m_Device = null;
             }
 
-            m_Receiver = null;
+            m_ConnectionState = ConnectionState.Disconnected;
+            m_StateTimer.Stop();
 
             if (m_Handle != null)
             {
+                PowerDown();
+
                 var result = libusb_release_interface(m_Handle, m_InterfaceIndex);
                 libusb_checkerror(result, "Failed to release USB device interface");
 
                 m_Handle = null;
             }
+
+            m_Receiver = null;
         }
 
-        private void ProcessConnected()
+        public void SetDevice(InputDevice device)
         {
-            if (connected)
+            if (m_ConnectionState != ConnectionState.DeviceAddition)
             {
                 return;
             }
 
+            m_Device = device;
+            SetConnectionState(ConnectionState.Connected);
+        }
+
+        private void QueueForAddition()
+        {
             var description = new InputDeviceDescription()
             {
                 interfaceName = XInputBackend.InterfaceName,
@@ -156,34 +198,19 @@ namespace HIDrogen.Backend
 
             m_Receiver.QueueDeviceAdd(description, new USBQueueContext()
             {
-                controllerIndex = controllerIndex
+                controllerIndex = m_ControllerIndex
             });
 
-            switch (controllerIndex)
-            {
-                case 0: SetLED(X360LedState.Player1); break;
-                case 1: SetLED(X360LedState.Player2); break;
-                case 2: SetLED(X360LedState.Player3); break;
-                case 3: SetLED(X360LedState.Player4); break;
-            }
-
-            connected = true;
+            SetConnectionState(ConnectionState.DeviceAddition);
         }
 
-        private void ProcessDisconnected()
+        private void SetConnectionState(ConnectionState state)
         {
-            if (!connected)
-            {
-                return;
-            }
-
-            m_Receiver.QueueDeviceRemove(device);
-            m_Capabilities = s_DefaultCapabilities;
-
-            connected = false;
+            m_ConnectionState = state;
+            m_StateTimer.Restart();
         }
 
-        private void PollReports()
+        private void PollThread()
         {
             var payload = new byte[kMaxInputLength];
 
@@ -192,7 +219,35 @@ namespace HIDrogen.Backend
 
             while (!m_ThreadStop.WaitOne(1))
             {
-                var result = libusb_interrupt_transfer(m_Handle, m_InEndpoint, payload, out _, 5);
+                // Service state timers
+                switch (m_ConnectionState)
+                {
+                    case ConnectionState.Disconnected:
+                    {
+                        // Periodically request connection status for disconnected controllers
+                        if (!m_StateTimer.IsRunning || m_StateTimer.ElapsedMilliseconds >= 5000)
+                        {
+                            m_StateTimer.Restart();
+                            RequestConnectionStatus();
+                        }
+                        break;
+                    }
+                    case ConnectionState.Capabilities:
+                    {
+                        // for whatever reason, the latency between requesting capabilities
+                        // and receiving them is *really* high
+                        if (m_StateTimer.IsRunning && m_StateTimer.ElapsedMilliseconds >= 250)
+                        {
+                            m_StateTimer.Stop();
+                            Logging.Verbose($"Controller index {m_ControllerIndex} timed out on capabilities");
+                            QueueForAddition();
+                        }
+                        break;
+                    }
+                }
+
+                // Read incoming reports
+                var result = libusb_interrupt_transfer(m_Handle, m_InEndpoint, payload, out int actualLength, 5);
                 switch (result)
                 {
                     case libusb_error.SUCCESS:
@@ -226,6 +281,10 @@ namespace HIDrogen.Backend
                 }
 
                 errorCount = 0;
+                if (actualLength < 1)
+                {
+                    continue;
+                }
 
                 byte reportId = payload[0];
                 switch (reportId)
@@ -346,7 +405,10 @@ namespace HIDrogen.Backend
                 }
                 case 0x13: // Controller input data
                 {
-                    m_Receiver.QueueStateEvent(device, XInputGamepad.Format, payload, 6, 18);
+                    if (m_Device != null)
+                    {
+                        m_Receiver.QueueStateEvent(m_Device, XInputGamepad.Format, payload, 6, 18);
+                    }
                     break;
                 }
                 default:
@@ -374,6 +436,11 @@ namespace HIDrogen.Backend
 
         private void ProcessLinkControl(byte[] payload)
         {
+            if (m_ConnectionState != ConnectionState.LinkControl)
+            {
+                return;
+            }
+
             // byte linkId = payload[5];
             // uint hostId = payload[6..10];
             // uint deviceId = payload[10..14];
@@ -389,12 +456,27 @@ namespace HIDrogen.Backend
 
             m_Capabilities.subType = subType;
 
-            // Wait further for additional capabilities data to be reported before adding
-            // ProcessConnected();
+            // Set player LED
+            switch (m_ControllerIndex)
+            {
+                case 0: SetLED(X360LedState.Player1Blink); break;
+                case 1: SetLED(X360LedState.Player2Blink); break;
+                case 2: SetLED(X360LedState.Player3Blink); break;
+                case 3: SetLED(X360LedState.Player4Blink); break;
+            }
+
+            // Request additional capabilities data and wait for it to be received
+            RequestCapabilities();
+            SetConnectionState(ConnectionState.Capabilities);
         }
 
         private void ProcessCapabilities(byte[] payload)
         {
+            if (m_ConnectionState != ConnectionState.Capabilities)
+            {
+                return;
+            }
+
             m_Capabilities.gamepad = new XInputGamepad()
             {
                 buttons = (XInputButton)((payload[7] << 8) | payload[6]),
@@ -414,7 +496,7 @@ namespace HIDrogen.Backend
             // 9 bytes leftover: payload[20..29], purpose unknown
 
             // Full capabilities data has been received by this point, queue for addition
-            ProcessConnected();
+            QueueForAddition();
         }
 
         #endregion
@@ -432,15 +514,21 @@ namespace HIDrogen.Backend
                 return;
             }
 
-            if (isConnected)
+            if (isConnected && m_ConnectionState == ConnectionState.Disconnected)
             {
                 // Wait until link control packet is received before adding,
                 // as it contains needed device type information
-                // ProcessConnected();
+                SetConnectionState(ConnectionState.LinkControl);
             }
-            else
+            else if (!isConnected && m_ConnectionState != ConnectionState.Disconnected)
             {
-                ProcessDisconnected();
+                if (m_Device != null)
+                {
+                    m_Receiver.QueueDeviceRemove(m_Device);
+                }
+
+                m_Capabilities = s_DefaultCapabilities;
+                SetConnectionState(ConnectionState.Disconnected);
             }
         }
 
@@ -455,7 +543,8 @@ namespace HIDrogen.Backend
                 throw new ArgumentOutOfRangeException(nameof(payloadLength));
             }
 
-            var result = libusb_interrupt_transfer(m_Handle, m_OutEndpoint, payload, payloadLength, out _, 5);
+            // TODO: Use asynchronous API for this
+            var result = libusb_interrupt_transfer(m_Handle, m_OutEndpoint, payload, payloadLength, out _, 10);
             libusb_checkerror(result, "Failed to send X360 output request");
         }
 
@@ -480,9 +569,41 @@ namespace HIDrogen.Backend
             }
         }
 
+        private unsafe void RequestConnectionStatus()
+        {
+            const int LENGTH = kOutputReportLength;
+
+            byte* payload = stackalloc byte[LENGTH];
+            payload[0] = kOutputConnectionRequest;
+            payload[1] = 0x00; // request for controller link
+
+            // payload[2] = 0x0f;
+            // payload[3] = 0xc0;
+            WriteOutputHeader(payload, LENGTH, 0x3F, 0);
+
+            ClearRemaining(payload, 4, LENGTH);
+            SendOutputRequest(payload, LENGTH);
+        }
+
+        private unsafe void RequestCapabilities()
+        {
+            const int LENGTH = kOutputReportLength;
+
+            byte* payload = stackalloc byte[LENGTH];
+            payload[0] = kOutputControllerRequest;
+            payload[1] = 0x00; // no data
+
+            // payload[2] = 0x02;
+            // payload[3] = 0x80;
+            WriteOutputHeader(payload, LENGTH, 0x0A, 0);
+
+            ClearRemaining(payload, 4, LENGTH);
+            SendOutputRequest(payload, LENGTH);
+        }
+
         public unsafe void SetRumble(byte highFreq, byte lowFreq)
         {
-            const int LENGTH = 12;
+            const int LENGTH = kOutputReportLength;
 
             byte* payload = stackalloc byte[LENGTH];
             payload[0] = kOutputControllerRequest;
@@ -502,7 +623,7 @@ namespace HIDrogen.Backend
 
         public unsafe void SetLED(X360LedState ledState)
         {
-            const int LENGTH = 12;
+            const int LENGTH = kOutputReportLength;
 
             byte* payload = stackalloc byte[LENGTH];
             payload[0] = kOutputControllerRequest;
@@ -518,7 +639,7 @@ namespace HIDrogen.Backend
 
         public unsafe void PowerDown()
         {
-            const int LENGTH = 12;
+            const int LENGTH = kOutputReportLength;
 
             byte* payload = stackalloc byte[LENGTH];
             payload[0] = kOutputControllerRequest;
@@ -527,22 +648,6 @@ namespace HIDrogen.Backend
             // payload[2] = 0x08;
             // payload[3] = 0xc0;
             WriteOutputHeader(payload, LENGTH, 0x23, 0);
-
-            ClearRemaining(payload, 4, LENGTH);
-            SendOutputRequest(payload, LENGTH);
-        }
-
-        private unsafe void RequestConnectionStatus()
-        {
-            const int LENGTH = 12;
-
-            byte* payload = stackalloc byte[LENGTH];
-            payload[0] = kOutputConnectionRequest;
-            payload[1] = 0x00; // request for controller link
-
-            // payload[2] = 0x0f;
-            // payload[3] = 0xc0;
-            WriteOutputHeader(payload, LENGTH, 0x3F, 0);
 
             ClearRemaining(payload, 4, LENGTH);
             SendOutputRequest(payload, LENGTH);

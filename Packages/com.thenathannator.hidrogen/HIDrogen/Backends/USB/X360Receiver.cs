@@ -283,7 +283,7 @@ namespace HIDrogen.Backend
                 throw new Exception("Device was disconnected while queued for addition");
             }
 
-            controller.device = device;
+            controller.SetDevice(device);
 
             return controller;
         }

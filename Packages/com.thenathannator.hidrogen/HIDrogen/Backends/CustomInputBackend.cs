@@ -200,11 +200,6 @@ namespace HIDrogen
             }
         }
 
-        public unsafe void QueueStateEvent(InputDevice device, FourCC format, byte[] stateBuffer, int offset)
-        {
-            QueueStateEvent(device, format, stateBuffer, offset, stateBuffer.Length - offset);
-        }
-
         public unsafe void QueueStateEvent(InputDevice device, FourCC format, byte[] stateBuffer, int offset, int length)
         {
             if (stateBuffer.Length < offset)

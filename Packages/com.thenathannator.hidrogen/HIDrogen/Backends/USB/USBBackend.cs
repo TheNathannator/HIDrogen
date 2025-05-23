@@ -108,7 +108,6 @@ namespace HIDrogen.Backend
             }
 
             // Device is not interesting, ignore it in future.
-            Logging.Verbose($"Ignoring USB Device with hardware IDs {descriptor.idVendor:X4}:{descriptor.idProduct:X4})");
             m_IgnoredDeviceIDs.Add(deviceId);
         }
 
