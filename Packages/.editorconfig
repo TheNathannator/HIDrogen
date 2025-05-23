@@ -11,6 +11,9 @@ tab_width = 2
 indent_size = 4
 tab_width = 4
 
+# Formatting options
+csharp_indent_case_contents_when_block = false
+
 # Naming conventions
 # Public members are camelCase
 dotnet_naming_symbols.public_members.applicable_kinds = field, property, event
