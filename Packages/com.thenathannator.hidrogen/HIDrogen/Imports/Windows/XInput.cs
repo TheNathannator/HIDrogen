@@ -215,4 +215,19 @@ namespace HIDrogen.Imports.Windows
         }
     }
 #endif
+
+    internal static class XInputExtensions
+    {
+        public static void SetFlag(ref this XInputDeviceFlags flags, XInputDeviceFlags flag, bool set)
+        {
+            if (set)
+            {
+                flags |= flag;
+            }
+            else
+            {
+                flags &= ~flag;
+            }
+        }
+    }
 }

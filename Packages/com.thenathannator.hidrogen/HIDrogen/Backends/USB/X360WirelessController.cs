@@ -81,7 +81,7 @@ namespace HIDrogen.Backend
         {
             type = XInputDeviceType.Gamepad,
             subType = XInputDeviceSubType.Gamepad,
-            flags = XInputDeviceFlags.Wireless | XInputDeviceFlags.Voice,
+            flags = XInputDeviceFlags.Wireless,
             gamepad = new XInputGamepad()
             {
                 buttons = (XInputButton)0xFFFF,
@@ -451,10 +451,11 @@ namespace HIDrogen.Backend
             // ushort vendorId = payload[22..24];
             // ushort subType = payload[24..26];
 
-            // Some wireless devices report their subtype with the 0x80 bit toggled for some reason
             var subType = (XInputDeviceSubType)(payload[25] & 0x7F);
+            bool forceFeedback = (payload[25] & 0x80) != 0;
 
             m_Capabilities.subType = subType;
+            m_Capabilities.flags.SetFlag(XInputDeviceFlags.ForceFeedback, forceFeedback);
 
             // Set player LED
             switch (m_ControllerIndex)
@@ -493,7 +494,12 @@ namespace HIDrogen.Backend
                 rightMotor = payload[19],
             };
 
-            // 9 bytes leftover: payload[20..29], purpose unknown
+            m_Capabilities.flags &= ~(XInputDeviceFlags.Voice | XInputDeviceFlags.PluginModules | XInputDeviceFlags.NoNavigation);
+
+            byte flags = payload[20];
+            m_Capabilities.flags.SetFlag(XInputDeviceFlags.Voice, (flags & 0x03) == 0);
+            m_Capabilities.flags.SetFlag(XInputDeviceFlags.PluginModules, (flags & 0x08) == 0);
+            m_Capabilities.flags.SetFlag(XInputDeviceFlags.NoNavigation, (flags & 0x10) == 0);
 
             // Full capabilities data has been received by this point, queue for addition
             QueueForAddition();
