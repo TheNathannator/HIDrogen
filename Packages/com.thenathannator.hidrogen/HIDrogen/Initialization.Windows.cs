@@ -9,6 +9,7 @@ namespace HIDrogen
         private static XInputBackend s_XInputBackend;
 #endif
         private static GameInputBackend s_GameInputBackend;
+        private static USBBackend s_USBBackend;
 
         static partial void PlatformInitialize()
         {
@@ -16,6 +17,7 @@ namespace HIDrogen
             TryInitializeBackend(ref s_XInputBackend);
 #endif
             TryInitializeBackend(ref s_GameInputBackend);
+            TryInitializeBackend(ref s_USBBackend);
         }
 
 
@@ -25,6 +27,7 @@ namespace HIDrogen
             TryUninitializeBackend(ref s_XInputBackend);
 #endif
             TryUninitializeBackend(ref s_GameInputBackend);
+            TryUninitializeBackend(ref s_USBBackend);
         }
     }
 }
