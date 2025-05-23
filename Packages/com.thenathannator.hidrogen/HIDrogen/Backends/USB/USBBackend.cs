@@ -1,107 +1,135 @@
 using System;
-using System.Threading;
 using System.Collections.Generic;
+using System.Threading;
 using HIDrogen.Imports;
 
 namespace HIDrogen.Backend
 {
+    using static libusb;
+
     internal class USBBackend : IDisposable
     {
-        private LibUSB _libusb;
+        private libusb_context m_Context;
 
-        private Dictionary<int, IDisposable> m_Devices = new Dictionary<int, IDisposable>();
-
-        private Thread m_watchThread;
+        private Thread m_WatchThread;
         private EventWaitHandle m_ThreadStop = new EventWaitHandle(false, EventResetMode.ManualReset);
 
-        private List<int> ignoredDeviceIDs = new List<int>();
+        private readonly Dictionary<IntPtr, IDisposable> m_Devices = new Dictionary<IntPtr, IDisposable>();
+
+        private readonly HashSet<IntPtr> m_IgnoredDeviceIDs = new HashSet<IntPtr>();
+
+        // Cached collections to avoid repeat allocations
+        private readonly HashSet<IntPtr> m_PresentDeviceIDs = new HashSet<IntPtr>();
+        private readonly List<IntPtr> m_RemovedDeviceIDs = new List<IntPtr>();
 
         public USBBackend()
         {
-            Logging.Verbose("Initializing USBBackend");
-
-            try
+            var result = libusb_init(out m_Context);
+            if (result < 0)
             {
-                _libusb = new LibUSB();
-            }
-            catch (Exception ex) {
-                Logging.Exception("Failed to initialize libusb.", ex);
-                return;
+                throw new Exception($"Failed to initialize LibUSB: {libusb_strerror(result)} (0x{result:X8})");
             }
 
-            // Create a new thread
-            Thread m_watchThread = new Thread(WatchForDevices);
-            m_watchThread.Start();
+            m_WatchThread = new Thread(WatchForDevices) { IsBackground = true };
+            m_WatchThread.Start();
         }
 
         private void WatchForDevices()
         {
-            // Pause between GetDeviceList function calls.
             while (!m_ThreadStop.WaitOne(1000))
             {
-                var devices = _libusb.GetDeviceList();
+                m_PresentDeviceIDs.Clear();
+                m_RemovedDeviceIDs.Clear();
 
-                // Inspect each device that hasn't been ignored or connected already.
-                foreach (var device in devices)
-                    if (!ignoredDeviceIDs.Contains(device.Id) && !m_Devices.ContainsKey(device.Id))
-                        InspectDevice(device);
+                var result = libusb_get_device_list(m_Context, out var list);
+                if (!libusb_checkerror(result, "Failed to get USB device list"))
+                {
+                    continue;
+                }
 
-                // Create a list of connected deviceIDs.
-                List<int> connectedIDs = devices.ConvertAll<int>(device => device.Id);
+                foreach (var deviceHandle in list)
+                {
+                    var device = new libusb_temp_device(deviceHandle, ownsHandle: false);
 
-                // Remove each existing device not in connectedIDs.
-                foreach (int deviceID in new List<int>(m_Devices.Keys))
-                    if (!connectedIDs.Contains(deviceID))
-                        RemoveDevice(deviceID);
+                    // The handle can serve as a unique ID,
+                    // persisting between libusb_get_device_list calls
+                    if (m_IgnoredDeviceIDs.Contains(deviceHandle))
+                    {
+                        continue;
+                    }
 
-                // Disconnect and remove 
-                _libusb.FreeDeviceList();
+                    if (!m_Devices.ContainsKey(deviceHandle))
+                    {
+                        try
+                        {
+                            ProbeDevice(deviceHandle, device);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logging.Exception("Failed to probe USB device!", ex);
+                        }
+                    }
+
+                    m_PresentDeviceIDs.Add(deviceHandle);
+                }
+
+                // Check to see if any devices have been removed
+                foreach (var deviceID in m_Devices.Keys)
+                {
+                    if (!m_PresentDeviceIDs.Contains(deviceID))
+                    {
+                        m_RemovedDeviceIDs.Add(deviceID);
+                    }
+                }
+
+                // The actual removal must happen as a second step, as trying to
+                // enumerate a collection while modifying it will result in problems
+                foreach (var removedId in m_RemovedDeviceIDs)
+                {
+                    m_Devices[removedId].Dispose();
+                    m_Devices.Remove(removedId);
+                }
             }
         }
 
-        private void InspectDevice(LibUSBDevice device) {
-
-            Logging.Verbose("Inspecting new USB Device");
-
-            var descriptor = device.GetDescriptor();
-
-            // Microsoft USB Device
-            if (descriptor.idVendor == 0x045e)
+        private void ProbeDevice(IntPtr deviceId, in libusb_temp_device device)
+        {
+            var result = libusb_get_device_descriptor(device, out var descriptor);
+            if (!libusb_checkerror(result, "Failed to get USB device descriptor"))
             {
-                // Known Product IDs for this dongle.
-                if (descriptor.idProduct == 0x0291 || descriptor.idProduct == 0x02a9 || descriptor.idProduct == 0x0719)
-                {
-                    Logging.Verbose("Found X360Receiver");
-                    m_Devices.Add(device.Id, new X360Receiver(device));
-                    return;
-                }
+                m_IgnoredDeviceIDs.Add(deviceId);
+                return;
+            }
+
+            if (X360Receiver.Probe(device, descriptor, out var receiver))
+            {
+                m_Devices.Add(deviceId, receiver);
+                return;
             }
 
             // Device is not interesting, ignore it in future.
-            Logging.Verbose($"Ignoring USB Device (VID 0x{descriptor.idVendor:X4} PID 0x{descriptor.idProduct:X4})");
-            ignoredDeviceIDs.Add(device.Id);
-        }
-
-        private void RemoveDevice(int deviceID)
-        {
-            m_Devices[deviceID].Dispose();
-            m_Devices.Remove(deviceID);
+            Logging.Verbose($"Ignoring USB Device with hardware IDs {descriptor.idVendor:X4}:{descriptor.idProduct:X4})");
+            m_IgnoredDeviceIDs.Add(deviceId);
         }
 
         public void Dispose()
         {
             // Stop watching for devices.
             m_ThreadStop?.Set();
-            m_watchThread?.Join();
-            m_watchThread = null;
+            m_WatchThread?.Join();
+            m_WatchThread = null;
 
             m_ThreadStop?.Dispose();
             m_ThreadStop = null;
 
-            foreach (int deviceID in new List<int>(m_Devices.Keys))
-                RemoveDevice(deviceID);
+            foreach (var device in m_Devices.Values)
+            {
+                device?.Dispose();
+            }
+            m_Devices.Clear();
 
-            _libusb.Dispose();
+            m_Context?.Dispose();
+            m_Context = null;
         }
     }
 }

@@ -200,11 +200,36 @@ namespace HIDrogen
             }
         }
 
+        public unsafe void QueueStateEvent(InputDevice device, FourCC format, byte[] stateBuffer, int offset)
+        {
+            QueueStateEvent(device, format, stateBuffer, offset, stateBuffer.Length - offset);
+        }
+
+        public unsafe void QueueStateEvent(InputDevice device, FourCC format, byte[] stateBuffer, int offset, int length)
+        {
+            if (stateBuffer.Length < offset)
+            {
+                throw new ArgumentOutOfRangeException(nameof(offset));
+            }
+
+            if ((stateBuffer.Length - offset) < length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(length));
+            }
+
+            fixed (byte* ptr = stateBuffer)
+            {
+                QueueStateEvent(device, format, ptr + offset, length);
+            }
+        }
+
         // Based on InputSystem.QueueStateEvent<T>
         public unsafe void QueueStateEvent(InputDevice device, FourCC format, void* stateBuffer, int stateLength)
         {
             if (stateBuffer == null || stateLength < 1 || stateLength > kMaxStateSize)
+            {
                 return;
+            }
 
             // Create state buffer
             int eventSize = stateLength + (sizeof(StateEvent) - 1); // StateEvent already includes 1 byte at the end

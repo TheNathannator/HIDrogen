@@ -1,72 +1,298 @@
 using System;
+using System.Collections.Generic;
 using HIDrogen.Imports;
-using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
 
-// The Xbox360 Wireless Receiver is a 'Vendor Specific' (0xFF) class device,
-// so will not be recognised by unity natively.
+// XUSB open specification:
+// https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-xusbi/c79474e7-3968-43d1-8d2f-175d47bef43e
 
 namespace HIDrogen.Backend
 {
+    using static libusb;
+
     internal class USBQueueContext : IDisposable
     {
-        public uint userIndex;
+        public uint controllerIndex;
 
-        public void Dispose() {}
+        public void Dispose() { }
     }
 
-    internal class X360Receiver : CustomInputBackend<X360Controller>
+    internal class X360Receiver : CustomInputBackend<X360WirelessController>
     {
         // Each wireless receiver supports up to 4 controllers.
-        private readonly X360Controller[] m_Controllers = new X360Controller[4];
+        private const int kControllerCount = 4;
 
-        private LibUSBDevice _usbDevice;
-
-        public X360Receiver(LibUSBDevice usbDevice)
+        private static readonly HashSet<(ushort vid, ushort pid)> s_HardwareIdWhitelist = new HashSet<(ushort, ushort)>()
         {
-            Logging.Verbose("[X360Receiver] init");
+            // Microsoft
+            // 0x0291 and 0x0719 are official product IDs, third-party receivers use others
+            (0x045e, 0x0291),
+            (0x045e, 0x02a9),
+            (0x045e, 0x0719),
+        };
 
-            usbDevice.Open();
+        private libusb_device_handle m_Handle;
+        private X360WirelessController[] m_Controllers;
 
-            for (uint i = 0; i < 4; i++) 
-            {
-                m_Controllers[i] = new X360Controller(this, usbDevice, i);
-            }
-
-            _usbDevice = usbDevice;
+        private X360Receiver(libusb_device_handle handle)
+        {
+            m_Handle = handle;
+            // Elements initialized in Probe()
+            m_Controllers = new X360WirelessController[kControllerCount];
         }
 
         protected override void OnDispose()
         {
-            Logging.Verbose("[X360Receiver] OnDispose");
-
-            for (uint i = 0; i < 4; i++) 
+            for (uint i = 0; i < m_Controllers.Length; i++)
             {
                 m_Controllers[i]?.Dispose();
                 m_Controllers[i] = null;
             }
+            m_Controllers = null;
 
-            _usbDevice.Dispose();
+            m_Handle?.Dispose();
+            m_Handle = null;
         }
 
-        protected override X360Controller OnDeviceAdded(InputDevice device, IDisposable _context)
+        public static unsafe bool Probe(
+            in libusb_temp_device device,
+            in libusb_device_descriptor descriptor,
+            out X360Receiver receiver
+        )
         {
-            Logging.Verbose("[X360Receiver] OnDeviceAdded");
+            receiver = null;
 
+            // Check hardware IDs
+            // TODO: Is there a reliable detection method that doesn't rely on hardware IDs?
+            if (!s_HardwareIdWhitelist.Contains((descriptor.idVendor, descriptor.idProduct)))
+            {
+                return false;
+            }
+
+            // Verify classes/protocol
+            if (descriptor.bDeviceClass != libusb_class_code.VENDOR_SPEC ||
+                descriptor.bDeviceSubClass != 0xFF ||
+                descriptor.bDeviceProtocol != 0xFF
+            )
+            {
+                return false;
+            }
+
+            bool success = false;
+            libusb_config_descriptor* config = null;
+            try
+            {
+                var result = libusb_open(device, out var handle);
+                if (!libusb_checkerror(result, "Failed to open USB device"))
+                {
+                    return false;
+                }
+
+                receiver = new X360Receiver(handle);
+
+                result = libusb_set_auto_detach_kernel_driver(handle, true);
+                libusb_checkerror(result, "Failed to detach USB device kernel driver");
+
+                result = libusb_get_active_config_descriptor(device, out config);
+                if (!libusb_checkerror(result, "Failed to get configuration descriptor"))
+                {
+                    config = null;
+                    return false;
+                }
+
+                // Find controller interfaces
+                uint controllerCount = 0;
+                for (int ifIndex = 0; ifIndex < config->bNumInterfaces && controllerCount < kControllerCount; ifIndex++)
+                {
+                    ref var iface = ref config->interfaces[ifIndex];
+
+                    if (!ReadControllerDescriptor(iface, out byte inEndpoint, out byte outEndpoint))
+                    {
+                        continue;
+                    }
+
+                    result = libusb_claim_interface(handle, ifIndex);
+                    if (!libusb_checkerror(result, "Failed to claim USB interface for X360 receiver"))
+                    {
+                        return false;
+                    }
+
+                    receiver.m_Controllers[controllerCount] = new X360WirelessController(
+                        receiver,
+                        handle,
+                        controllerCount,
+                        ifIndex,
+                        inEndpoint,
+                        outEndpoint
+                    );
+                    controllerCount++;
+                }
+
+                if (controllerCount == receiver.m_Controllers.Length)
+                {
+                    success = true;
+                }
+            }
+            finally
+            {
+                if (config != null)
+                {
+                    libusb_free_config_descriptor(config);
+                }
+
+                if (!success)
+                {
+                    receiver?.Dispose();
+                }
+            }
+
+            return success;
+        }
+
+        private static unsafe bool ReadControllerDescriptor(
+            in libusb_interface iface,
+            out byte inEndpoint,
+            out byte outEndpoint
+        )
+        {
+            inEndpoint = 0;
+            outEndpoint = 0;
+
+            if (iface.num_altsetting != 1)
+            {
+                return false;
+            }
+
+            // Verify classes/protocol
+            // Protocol 0x81 is for controller data, and 0x82 is for voice data
+            ref var ifDescriptor = ref *iface.altsetting;
+            if (ifDescriptor.bInterfaceClass != libusb_class_code.VENDOR_SPEC ||
+                ifDescriptor.bInterfaceSubClass != 0x5D ||
+                ifDescriptor.bInterfaceProtocol != 0x81
+            )
+            {
+                return false;
+            }
+
+            // Find XUSB interface descriptor
+            // It is not processed, as the data contained within it is unnecessary;
+            // finding it is simply an extra check to verify this is the interface we're looking for
+            bool descriptorFound = false;
+            for (int extraPos = 0; extraPos < ifDescriptor.extra_length; extraPos += ifDescriptor.extra[extraPos])
+            {
+                byte* descPtr = ifDescriptor.extra + extraPos;
+                byte bLength = descPtr[0];
+                if (bLength < 4)
+                {
+                    continue;
+                }
+
+                byte bDescriptorType = descPtr[1];
+                ushort bcdXUSB = (ushort)((descPtr[3] << 8) | descPtr[2]);
+                if (bDescriptorType == 0x22 && bcdXUSB == 0x0100)
+                {
+                    descriptorFound = true;
+                    break;
+                }
+
+                // For posterity
+                // // Process wReports entries
+                // int reportPos = 4;
+                // while (reportPos < bLength)
+                // {
+                //     if ((reportPos - bLength) < 2)
+                //     {
+                //         Logging.Verbose("Encountered corrupted or malformed XUSB wireless interface descriptor");
+                //         return false;
+                //     }
+
+                //     byte* reportPtr = descPtr + reportPos;
+
+                //     byte endpointType = (byte)((reportPtr[0] & 0xF0) >> 4);
+                //     byte reportCount = (byte)(reportPtr[0] & 0x0F);
+                //     byte endpointAddress = reportPtr[1];
+
+                //     reportPos += 2;
+
+                //     var reports = new (byte reportId, byte reportLength)[reportCount];
+                //     for (int i = 0; i < reportCount; i++, reportPos += 2)
+                //     {
+                //         if (reportPos >= bLength)
+                //         {
+                //             Logging.Verbose("Encountered corrupted or malformed XUSB wireless interface descriptor");
+                //             return false;
+                //         }
+
+                //         byte reportLength = reportPtr[reportPos];
+                //         byte reportId = reportPtr[reportPos + 1];
+                //         reports[i] = (reportId, reportLength);
+                //     }
+                
+                //     // TODO: Correlate with endpoints
+                // }
+            }
+
+            if (!descriptorFound)
+            {
+                return false;
+            }
+
+            // Find controller endpoints
+            // There are only two endpoints on the controller data interfaces
+            if (ifDescriptor.bNumEndpoints != 2)
+            {
+                return false;
+            }
+
+            for (int cfIndex = 0; cfIndex < ifDescriptor.bNumEndpoints; cfIndex++)
+            {
+                ref var epDescriptor = ref ifDescriptor.endpoints[cfIndex];
+                if ((epDescriptor.bEndpointAddress & 0x80) == (byte)libusb_endpoint_direction.IN)
+                {
+                    if (inEndpoint != 0)
+                    {
+                        Logging.Verbose("Encountered duplicate inbound endpoint on XUSB wireless interface");
+                        return false;
+                    }
+
+                    inEndpoint = epDescriptor.bEndpointAddress;
+                }
+                else
+                {
+                    if (outEndpoint != 0)
+                    {
+                        Logging.Verbose("Encountered duplicate outbound endpoint on XUSB wireless interface");
+                        return false;
+                    }
+
+                    outEndpoint = epDescriptor.bEndpointAddress;
+                }
+            }
+
+            return true;
+        }
+
+        protected override X360WirelessController OnDeviceAdded(InputDevice device, IDisposable _context)
+        {
             var context = (USBQueueContext)_context;
 
-            m_Controllers[context.userIndex].device = device;
+            var controller = m_Controllers[context.controllerIndex];
+            if (!controller.connected)
+            {
+                throw new Exception("Device was disconnected while queued for addition");
+            }
 
-            return m_Controllers[context.userIndex];
+            controller.device = device;
+
+            return controller;
         }
 
-        protected override void OnDeviceRemoved(X360Controller device)
+        protected override void OnDeviceRemoved(X360WirelessController device)
         {
-            Logging.Verbose("[X360Receiver] OnDeviceRemoved");
         }
 
-        protected override unsafe long? OnDeviceCommand(X360Controller device, InputDeviceCommand* command)
+        protected override unsafe long? OnDeviceCommand(X360WirelessController device, InputDeviceCommand* command)
         {
             // System commands
             // if (command->type == EnableDeviceCommand.Type)
@@ -82,15 +308,8 @@ namespace HIDrogen.Backend
             // if (command->type == QueryCanRunInBackground.Type)
             //     return CanRunInBackground(command);
 
-            // TODO: Untested
             if (command->type == DualMotorRumbleCommand.Type)
-            {
-                var cmd = (DualMotorRumbleCommand*)command;
-                var lowFreq = (byte)(Mathf.Clamp(cmd->lowFrequencyMotorSpeed, 0f, 1f) * 255f);
-                var highFreq = (byte)(Mathf.Clamp(cmd->highFrequencyMotorSpeed, 0f, 1f) * 255f);
-                device.SetRumble(highFreq, lowFreq);
-                return InputDeviceCommand.GenericSuccess;
-            }
+                return device.SetRumble((DualMotorRumbleCommand*)command);
 
             return null;
         }
