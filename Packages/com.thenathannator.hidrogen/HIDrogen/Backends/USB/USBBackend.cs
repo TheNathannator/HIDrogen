@@ -7,6 +7,25 @@ namespace HIDrogen.Backend
 {
     using static libusb;
 
+    internal struct USBDeviceLocation
+    {
+        public byte bus;
+        public byte port;
+        public byte address;
+
+        public int deviceId => (bus << 16) | (port << 8) | address;
+
+        public USBDeviceLocation(byte bus, byte port, byte address)
+        {
+            this.bus = bus;
+            this.port = port;
+            this.address = address;
+        }
+
+        public override string ToString() => $"{bus:X2}:{port:X2}:{address:X2}";
+        public override int GetHashCode() => (bus, port, address).GetHashCode();
+    }
+
     internal class USBBackend : IDisposable
     {
         private libusb_context m_Context;
@@ -14,13 +33,13 @@ namespace HIDrogen.Backend
         private Thread m_WatchThread;
         private EventWaitHandle m_ThreadStop = new EventWaitHandle(false, EventResetMode.ManualReset);
 
-        private readonly Dictionary<int, IDisposable> m_Devices = new Dictionary<int, IDisposable>();
+        private readonly Dictionary<USBDeviceLocation, IDisposable> m_Devices = new Dictionary<USBDeviceLocation, IDisposable>();
 
-        private readonly HashSet<int> m_IgnoredDeviceIDs = new HashSet<int>();
+        private readonly HashSet<USBDeviceLocation> m_IgnoredDevices = new HashSet<USBDeviceLocation>();
 
         // Cached collections to avoid repeat allocations
-        private readonly HashSet<int> m_PresentDeviceIDs = new HashSet<int>();
-        private readonly List<int> m_RemovedDeviceIDs = new List<int>();
+        private readonly HashSet<USBDeviceLocation> m_PresentDevices = new HashSet<USBDeviceLocation>();
+        private readonly List<USBDeviceLocation> m_RemovedDevices = new List<USBDeviceLocation>();
 
         public USBBackend()
         {
@@ -38,8 +57,8 @@ namespace HIDrogen.Backend
         {
             while (!m_ThreadStop.WaitOne(1000))
             {
-                m_PresentDeviceIDs.Clear();
-                m_RemovedDeviceIDs.Clear();
+                m_PresentDevices.Clear();
+                m_RemovedDevices.Clear();
 
                 var result = libusb_get_device_list(m_Context, out var list);
                 if (!libusb_checkerror(result, "Failed to get USB device list"))
@@ -50,24 +69,27 @@ namespace HIDrogen.Backend
                 foreach (var deviceHandle in list)
                 {
                     var device = new libusb_temp_device(deviceHandle, ownsHandle: false);
-
-                    byte bus = libusb_get_bus_number(device);
-                    byte port = libusb_get_port_number(device);
-                    byte address = libusb_get_device_address(device);
-                    int deviceId = (bus << 16) | (port << 8) | address;
+                    var location = new USBDeviceLocation(
+                        libusb_get_bus_number(device),
+                        libusb_get_port_number(device),
+                        libusb_get_device_address(device)
+                    );
 
                     // The handle can serve as a unique ID,
                     // persisting between libusb_get_device_list calls
-                    if (m_IgnoredDeviceIDs.Contains(deviceId))
+                    if (m_IgnoredDevices.Contains(location))
                     {
                         continue;
                     }
 
-                    if (!m_Devices.ContainsKey(deviceId))
+                    if (!m_Devices.ContainsKey(location))
                     {
                         try
                         {
-                            ProbeDevice(deviceId, device);
+                            if (!ProbeDevice(device, location))
+                            {
+                                m_IgnoredDevices.Add(location);
+                            }
                         }
                         catch (Exception ex)
                         {
@@ -75,45 +97,50 @@ namespace HIDrogen.Backend
                         }
                     }
 
-                    m_PresentDeviceIDs.Add(deviceId);
+                    m_PresentDevices.Add(location);
                 }
 
                 // Check to see if any devices have been removed
                 foreach (var deviceID in m_Devices.Keys)
                 {
-                    if (!m_PresentDeviceIDs.Contains(deviceID))
+                    if (!m_PresentDevices.Contains(deviceID))
                     {
-                        m_RemovedDeviceIDs.Add(deviceID);
+                        m_RemovedDevices.Add(deviceID);
                     }
                 }
 
                 // The actual removal must happen as a second step, as trying to
-                // enumerate a collection while modifying it will result in problems
-                foreach (var removedId in m_RemovedDeviceIDs)
+                // modify a collection while enumerating it will result in problems
+                foreach (var removed in m_RemovedDevices)
                 {
-                    m_Devices[removedId].Dispose();
-                    m_Devices.Remove(removedId);
+                    Logging.Verbose($"Removing disconnected device at location {removed}");
+                    m_Devices[removed].Dispose();
+                    m_Devices.Remove(removed);
                 }
             }
         }
 
-        private void ProbeDevice(int deviceId, in libusb_temp_device device)
+        private bool ProbeDevice(
+            in libusb_temp_device device,
+            in USBDeviceLocation location
+        )
         {
             var result = libusb_get_device_descriptor(device, out var descriptor);
             if (!libusb_checkerror(result, "Failed to get USB device descriptor"))
             {
-                m_IgnoredDeviceIDs.Add(deviceId);
-                return;
+                return false;
             }
 
-            if (X360Receiver.Probe(device, descriptor, out var receiver))
+            Logging.Verbose($"Probing connected USB device. Location {location}, hardware IDs: {descriptor.idVendor:X4}:{descriptor.idProduct:X4})");
+
+            if (X360Receiver.Probe(device, location, descriptor, out var receiver))
             {
-                m_Devices.Add(deviceId, receiver);
-                return;
+                m_Devices.Add(location, receiver);
+                return true;
             }
 
-            // Device is not interesting, ignore it in future.
-            m_IgnoredDeviceIDs.Add(deviceId);
+            Logging.Verbose($"Ignoring unrecognized USB device. Location {location}, hardware IDs: {descriptor.idVendor:X4}:{descriptor.idProduct:X4})");
+            return false;
         }
 
         public void Dispose()

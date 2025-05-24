@@ -57,6 +57,7 @@ namespace HIDrogen.Backend
 
         public static unsafe bool Probe(
             in libusb_temp_device device,
+            in USBDeviceLocation location,
             in libusb_device_descriptor descriptor,
             out X360Receiver receiver
         )
@@ -172,6 +173,7 @@ namespace HIDrogen.Backend
                 }
             }
 
+            Logging.Verbose($"Found Xbox 360 receiver. Location: {location}, hardware IDs: {descriptor.idVendor:X4}:{descriptor.idProduct:X4}");
             return success;
         }
 
