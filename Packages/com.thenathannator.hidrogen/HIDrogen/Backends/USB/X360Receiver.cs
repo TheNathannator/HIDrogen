@@ -40,10 +40,32 @@ namespace HIDrogen.Backend
             m_Handle = handle;
             // Elements initialized in Probe()
             m_Controllers = new X360WirelessController[kControllerCount];
+
+#if UNITY_EDITOR
+            // Power off controllers when exiting play mode
+            UnityEditor.EditorApplication.playModeStateChanged += PlayModeStateChanged;
+#endif
         }
+
+#if UNITY_EDITOR
+        internal void PlayModeStateChanged(UnityEditor.PlayModeStateChange state)
+        {
+            if (state == UnityEditor.PlayModeStateChange.ExitingPlayMode)
+            {
+                foreach (var controller in m_Controllers)
+                {
+                    controller?.PowerDown();
+                }
+            }
+        }
+#endif
 
         protected override void OnDispose()
         {
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.playModeStateChanged -= PlayModeStateChanged;
+#endif
+
             for (uint i = 0; i < m_Controllers.Length; i++)
             {
                 m_Controllers[i]?.Dispose();
