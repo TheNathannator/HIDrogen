@@ -102,7 +102,7 @@ namespace HIDrogen.Backend
 
                 // Explicitly set configuration
                 result = libusb_set_configuration(handle, 0);
-                if (result != libusb_error.NOT_SUPPORTED &&
+                if (result != libusb_error.NOT_SUPPORTED && // Not all platforms support setting the configuration
                     !libusb_checkerror(result, "Failed to set USB device configuration"))
                 {
                     return false;
