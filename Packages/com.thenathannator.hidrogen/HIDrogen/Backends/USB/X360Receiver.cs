@@ -101,14 +101,14 @@ namespace HIDrogen.Backend
                 libusb_checkerror(result, "Failed to detach USB device kernel driver");
 
                 // Explicitly set configuration
-                result = libusb_set_configuration(handle, 1);
+                result = libusb_set_configuration(handle, 0);
                 if (result != libusb_error.NOT_SUPPORTED &&
                     !libusb_checkerror(result, "Failed to set USB device configuration"))
                 {
                     return false;
                 }
 
-                result = libusb_get_config_descriptor(device, 1, out config);
+                result = libusb_get_config_descriptor(device, 0, out config);
                 if (!libusb_checkerror(result, "Failed to get configuration descriptor"))
                 {
                     config = null;
