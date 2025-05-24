@@ -2,6 +2,9 @@ using System;
 using System.Runtime.InteropServices;
 using HIDrogen.LowLevel;
 
+// Naming conventions match the original header
+#pragma warning disable IDE1006
+
 namespace HIDrogen.Imports
 {
     using static libusb;

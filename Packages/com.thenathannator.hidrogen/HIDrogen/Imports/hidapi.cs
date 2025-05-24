@@ -1,18 +1,22 @@
 using System;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using HIDrogen.LowLevel;
 
+// Naming conventions match the original header
+#pragma warning disable IDE1006
+
 namespace HIDrogen.Imports
 {
+    using static hidapi;
+
     internal class hid_device : SafeHandleZeroIsInvalid
     {
         private hid_device() : base() { }
 
         protected override bool ReleaseHandle()
         {
-            HidApi.hid_close(handle);
+            hid_close(handle);
             return true;
         }
     }
@@ -26,6 +30,21 @@ namespace HIDrogen.Imports
     }
 
     [StructLayout(LayoutKind.Sequential)]
+    internal unsafe readonly struct hid_device_info_internal
+    {
+        public readonly byte* path;
+        public readonly ushort vendorId;
+        public readonly ushort productId;
+        public readonly byte* serialNumber;
+        public readonly ushort releaseBcd;
+        public readonly byte* manufacturerName;
+        public readonly byte* productName;
+        public readonly ushort usagePage;
+        public readonly ushort usage;
+        public readonly int interfaceNumber;
+        public readonly hid_device_info_internal* next;
+    }
+
     internal struct hid_device_info
     {
         public string path;
@@ -38,86 +57,75 @@ namespace HIDrogen.Imports
         public ushort usagePage;
         public ushort usage;
         public int interfaceNumber;
-
-        public hid_version releaseVersion => new hid_version()
-        {
-            major = (releaseBcd & 0xFF00) >> 8,
-            minor = releaseBcd & 0xFF,
-        };
     }
 
-    internal static unsafe class HidApi
+    // Stack-based enumerator to avoid repeated list allocations
+    // This *would* be a ref struct, but C# 7.3 doesn't support pattern-based disposal,
+    // so it must be a normal struct
+    internal unsafe struct hid_device_enumerator : IDisposable
     {
-        [StructLayout(LayoutKind.Sequential)]
-        private unsafe readonly struct hid_device_info_internal
-        {
-            private readonly byte* m_Path;
-            public readonly ushort vendorId;
-            public readonly ushort productId;
-            private readonly byte* m_SerialNumber;
-            public readonly ushort releaseBcd;
-            private readonly byte* m_ManufacturerName;
-            private readonly byte* m_ProductName;
-            public readonly ushort usagePage;
-            public readonly ushort usage;
-            public readonly int interfaceNumber;
-            internal readonly IntPtr m_Next;
+        private hid_device_info_internal* m_Handle;
+        private hid_device_info_internal* m_CurrentPtr;
 
-            public string path => StringMarshal.FromNullTerminatedAscii(m_Path);
-            public string serialNumber => FromNullTerminatedWideStr(m_SerialNumber);
-            public string manufacturerName => FromNullTerminatedWideStr(m_ManufacturerName);
-            public string productName => FromNullTerminatedWideStr(m_ProductName);
+        public hid_device_info Current { get; private set; }
+
+        public hid_device_enumerator(hid_device_info_internal* handle)
+        {
+            m_Handle = handle;
+            m_CurrentPtr = handle;
+            Current = default;
         }
 
+        public hid_device_enumerator GetEnumerator() => this;
+
+        public bool MoveNext()
+        {
+            if (m_CurrentPtr != null)
+            {
+                Current = new hid_device_info()
+                {
+                    path = StringMarshal.FromNullTerminatedAscii(m_CurrentPtr->path),
+                    vendorId = m_CurrentPtr->vendorId,
+                    productId = m_CurrentPtr->productId,
+                    serialNumber = FromNullTerminatedWideStr(m_CurrentPtr->serialNumber),
+                    releaseBcd = m_CurrentPtr->releaseBcd,
+                    manufacturerName = FromNullTerminatedWideStr(m_CurrentPtr->manufacturerName),
+                    productName = FromNullTerminatedWideStr(m_CurrentPtr->productName),
+                    usagePage = m_CurrentPtr->usagePage,
+                    usage = m_CurrentPtr->usage,
+                    interfaceNumber = m_CurrentPtr->interfaceNumber
+                };
+                m_CurrentPtr = m_CurrentPtr->next;
+                return true;
+            }
+
+            Current = default;
+            return false;
+        }
+
+        public void Dispose()
+        {
+            if (m_Handle != null)
+            {
+                hid_free_enumeration(m_Handle);
+                m_Handle = null;
+            }
+        }
+    }
+
+    internal static unsafe class hidapi
+    {
 #if UNITY_STANDALONE_LINUX
         const string kLibName = "libhidapi-hidraw.so.0";
 #else
         const string kLibName = "hidapi";
 #endif
 
-        public static IEnumerable<hid_device_info> hid_enumerate()
+        // TODO: make custom enumerator
+        public static hid_device_enumerator hid_enumerate()
         {
-            IntPtr hEnum = IntPtr.Zero;
-            try
-            {
-                hEnum = hid_enumerate(0, 0);
-                var info = hEnum;
-                while (info != IntPtr.Zero)
-                {
-                    yield return get(info);
-                    info = getNext(info);
-                }
-            }
-            finally
-            {
-                if (hEnum != IntPtr.Zero)
-                    hid_free_enumeration(hEnum);
-            }
-
-            // Local functions used to work around not being able to use unsafe code in enumerators
-            unsafe hid_device_info get(IntPtr hInfo)
-            {
-                var ptr = (hid_device_info_internal*)hInfo;
-                return new hid_device_info()
-                {
-                    path = ptr->path,
-                    vendorId = ptr->vendorId,
-                    productId = ptr->productId,
-                    serialNumber = ptr->serialNumber,
-                    releaseBcd = ptr->releaseBcd,
-                    manufacturerName = ptr->manufacturerName,
-                    productName = ptr->productName,
-                    usagePage = ptr->usagePage,
-                    usage = ptr->usage,
-                    interfaceNumber = ptr->interfaceNumber
-                };
-            }
-
-            unsafe IntPtr getNext(IntPtr hInfo)
-            {
-                var ptr = (hid_device_info_internal*)hInfo;
-                return ptr->m_Next;
-            }
+            var handle = hid_enumerate(0, 0);
+            return new hid_device_enumerator(handle);
         }
 
         [DllImport(kLibName, SetLastError = true)]
@@ -127,14 +135,14 @@ namespace HIDrogen.Imports
         public static extern int hid_exit();
 
         [DllImport(kLibName, SetLastError = true)]
-        private static extern IntPtr hid_enumerate(
+        private static extern hid_device_info_internal* hid_enumerate(
             ushort vendor_id,
             ushort product_id
         );
 
         [DllImport(kLibName, SetLastError = true)]
-        private static extern void hid_free_enumeration(
-            IntPtr devs
+        public static extern void hid_free_enumeration(
+            hid_device_info_internal* devs
         );
 
         [DllImport(kLibName, SetLastError = true)]
@@ -254,7 +262,7 @@ namespace HIDrogen.Imports
         public static string hid_error() => FromNullTerminatedWideStr(_hid_error(IntPtr.Zero));
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static string FromNullTerminatedWideStr(byte* ptr)
+        public static string FromNullTerminatedWideStr(byte* ptr)
         {
             // While this is intended for Linux only, it's best to support everything correctly
 #if UNITY_STANDALONE_LINUX || UNITY_STANDALONE_OSX

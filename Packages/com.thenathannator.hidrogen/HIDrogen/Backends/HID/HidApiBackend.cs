@@ -14,7 +14,7 @@ using UnityEngine.InputSystem.Utilities;
 
 namespace HIDrogen.Backend
 {
-    using static HidApi;
+    using static hidapi;
 
     /// <summary>
     /// Provides input through the hidapi library.
@@ -35,13 +35,22 @@ namespace HIDrogen.Backend
         public static readonly FourCC OutputFormat = new FourCC('H', 'I', 'D', 'O');
 
         // Get built-in HID descriptor parsing so we don't have to implement our own
-        private unsafe delegate bool HIDParser_ParseReportDescriptor(byte[] buffer, ref HID.HIDDeviceDescriptor deviceDescriptor);
-        private static readonly HIDParser_ParseReportDescriptor s_ParseReportDescriptor = (HIDParser_ParseReportDescriptor)
+        private unsafe delegate bool HIDParser_ParseReportDescriptor(
+            byte[] buffer,
+            ref HID.HIDDeviceDescriptor deviceDescriptor
+        );
+
+        private static readonly HIDParser_ParseReportDescriptor s_ParseReportDescriptor =
+            (HIDParser_ParseReportDescriptor)
             Assembly.GetAssembly(typeof(HID))
             .GetType("UnityEngine.InputSystem.HID.HIDParser")
-            .GetMethod("ParseReportDescriptor",
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static, null,
-                new Type[] { typeof(byte).MakeArrayType(), typeof(HID.HIDDeviceDescriptor).MakeByRefType() }, null)
+            .GetMethod(
+                "ParseReportDescriptor",
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
+                null,
+                new Type[] { typeof(byte).MakeArrayType(), typeof(HID.HIDDeviceDescriptor).MakeByRefType() },
+                null
+            )
             .CreateDelegate(typeof(HIDParser_ParseReportDescriptor));
 
         private readonly Thread m_EnumerationThread;

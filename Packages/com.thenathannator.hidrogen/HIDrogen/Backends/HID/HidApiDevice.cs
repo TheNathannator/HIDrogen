@@ -14,7 +14,7 @@ using HIDrogen.Imports.Posix;
 
 namespace HIDrogen.Backend
 {
-    using static HidApi;
+    using static hidapi;
 
     /// <summary>
     /// An hidapi device.
