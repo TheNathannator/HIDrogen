@@ -79,6 +79,12 @@ namespace HIDrogen.Backend
                 return false;
             }
 
+            // Only one configuration is expected
+            if (descriptor.bNumConfigurations != 1)
+            {
+                return false;
+            }
+
             bool success = false;
             libusb_config_descriptor* config = null;
             try
@@ -94,7 +100,15 @@ namespace HIDrogen.Backend
                 result = libusb_set_auto_detach_kernel_driver(handle, true);
                 libusb_checkerror(result, "Failed to detach USB device kernel driver");
 
-                result = libusb_get_active_config_descriptor(device, out config);
+                // Explicitly set configuration
+                result = libusb_set_configuration(handle, 1);
+                if (result != libusb_error.NOT_SUPPORTED &&
+                    !libusb_checkerror(result, "Failed to set USB device configuration"))
+                {
+                    return false;
+                }
+
+                result = libusb_get_config_descriptor(device, 1, out config);
                 if (!libusb_checkerror(result, "Failed to get configuration descriptor"))
                 {
                     config = null;
@@ -127,6 +141,13 @@ namespace HIDrogen.Backend
                         outEndpoint
                     );
                     controllerCount++;
+
+                    // Also explicitly set alternate setting
+                    result = libusb_set_interface_alt_setting(handle, ifIndex, 0);
+                    if (!libusb_checkerror(result, "Failed to set interface alternate setting"))
+                    {
+                        return false;
+                    }
                 }
 
                 if (controllerCount == receiver.m_Controllers.Length)

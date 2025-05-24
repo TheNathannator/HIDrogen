@@ -520,6 +520,12 @@ namespace HIDrogen.Imports
         }
 
         [DllImport(kLibName, CallingConvention = kCallConvention)]
+        public static unsafe extern libusb_error libusb_set_configuration( // -> int
+            libusb_device_handle dev_handle, // libusb_device_handle*
+            int configuration // int
+        );
+
+        [DllImport(kLibName, CallingConvention = kCallConvention)]
         public static extern libusb_error libusb_claim_interface( // -> int
             libusb_device_handle dev_handle, // libusb_device_handle*
             int interface_number // int
@@ -529,6 +535,13 @@ namespace HIDrogen.Imports
         public static extern libusb_error libusb_release_interface( // -> int
             libusb_device_handle dev_handle, // libusb_device_handle*
             int interface_number // int
+        );
+
+        [DllImport(kLibName, CallingConvention = kCallConvention)]
+        public static unsafe extern libusb_error libusb_set_interface_alt_setting( // -> int
+            libusb_device_handle dev_handle, // libusb_device_handle*
+            int interface_number, // int
+            int alternate_setting // int
         );
 
         [DllImport(kLibName, CallingConvention = kCallConvention)]
