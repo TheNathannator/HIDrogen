@@ -14,13 +14,13 @@ namespace HIDrogen.Backend
         private Thread m_WatchThread;
         private EventWaitHandle m_ThreadStop = new EventWaitHandle(false, EventResetMode.ManualReset);
 
-        private readonly Dictionary<IntPtr, IDisposable> m_Devices = new Dictionary<IntPtr, IDisposable>();
+        private readonly Dictionary<int, IDisposable> m_Devices = new Dictionary<int, IDisposable>();
 
-        private readonly HashSet<IntPtr> m_IgnoredDeviceIDs = new HashSet<IntPtr>();
+        private readonly HashSet<int> m_IgnoredDeviceIDs = new HashSet<int>();
 
         // Cached collections to avoid repeat allocations
-        private readonly HashSet<IntPtr> m_PresentDeviceIDs = new HashSet<IntPtr>();
-        private readonly List<IntPtr> m_RemovedDeviceIDs = new List<IntPtr>();
+        private readonly HashSet<int> m_PresentDeviceIDs = new HashSet<int>();
+        private readonly List<int> m_RemovedDeviceIDs = new List<int>();
 
         public USBBackend()
         {
@@ -51,18 +51,23 @@ namespace HIDrogen.Backend
                 {
                     var device = new libusb_temp_device(deviceHandle, ownsHandle: false);
 
+                    byte bus = libusb_get_bus_number(device);
+                    byte port = libusb_get_port_number(device);
+                    byte address = libusb_get_device_address(device);
+                    int deviceId = (bus << 16) | (port << 8) | address;
+
                     // The handle can serve as a unique ID,
                     // persisting between libusb_get_device_list calls
-                    if (m_IgnoredDeviceIDs.Contains(deviceHandle))
+                    if (m_IgnoredDeviceIDs.Contains(deviceId))
                     {
                         continue;
                     }
 
-                    if (!m_Devices.ContainsKey(deviceHandle))
+                    if (!m_Devices.ContainsKey(deviceId))
                     {
                         try
                         {
-                            ProbeDevice(deviceHandle, device);
+                            ProbeDevice(deviceId, device);
                         }
                         catch (Exception ex)
                         {
@@ -70,7 +75,7 @@ namespace HIDrogen.Backend
                         }
                     }
 
-                    m_PresentDeviceIDs.Add(deviceHandle);
+                    m_PresentDeviceIDs.Add(deviceId);
                 }
 
                 // Check to see if any devices have been removed
@@ -92,7 +97,7 @@ namespace HIDrogen.Backend
             }
         }
 
-        private void ProbeDevice(IntPtr deviceId, in libusb_temp_device device)
+        private void ProbeDevice(int deviceId, in libusb_temp_device device)
         {
             var result = libusb_get_device_descriptor(device, out var descriptor);
             if (!libusb_checkerror(result, "Failed to get USB device descriptor"))

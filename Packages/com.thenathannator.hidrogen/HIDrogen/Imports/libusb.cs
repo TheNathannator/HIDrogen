@@ -365,6 +365,57 @@ namespace HIDrogen.Imports
             IntPtr dev // libusb_device*
         );
 
+        [DllImport(kLibName, CallingConvention = kCallConvention, EntryPoint = "libusb_get_bus_number")]
+        private static extern byte _libusb_get_bus_number( // uint8_t
+            IntPtr dev // libusb_device*
+        );
+
+        [DllImport(kLibName, CallingConvention = kCallConvention)]
+        public static extern byte libusb_get_bus_number( // uint8_t
+            libusb_device dev // libusb_device*
+        );
+
+        public static byte libusb_get_bus_number( // uint8_t
+            in libusb_temp_device dev // libusb_device*
+        )
+        {
+            return _libusb_get_bus_number(dev.DangerousGetHandle());
+        }
+
+        [DllImport(kLibName, CallingConvention = kCallConvention, EntryPoint = "libusb_get_port_number")]
+        private static extern byte _libusb_get_port_number( // uint8_t
+            IntPtr dev // libusb_device*
+        );
+
+        [DllImport(kLibName, CallingConvention = kCallConvention)]
+        public static extern byte libusb_get_port_number( // uint8_t
+            libusb_device dev // libusb_device*
+        );
+
+        public static byte libusb_get_port_number( // uint8_t
+            in libusb_temp_device dev // libusb_device*
+        )
+        {
+            return _libusb_get_port_number(dev.DangerousGetHandle());
+        }
+
+        [DllImport(kLibName, CallingConvention = kCallConvention, EntryPoint = "libusb_get_device_address")]
+        private static extern byte _libusb_get_device_address( // uint8_t
+            IntPtr dev // libusb_device*
+        );
+
+        [DllImport(kLibName, CallingConvention = kCallConvention)]
+        public static extern byte libusb_get_device_address( // uint8_t
+            libusb_device dev // libusb_device*
+        );
+
+        public static byte libusb_get_device_address( // uint8_t
+            in libusb_temp_device dev // libusb_device*
+        )
+        {
+            return _libusb_get_device_address(dev.DangerousGetHandle());
+        }
+
         [DllImport(kLibName, CallingConvention = kCallConvention, EntryPoint = "libusb_get_device_descriptor")]
         private static extern libusb_error _libusb_get_device_descriptor( // -> int
             IntPtr dev, // libusb_device*
