@@ -236,7 +236,7 @@ namespace HIDrogen.Backend
                     {
                         // for whatever reason, the latency between requesting capabilities
                         // and receiving them is *really* high
-                        if (m_StateTimer.IsRunning && m_StateTimer.ElapsedMilliseconds >= 250)
+                        if (m_StateTimer.IsRunning && m_StateTimer.ElapsedMilliseconds >= 2500)
                         {
                             m_StateTimer.Stop();
                             Logging.Verbose($"Controller index {m_ControllerIndex} timed out on capabilities");
