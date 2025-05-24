@@ -1,9 +1,11 @@
 using System;
+#if UNITY_STANDALONE_WIN
 using HIDrogen.Imports.Windows;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
+#endif
 using UnityEngine.InputSystem.Utilities;
 
 namespace HIDrogen.Backend
@@ -15,12 +17,16 @@ namespace HIDrogen.Backend
         public void Dispose() {}
     }
 
-    internal class XInputBackend : CustomInputBackend<XInputBackendDevice>
+    // Constants always provided for other places to use
+    internal partial class XInputBackend
     {
         public const string InterfaceName = "XInput";
         public static readonly FourCC InputFormat = new FourCC('X', 'I', 'N', 'P');
+    }
 
 #if UNITY_STANDALONE_WIN
+    internal partial class XInputBackend : CustomInputBackend<XInputBackendDevice>
+    {
         private const double kRefreshPeriod = 1.0;
         private double m_LastRefreshTime;
 
@@ -147,6 +153,6 @@ namespace HIDrogen.Backend
 
             return null;
         }
-#endif
     }
+#endif
 }
