@@ -676,7 +676,7 @@ namespace HIDrogen.Imports
 
         public static void libusb_logerror(libusb_error errcode, string message)
         {
-            Logging.Error($"{message}: {libusb_strerror(errcode)} (0x{(int)errcode:X8})");
+            Logging.Error($"{message}: {libusb_strerror(errcode)} ({(int)errcode})");
         }
 
         #endregion
