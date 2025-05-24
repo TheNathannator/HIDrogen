@@ -100,15 +100,19 @@ namespace HIDrogen.Backend
                 result = libusb_set_auto_detach_kernel_driver(handle, true);
                 libusb_checkerror(result, "Failed to detach USB device kernel driver");
 
-                // Explicitly set configuration
-                result = libusb_set_configuration(handle, 0);
-                if (result != libusb_error.NOT_SUPPORTED && // Not all platforms support setting the configuration
-                    !libusb_checkerror(result, "Failed to set USB device configuration"))
+                result = libusb_get_configuration(handle, out int configuration);
+                if (libusb_checkerror(result, "Failed to get USB device configuration") && configuration != 1)
                 {
-                    return false;
+                    // Explicitly set configuration
+                    result = libusb_set_configuration(handle, 1);
+                    if (result != libusb_error.NOT_SUPPORTED && // Not all platforms support setting the configuration
+                        !libusb_checkerror(result, "Failed to set USB device configuration"))
+                    {
+                        return false;
+                    }
                 }
 
-                result = libusb_get_config_descriptor(device, 0, out config);
+                result = libusb_get_active_config_descriptor(device, out config);
                 if (!libusb_checkerror(result, "Failed to get configuration descriptor"))
                 {
                     config = null;
