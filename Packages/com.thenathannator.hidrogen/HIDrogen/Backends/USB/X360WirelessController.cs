@@ -58,11 +58,6 @@ namespace HIDrogen.Backend
             Capabilities,
 
             /// <summary>
-            /// Waiting for input system device addition.
-            /// </summary>
-            DeviceAddition,
-
-            /// <summary>
             /// Controller is connected and initialized.
             /// </summary>
             Connected,
@@ -113,9 +108,9 @@ namespace HIDrogen.Backend
         private InputDevice m_Device;
         private readonly uint m_ControllerIndex;
 
-
         private ConnectionState m_ConnectionState;
         private readonly Stopwatch m_StateTimer = new Stopwatch();
+        private int m_StateAttempts = 0;
 
         public bool connected => m_ConnectionState != ConnectionState.Disconnected;
 
@@ -178,13 +173,36 @@ namespace HIDrogen.Backend
 
         public void SetDevice(InputDevice device)
         {
-            if (m_ConnectionState != ConnectionState.DeviceAddition)
+            m_Device = device;
+        }
+
+        private void OnConnect()
+        {
+            if (connected)
             {
                 return;
             }
 
-            m_Device = device;
-            SetConnectionState(ConnectionState.Connected);
+            // Wait until link control packet is received before adding,
+            // as it contains needed device type information
+            RequestConnectionStatus();
+            SetConnectionState(ConnectionState.LinkControl);
+        }
+
+        private void OnDisconnect()
+        {
+            if (!connected)
+            {
+                return;
+            }
+
+            if (m_Device != null)
+            {
+                m_Receiver.QueueDeviceRemove(m_Device);
+            }
+
+            m_Capabilities = s_DefaultCapabilities;
+            SetConnectionState(ConnectionState.Disconnected);
         }
 
         private void QueueForAddition()
@@ -201,12 +219,13 @@ namespace HIDrogen.Backend
                 controllerIndex = m_ControllerIndex
             });
 
-            SetConnectionState(ConnectionState.DeviceAddition);
+            SetConnectionState(ConnectionState.Connected);
         }
 
         private void SetConnectionState(ConnectionState state)
         {
             m_ConnectionState = state;
+            m_StateAttempts = 0;
             m_StateTimer.Restart();
         }
 
@@ -232,15 +251,54 @@ namespace HIDrogen.Backend
                         }
                         break;
                     }
+                    case ConnectionState.LinkControl:
+                    {
+                        if (m_StateTimer.IsRunning && m_StateTimer.ElapsedMilliseconds >= 1000)
+                        {
+                            m_StateAttempts++;
+                            Logging.Verbose($"Controller index {m_ControllerIndex} timed out on link control (attempt {m_StateAttempts})");
+
+                            if (m_StateAttempts < 3)
+                            {
+                                // Request again in case it was dropped
+                                RequestConnectionStatus();
+                                m_StateTimer.Restart();
+                                break;
+                            }
+                            else
+                            {
+                                // Link control is necessary for proper device type detection,
+                                // disconnect if we stall on it
+                                m_StateTimer.Reset();
+                                Logging.Verbose($"Controller index {m_ControllerIndex} timed out on link control, disconnecting.");
+                                PowerDown();
+                            }
+                        }
+                        break;
+                    }
                     case ConnectionState.Capabilities:
                     {
                         // for whatever reason, the latency between requesting capabilities
                         // and receiving them is *really* high
-                        if (m_StateTimer.IsRunning && m_StateTimer.ElapsedMilliseconds >= 2500)
+                        if (m_StateTimer.IsRunning && m_StateTimer.ElapsedMilliseconds >= 1000)
                         {
-                            m_StateTimer.Stop();
-                            Logging.Verbose($"Controller index {m_ControllerIndex} timed out on capabilities");
-                            QueueForAddition();
+                            m_StateAttempts++;
+                            Logging.Verbose($"Controller index {m_ControllerIndex} timed out on capabilities (attempt {m_StateAttempts})");
+
+                            if (m_StateAttempts < 3)
+                            {
+                                // Request again in case it was dropped
+                                RequestCapabilities();
+                                m_StateTimer.Restart();
+                                break;
+                            }
+                            else
+                            {
+                                // Skip capabilities, they aren't absolutely necessary for usage
+                                // (some devices may not be recognized properly without them however)
+                                m_StateTimer.Reset();
+                                QueueForAddition();
+                            }
                         }
                         break;
                     }
@@ -515,26 +573,16 @@ namespace HIDrogen.Backend
             bool isConnected = (connectionFlags & 0x80) != 0;
             // bool voiceConnected = (connectionFlags & 0x40) != 0;
 
-            if (isConnected == connected)
+            if (isConnected != connected)
             {
-                return;
-            }
-
-            if (isConnected && m_ConnectionState == ConnectionState.Disconnected)
-            {
-                // Wait until link control packet is received before adding,
-                // as it contains needed device type information
-                SetConnectionState(ConnectionState.LinkControl);
-            }
-            else if (!isConnected && m_ConnectionState != ConnectionState.Disconnected)
-            {
-                if (m_Device != null)
+                if (isConnected)
                 {
-                    m_Receiver.QueueDeviceRemove(m_Device);
+                    OnConnect();
                 }
-
-                m_Capabilities = s_DefaultCapabilities;
-                SetConnectionState(ConnectionState.Disconnected);
+                else
+                {
+                    OnDisconnect();
+                }
             }
         }
 
