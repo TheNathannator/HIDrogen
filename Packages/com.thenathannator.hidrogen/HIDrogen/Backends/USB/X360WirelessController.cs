@@ -552,12 +552,10 @@ namespace HIDrogen.Backend
                 rightMotor = payload[19],
             };
 
-            m_Capabilities.flags &= ~(XInputDeviceFlags.Voice | XInputDeviceFlags.PluginModules | XInputDeviceFlags.NoNavigation);
-
             byte flags = payload[20];
-            m_Capabilities.flags.SetFlag(XInputDeviceFlags.Voice, (flags & 0x03) == 0);
-            m_Capabilities.flags.SetFlag(XInputDeviceFlags.PluginModules, (flags & 0x08) == 0);
-            m_Capabilities.flags.SetFlag(XInputDeviceFlags.NoNavigation, (flags & 0x10) == 0);
+            m_Capabilities.flags.SetFlag(XInputDeviceFlags.Voice, (flags & 0x03) != 0);
+            m_Capabilities.flags.SetFlag(XInputDeviceFlags.PluginModules, (flags & 0x08) != 0);
+            m_Capabilities.flags.SetFlag(XInputDeviceFlags.NoNavigation, (flags & 0x10) != 0);
 
             // Full capabilities data has been received by this point, queue for addition
             QueueForAddition();
