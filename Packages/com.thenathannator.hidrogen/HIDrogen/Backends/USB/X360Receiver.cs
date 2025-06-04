@@ -79,7 +79,7 @@ namespace HIDrogen.Backend
 
         public static unsafe bool Probe(
             in libusb_temp_device device,
-            in USBDeviceLocation location,
+            libusb_device_handle handle,
             in libusb_device_descriptor descriptor,
             out X360Receiver receiver
         )
@@ -112,15 +112,9 @@ namespace HIDrogen.Backend
             libusb_config_descriptor* config = null;
             try
             {
-                var result = libusb_open(device, out var handle);
-                if (!libusb_checkerror(result, "Failed to open USB device"))
-                {
-                    return false;
-                }
-
                 receiver = new X360Receiver(handle);
 
-                result = libusb_set_auto_detach_kernel_driver(handle, true);
+                var result = libusb_set_auto_detach_kernel_driver(handle, true);
                 libusb_checkerror(result, "Failed to detach USB device kernel driver");
 
                 result = libusb_get_configuration(handle, out int configuration);
@@ -195,7 +189,6 @@ namespace HIDrogen.Backend
                 }
             }
 
-            Logging.Verbose($"Found Xbox 360 receiver. Location: {location}, hardware IDs: {descriptor.idVendor:X4}:{descriptor.idProduct:X4}");
             return success;
         }
 
