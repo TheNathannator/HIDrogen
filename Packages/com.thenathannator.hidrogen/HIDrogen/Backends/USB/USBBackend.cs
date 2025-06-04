@@ -63,8 +63,6 @@ namespace HIDrogen.Backend
 
             // Stop threads
             m_ThreadStop?.Set();
-            Interlocked.Exchange(ref m_StopEvents, 1);
-            libusb_interrupt_event_handler(m_Context);
 
             m_DeviceThread?.Join();
             m_DeviceThread = null;
@@ -120,14 +118,7 @@ namespace HIDrogen.Backend
 
                 if (!m_Devices.ContainsKey(location))
                 {
-                    try
-                    {
-                        ProbeDevice(device, location);
-                    }
-                    catch (Exception ex)
-                    {
-                        Logging.Exception("Failed to probe USB device!", ex);
-                    }
+                    ProbeDevice(device, location);
                 }
 
                 m_PresentDevices.Add(location);
@@ -169,7 +160,7 @@ namespace HIDrogen.Backend
             try
             {
                 result = libusb_open(device, out handle);
-                if (result == libusb_error.NOT_SUPPORTED || result == libusb_error.NOT_FOUND)
+                if (result == libusb_error.NOT_SUPPORTED || result == libusb_error.NOT_FOUND || result == libusb_error.ACCESS)
                 {
                     Logging.Verbose($"Ignoring inaccessible USB device. Location {location}, hardware IDs: {descriptor.idVendor:X4}:{descriptor.idProduct:X4}");
                     m_IgnoredDevices.Add(location);
@@ -192,6 +183,11 @@ namespace HIDrogen.Backend
 
                 Logging.Verbose($"Ignoring unrecognized USB device. Location {location}, hardware IDs: {descriptor.idVendor:X4}:{descriptor.idProduct:X4}");
                 m_IgnoredDevices.Add(location);
+            }
+            catch (Exception ex)
+            {
+                Logging.Exception($"Failed to probe USB device! Location {location}, hardware IDs: {descriptor.idVendor:X4}:{descriptor.idProduct:X4}", ex);
+                OnProbeFailure(location);
             }
             finally
             {
