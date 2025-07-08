@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using System.Threading;
 using HIDrogen.Imports;
+using HIDrogen.LowLevel;
+using UnityEngine;
 
 namespace HIDrogen.Backend
 {
@@ -28,6 +31,8 @@ namespace HIDrogen.Backend
 
     internal class USBBackend : IDisposable
     {
+        private static readonly unsafe IntPtr s_LogCallback = Marshal.GetFunctionPointerForDelegate<libusb_log_cb>(LogCallback);
+
         private libusb_context m_Context;
 
         private Thread m_DeviceThread;
@@ -49,6 +54,8 @@ namespace HIDrogen.Backend
             {
                 throw new Exception($"Failed to initialize libusb: {libusb_strerror(result)} (0x{result:X8})");
             }
+
+            libusb_set_log_cb(m_Context, s_LogCallback, libusb_log_cb_mode.GLOBAL | libusb_log_cb_mode.CONTEXT);
 
             m_DeviceThread = new Thread(DeviceThread) { IsBackground = true };
             m_DeviceThread.Start();
@@ -212,6 +219,42 @@ namespace HIDrogen.Backend
                 Logging.Verbose($"Failed too many times to probe device at location {location}, ignoring it.");
                 m_IgnoredDevices.Add(location);
             }
+        }
+
+        [AOT.MonoPInvokeCallback(typeof(libusb_log_cb))]
+        private static unsafe void LogCallback(
+            IntPtr _ctx, // libusb_context*
+            libusb_log_level level,
+            byte* str // const char*
+        )
+        {
+            switch (level)
+            {
+                case libusb_log_level.ERROR:
+                {
+                    Debug.LogError(MakeLogMessage(str));
+                    break;
+                }
+                case libusb_log_level.WARNING:
+                {
+                    Debug.LogWarning(MakeLogMessage(str));
+                    break;
+                }
+#if HIDROGEN_VERBOSE_LOGGING
+                case libusb_log_level.INFO:
+                // too much info lol
+                // case libusb_log_level.DEBUG:
+#endif
+                {
+                    Debug.Log(MakeLogMessage(str));
+                    break;
+                }
+            }
+        }
+
+        private static unsafe string MakeLogMessage(byte* str)
+        {
+            return "[libusb] " + StringMarshal.FromNullTerminatedAscii(str);
         }
     }
 }

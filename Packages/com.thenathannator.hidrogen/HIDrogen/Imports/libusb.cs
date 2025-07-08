@@ -27,6 +27,21 @@ namespace HIDrogen.Imports
         OTHER = -13
     }
 
+    internal enum libusb_log_level : int
+    {
+        NONE = 0,
+        ERROR = 1,
+        WARNING = 2,
+        INFO = 3,
+        DEBUG = 4
+    }
+
+    internal enum libusb_log_cb_mode : int
+    {
+        GLOBAL = 1 << 0,
+        CONTEXT = 1 << 1,
+    }
+
     internal enum libusb_class_code : byte
     {
         PER_INTERFACE = 0x00,
@@ -91,6 +106,13 @@ namespace HIDrogen.Imports
         SET_SEL = 0x30,
         SET_ISOCH_DELAY = 0x31
     }
+
+    [UnmanagedFunctionPointer(kCallConvention)]
+    internal unsafe delegate void libusb_log_cb(
+        IntPtr ctx, // libusb_context*
+        libusb_log_level level, // enum libusb_log_level
+        byte* str // const char*
+    );
 
     [StructLayout(LayoutKind.Sequential)]
     internal struct libusb_device_descriptor
@@ -287,7 +309,7 @@ namespace HIDrogen.Imports
         private const string kLibName = "libusb-1.0";
 #endif
 
-        private const CallingConvention kCallConvention = CallingConvention.Winapi;
+        internal const CallingConvention kCallConvention = CallingConvention.Winapi;
 
         #region libusb_context
 
@@ -309,6 +331,13 @@ namespace HIDrogen.Imports
         [DllImport(kLibName, CallingConvention = kCallConvention)]
         public static extern void libusb_exit( // -> void
             IntPtr ctx // libusb_context*
+        );
+
+        [DllImport(kLibName, CallingConvention = kCallConvention)]
+        public static extern void libusb_set_log_cb(
+            libusb_context ctx, // libusb_context*
+            IntPtr cb, // libusb_log_cb
+            libusb_log_cb_mode mode // int
         );
 
         [DllImport(kLibName, CallingConvention = kCallConvention, EntryPoint = "libusb_get_device_list")]
