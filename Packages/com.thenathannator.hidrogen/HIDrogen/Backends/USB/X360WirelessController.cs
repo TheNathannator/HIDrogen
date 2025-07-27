@@ -236,7 +236,7 @@ namespace HIDrogen.Backend
             const int retryThreshold = 3;
             int errorCount = 0;
 
-            while (!m_ThreadStop.WaitOne(1))
+            while (!m_ThreadStop.WaitOne(0))
             {
                 // Service state timers
                 switch (m_ConnectionState)
@@ -305,7 +305,7 @@ namespace HIDrogen.Backend
                 }
 
                 // Read incoming reports
-                var result = libusb_interrupt_transfer(m_Handle, m_InEndpoint, payload, out int actualLength, 5);
+                var result = libusb_interrupt_transfer(m_Handle, m_InEndpoint, payload, out int actualLength, 100);
                 switch (result)
                 {
                     case libusb_error.SUCCESS:
