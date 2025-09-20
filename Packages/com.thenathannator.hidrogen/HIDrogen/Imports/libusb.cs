@@ -300,6 +300,14 @@ namespace HIDrogen.Imports
         }
     }
 
+    internal class LibusbException : Exception
+    {
+        public LibusbException(libusb_error errcode, string message)
+            : base($"{message}: {libusb_strerror(errcode)} ({(int)errcode})")
+        {
+        }
+    }
+
     internal static class libusb
     {
 #if UNITY_STANDALONE_LINUX
@@ -761,6 +769,14 @@ namespace HIDrogen.Imports
             }
 
             return true;
+        }
+
+        public static void libusb_checkthrow(libusb_error errcode, string message)
+        {
+            if (errcode != libusb_error.SUCCESS)
+            {
+                throw new LibusbException(errcode, message);
+            }
         }
 
         public static void libusb_logerror(libusb_error errcode, string message)

@@ -148,26 +148,28 @@ namespace HIDrogen.Backend
                     }
 
                     result = libusb_claim_interface(handle, ifIndex);
-                    if (!libusb_checkerror(result, "Failed to claim USB interface for X360 receiver"))
+                    libusb_checkthrow(result, "Failed to claim USB interface for X360 receiver");
+
+                    try
                     {
-                        return false;
+                        // Also explicitly set alternate setting
+                        result = libusb_set_interface_alt_setting(handle, ifIndex, 0);
+                        libusb_checkthrow(result, "Failed to set interface alternate setting");
+
+                        receiver.m_Controllers[controllerCount] = new X360WirelessController(
+                            receiver,
+                            handle,
+                            controllerCount,
+                            ifIndex,
+                            inEndpoint,
+                            outEndpoint
+                        );
+                        controllerCount++;
                     }
-
-                    receiver.m_Controllers[controllerCount] = new X360WirelessController(
-                        receiver,
-                        handle,
-                        controllerCount,
-                        ifIndex,
-                        inEndpoint,
-                        outEndpoint
-                    );
-                    controllerCount++;
-
-                    // Also explicitly set alternate setting
-                    result = libusb_set_interface_alt_setting(handle, ifIndex, 0);
-                    if (!libusb_checkerror(result, "Failed to set interface alternate setting"))
+                    catch
                     {
-                        return false;
+                        libusb_release_interface(handle, ifIndex);
+                        throw;
                     }
                 }
 
