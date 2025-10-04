@@ -1,8 +1,12 @@
 #if UNITY_STANDALONE_WIN
+    #define NATIVELIB_SUPPORT
     #define NATIVELIB_WINDOWS
 #elif UNITY_STANDALONE_LINUX || UNITY_STANDALONE_OSX
+    #define NATIVELIB_SUPPORT
     #define NATIVELIB_POSIX
 #endif
+
+#if NATIVELIB_SUPPORT
 
 using System;
 using System.Diagnostics;
@@ -29,9 +33,6 @@ namespace HIDrogen.LowLevel
             handle = Kernel32.LoadLibrary(name);
 #elif NATIVELIB_POSIX
             handle = Dlfcn.dlopen(name, RTLD.LAZY);
-#else
-            #warning "NativeLibrary.TryLoad not yet supported for the current platform"
-            throw new NotSupportedException();
 #endif
 
             CheckLoadError(handle, "Failed to load library {0}", name);
@@ -51,9 +52,6 @@ namespace HIDrogen.LowLevel
             address = Kernel32.GetProcAddress(handle, name);
 #elif NATIVELIB_POSIX
             address = Dlfcn.dlsym(handle, name);
-#else
-            #warning "NativeLibrary.TryGetExport not yet supported for the current platform"
-            throw new NotSupportedException();
 #endif
             CheckLoadError(address, "Failed to load export {0}", name);
             return address != IntPtr.Zero;
@@ -87,9 +85,6 @@ namespace HIDrogen.LowLevel
             return Kernel32.FreeLibrary(handle);
 #elif NATIVELIB_POSIX
             return Dlfcn.dlclose(handle);
-#else
-            #warning "NativeLibrary.ReleaseHandle not yet supported for the current platform"
-            return false;
 #endif
         }
 
@@ -105,11 +100,9 @@ namespace HIDrogen.LowLevel
             message = $"{new System.ComponentModel.Win32Exception(error).Message} (0x{error:X8})";
 #elif NATIVELIB_POSIX
             message = $"{Dlfcn.dlerror()} ({Posix.errno})";
-#else
-            #warning "NativeLibrary.CheckLoadError not yet supported for the current platform"
-            throw new NotSupportedException();
 #endif
             Logging.Verbose($"{string.Format(format, name)}: {message}");
         }
     }
 }
+#endif
