@@ -22,8 +22,6 @@ namespace HIDrogen.LowLevel
 {
     internal class NativeLibrary : SafeHandleZeroIsInvalid
     {
-        public override bool IsInvalid => handle == IntPtr.Zero;
-
         private NativeLibrary(IntPtr handle) : base(handle, true) { }
 
         public static bool TryLoad(string name, out NativeLibrary library)
