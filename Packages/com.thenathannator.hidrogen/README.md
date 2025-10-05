@@ -86,6 +86,21 @@ This backend reintroduces XInput support to Unity 2022.2 and onward; starting fr
 - This backend will only enable itself in Unity 2022.2 and onward. No special setup is needed for it.
 - This backend does not respect the `InputSystem.pollingFrequency` setting currently, it uses a hard-set sleep time of 1 ms.
 
+### Raw USB Support
+
+This backend supports specific kinds of devices via raw USB.
+
+#### Dependencies
+
+This backend depends on `libusb-1.0`.
+
+- On Windows and Mac, this is provided with the package.
+- On Linux, it will need to be installed manually. On distributions that use `apt`, the following command should do the trick:
+
+  ```
+  sudo apt install libusb-1.0-0
+  ```
+
 ## License
 
 This project is licensed under the MIT license. See [LICENSE.md](LICENSE.md) for details.

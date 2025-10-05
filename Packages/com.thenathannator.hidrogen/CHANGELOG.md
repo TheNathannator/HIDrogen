@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Dates are relative to UTC.
 
+## [0.5.0]
+
+### Added
+
+- Xbox 360 wireless receivers are now handled through `libusb` on Mac and Linux (and on Windows, if the driver happens to be overridden with one compatible with `libusb`).
+  - Linux requires additional setup, refer to the package readme for details.
+
+### Changed
+
+- Reworked how `hidapi` devices are enumerated to avoid iterator memory allocations.
+- Removed warnings related to whether the internal `NativeLibrary` class is implemented for the current platform.
+
+### Fixed
+
+- Fixed a `udev_device` leak on Linux when using a fallback path to get an HID device's revision.
+- Fixed the GameInput backend not functioning under IL2CPP.
+- Fixed one backend failing to initialize skipping the initialization of other unrelated backends.
+
 ## [0.4.3] - 2024/10/30
 
 ### Fixed
