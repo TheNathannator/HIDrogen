@@ -256,8 +256,6 @@ namespace HIDrogen.Backend
                         if (m_StateTimer.IsRunning && m_StateTimer.ElapsedMilliseconds >= 1000)
                         {
                             m_StateAttempts++;
-                            Logging.Verbose($"Controller index {m_ControllerIndex} timed out on link control (attempt {m_StateAttempts})");
-
                             if (m_StateAttempts < 3)
                             {
                                 // Request again in case it was dropped
@@ -283,8 +281,6 @@ namespace HIDrogen.Backend
                         if (m_StateTimer.IsRunning && m_StateTimer.ElapsedMilliseconds >= 1000)
                         {
                             m_StateAttempts++;
-                            Logging.Verbose($"Controller index {m_ControllerIndex} timed out on capabilities (attempt {m_StateAttempts})");
-
                             if (m_StateAttempts < 3)
                             {
                                 // Request again in case it was dropped
@@ -294,9 +290,10 @@ namespace HIDrogen.Backend
                             }
                             else
                             {
-                                // Skip capabilities, they aren't absolutely necessary for usage
-                                // (some devices may not be recognized properly without them however)
+                                // At this point, we can assume the device does not support reporting capabilities.
+                                // Skip and continue with the addition process.
                                 m_StateTimer.Reset();
+                                Logging.Verbose($"Controller index {m_ControllerIndex} timed out on capabilities, continuing.");
                                 QueueForAddition();
                             }
                         }
