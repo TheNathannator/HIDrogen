@@ -1,0 +1,5 @@
+# These rules allow Xbox 360 wireless receivers to be handled through libusb.
+# This file must come before 73-seat-late.rules.
+SUBSYSTEM=="usb", ATTR{idVendor}=="045e", ATTR{idProduct}=="0291", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTR{idVendor}=="045e", ATTR{idProduct}=="02a9", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTR{idVendor}=="045e", ATTR{idProduct}=="0719", TAG+="uaccess"

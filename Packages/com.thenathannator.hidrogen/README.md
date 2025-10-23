@@ -101,6 +101,8 @@ This backend depends on `libusb-1.0`.
   sudo apt install libusb-1.0-0
   ```
 
+  - Additionally, for Xbox 360 receiver support, the [Resources/69-hidrogen-x360-receiver.rules](Resources/69-hidrogen-x360-receiver.rules) rules file must be placed in `/etc/udev/rules.d` or `/usr/lib/udev/rules.d/`. 
+
 ## License
 
 This project is licensed under the MIT license. See [LICENSE.md](LICENSE.md) for details.
