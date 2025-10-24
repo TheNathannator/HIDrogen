@@ -11,6 +11,8 @@ namespace HIDrogen.Imports.Linux
     {
         protected readonly Udev m_udev;
         private readonly bool m_AddedRef;
+        
+        
 
         internal UdevHandle(Udev udev, IntPtr handle, bool ownsHandle)
             : base(handle, ownsHandle)
@@ -40,11 +42,12 @@ namespace HIDrogen.Imports.Linux
         internal udev_context(Udev udev, IntPtr handle, bool ownsHandle)
             : base(udev, handle, ownsHandle)
         {
+            m_udev.context_ref(handle);
         }
 
         protected override bool ReleaseHandle()
         {
-            m_udev.context_unref(handle);
+            handle = m_udev.context_unref(handle);
             return true;
         }
 
@@ -66,11 +69,12 @@ namespace HIDrogen.Imports.Linux
         internal udev_monitor(Udev udev, IntPtr handle, bool ownsHandle)
             : base(udev, handle, ownsHandle)
         {
+            m_udev.monitor_ref(handle);
         }
 
         protected override bool ReleaseHandle()
         {
-            m_udev.monitor_unref(handle);
+            handle = m_udev.monitor_unref(handle);
             return true;
         }
 
@@ -92,11 +96,12 @@ namespace HIDrogen.Imports.Linux
         internal udev_enumerate(Udev udev, IntPtr handle, bool ownsHandle)
             : base(udev, handle, ownsHandle)
         {
+            m_udev.enumerate_ref(handle);
         }
 
         protected override bool ReleaseHandle()
         {
-            m_udev.enumerate_unref(handle);
+            handle = m_udev.enumerate_unref(handle);
             return true;
         }
 
@@ -141,11 +146,12 @@ namespace HIDrogen.Imports.Linux
         internal udev_device(Udev udev, IntPtr handle, bool ownsHandle)
             : base(udev, handle, ownsHandle)
         {
+            m_udev.device_ref(handle);
         }
 
         protected override bool ReleaseHandle()
         {
-            m_udev.device_unref(handle);
+            handle = m_udev.device_unref(handle);
             return true;
         }
 
@@ -178,6 +184,11 @@ namespace HIDrogen.Imports.Linux
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
         private delegate IntPtr _udev_new();
 
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate IntPtr _udev_ref(
+            IntPtr handle
+        );
+        
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate IntPtr _udev_unref(
             IntPtr handle
@@ -305,6 +316,11 @@ namespace HIDrogen.Imports.Linux
         private NativeLibrary m_Library;
 
         private _udev_new m_udev_context_new;
+        
+        private _udev_ref m_udev_context_ref;
+        private _udev_ref m_udev_device_ref;
+        private _udev_ref m_udev_monitor_ref;
+        private _udev_ref m_udev_enumerate_ref;
 
         private _udev_unref m_udev_context_unref;
         private _udev_unref m_udev_device_unref;
@@ -344,6 +360,11 @@ namespace HIDrogen.Imports.Linux
                 // pain
                 if (
                     !m_Library.TryGetExport("udev_new", out m_udev_context_new)
+
+                    || !m_Library.TryGetExport("udev_ref", out m_udev_context_ref)
+                    || !m_Library.TryGetExport("udev_device_ref", out m_udev_device_ref)
+                    || !m_Library.TryGetExport("udev_monitor_ref", out m_udev_monitor_ref)
+                    || !m_Library.TryGetExport("udev_enumerate_ref", out m_udev_enumerate_ref)
 
                     || !m_Library.TryGetExport("udev_unref", out m_udev_context_unref)
                     || !m_Library.TryGetExport("udev_device_unref", out m_udev_device_unref)
@@ -405,6 +426,11 @@ namespace HIDrogen.Imports.Linux
         public void Dispose()
         {
             m_udev_context_new = null;
+            
+            m_udev_context_ref = null;
+            m_udev_device_ref = null;
+            m_udev_monitor_ref = null;
+            m_udev_enumerate_ref = null;
 
             m_udev_context_unref = null;
             m_udev_device_unref = null;
@@ -441,16 +467,28 @@ namespace HIDrogen.Imports.Linux
         public udev_context context_new()
             => new udev_context(this, m_udev_context_new(), true);
 
-        public void context_unref(IntPtr handle)
+        public IntPtr context_ref(IntPtr handle)
+            => m_udev_context_ref(handle);
+
+        public IntPtr device_ref(IntPtr handle)
+            => m_udev_device_ref(handle);
+
+        public IntPtr monitor_ref(IntPtr handle)
+            => m_udev_monitor_ref(handle);
+
+        public IntPtr enumerate_ref(IntPtr handle)
+            => m_udev_enumerate_ref(handle);
+        
+        public IntPtr context_unref(IntPtr handle)
             => m_udev_context_unref(handle);
 
-        public void device_unref(IntPtr handle)
+        public IntPtr device_unref(IntPtr handle)
             => m_udev_device_unref(handle);
 
-        public void monitor_unref(IntPtr handle)
+        public IntPtr monitor_unref(IntPtr handle)
             => m_udev_monitor_unref(handle);
 
-        public void enumerate_unref(IntPtr handle)
+        public IntPtr enumerate_unref(IntPtr handle)
             => m_udev_enumerate_unref(handle);
 
         #region udev_monitor
