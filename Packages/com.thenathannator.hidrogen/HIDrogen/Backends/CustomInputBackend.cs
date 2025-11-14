@@ -10,20 +10,11 @@ using UnityEngine.InputSystem.Utilities;
 
 namespace HIDrogen
 {
-    internal abstract class CustomInputBackend<TBackendDevice> : IDisposable
-        where TBackendDevice : class
+    internal abstract class CustomInputBackend : IDisposable
     {
         // Safety limit, to avoid allocating too much on the stack
         // (InputSystem.StateEventBuffer.kMaxSize)
         protected const int kMaxStateSize = 512;
-
-        // Available devices by InputSystem device ID
-        private readonly Dictionary<InputDevice, TBackendDevice> m_DeviceLookup
-            = new Dictionary<InputDevice, TBackendDevice>();
-
-        // Queue for devices; they must be managed on the main thread
-        private readonly ConcurrentBag<(InputDeviceDescription description, IDisposable context)> m_AdditionQueue
-            = new ConcurrentBag<(InputDeviceDescription, IDisposable)>();
 
         // We use a custom buffering implementation because the built-in implementation is
         // not friendly to managed threads, despite what the docs for InputSystem.QueueEvent/QueueStateEvent
@@ -31,16 +22,14 @@ namespace HIDrogen
         private readonly SlimEventBuffer[] m_InputBuffers = new SlimEventBuffer[2];
         private volatile int m_CurrentBuffer = 0;
 
-        protected unsafe CustomInputBackend()
+        private bool m_Started = false;
+
+        protected CustomInputBackend()
         {
             for (int i = 0; i < m_InputBuffers.Length; i++)
             {
                 m_InputBuffers[i] = new SlimEventBuffer();
             }
-
-            InputSystem.onBeforeUpdate += Update;
-            InputSystem.onDeviceChange += OnDeviceChange;
-            InputSystem.onDeviceCommand += DeviceCommand;
         }
 
         ~CustomInputBackend()
@@ -49,19 +38,9 @@ namespace HIDrogen
                 "Input system resources cannot safely be reclaimed on the finalizer thread.");
         }
 
-        public unsafe void Dispose()
+        public void Dispose()
         {
-            InputSystem.onBeforeUpdate -= Update;
-            InputSystem.onDeviceChange -= OnDeviceChange;
-            InputSystem.onDeviceCommand -= DeviceCommand;
-
-            foreach (var pair in m_DeviceLookup)
-            {
-                OnDeviceRemoved(pair.Value);
-                InputSystem.RemoveDevice(pair.Key);
-            }
-            m_DeviceLookup.Clear();
-
+            Stop();
             OnDispose();
 
             foreach (var buffer in m_InputBuffers)
@@ -72,82 +51,61 @@ namespace HIDrogen
             GC.SuppressFinalize(this);
         }
 
-        protected abstract void OnDispose();
+        public unsafe void Start()
+        {
+            if (!m_Started)
+            {
+                m_Started = true;
 
-        protected virtual void OnUpdate() { }
+                try
+                {
+                    OnStart();
 
-        protected abstract TBackendDevice OnDeviceAdded(InputDevice device, IDisposable context);
-        protected abstract void OnDeviceRemoved(TBackendDevice device);
+                    InputSystem.onBeforeUpdate += Update;
+                    InputSystem.onDeviceChange += OnDeviceChange;
+                    InputSystem.onDeviceCommand += OnDeviceCommand;
+                }
+                catch (Exception ex)
+                {
+                    Logging.Exception($"Failed to start {GetType()} backend!", ex);
+                }
+            }
+        }
 
-        protected virtual unsafe long? OnDeviceCommand(TBackendDevice device, InputDeviceCommand* command) => null;
+        public unsafe void Stop()
+        {
+            if (m_Started)
+            {
+                m_Started = false;
+
+                InputSystem.onBeforeUpdate -= Update;
+                InputSystem.onDeviceChange -= OnDeviceChange;
+                InputSystem.onDeviceCommand -= OnDeviceCommand;
+
+                try
+                {
+                    OnStop();
+                }
+                catch (Exception ex)
+                {
+                    Logging.Exception($"Failed to stop {GetType()} backend!", ex);
+                }
+            }
+        }
 
         private void Update()
         {
-            while (!m_AdditionQueue.IsEmpty)
-            {
-                if (m_AdditionQueue.TryTake(out var context))
-                    AddDevice(context.description, context.context);
-            }
-
             OnUpdate();
             FlushEventBuffer();
         }
 
-        public void QueueDeviceAdd(InputDeviceDescription description, IDisposable context)
-            => m_AdditionQueue.Add((description, context));
+        protected abstract void OnDispose();
+        protected virtual void OnStart() {}
+        protected virtual void OnStop() {}
+        protected virtual void OnUpdate() {}
 
-        public void QueueDeviceRemove(InputDevice device)
-        {
-            var removeEvent = DeviceRemoveEvent.Create(device.deviceId);
-            QueueEvent(ref removeEvent);
-        }
-
-        private void OnDeviceChange(InputDevice device, InputDeviceChange change)
-        {
-            if (change == InputDeviceChange.Removed)
-            {
-                if (!m_DeviceLookup.TryGetValue(device, out var backendDevice))
-                    return;
-
-                OnDeviceRemoved(backendDevice);
-                m_DeviceLookup.Remove(device);
-            }
-        }
-
-        private void AddDevice(InputDeviceDescription description, IDisposable context)
-        {
-            using (context)
-            {
-                // The input system will throw if a device layout can't be found
-                InputDevice device;
-                try
-                {
-                    device = InputSystem.AddDevice(description);
-                }
-                catch (ArgumentException)
-                {
-                    // Ignore layout-not-found exception
-                    return;
-                }
-                catch (Exception ex)
-                {
-                    Logging.Exception("Failed to add device to the input system!", ex);
-                    return;
-                }
-
-                try
-                {
-                    var backendDevice = OnDeviceAdded(device, context);
-                    m_DeviceLookup.Add(device, backendDevice);
-                }
-                catch (Exception ex)
-                {
-                    InputSystem.RemoveDevice(device);
-                    Logging.Exception("Error in device added callback!", ex);
-                    return;
-                }
-            }
-        }
+        protected abstract void OnDeviceChange(InputDevice device, InputDeviceChange change);
+        protected abstract unsafe long? OnDeviceCommand(InputDevice device, InputDeviceCommand* command);
 
         private void FlushEventBuffer()
         {
@@ -242,8 +200,101 @@ namespace HIDrogen
             // Queue state event
             QueueEvent((InputEvent*)stateEvent);
         }
+    }
 
-        private unsafe long? DeviceCommand(InputDevice device, InputDeviceCommand* command)
+    internal abstract class CustomInputBackend<TBackendDevice> : CustomInputBackend
+        where TBackendDevice : class
+    {
+        // Queue for devices; they must be managed on the main thread
+        private readonly ConcurrentBag<(InputDeviceDescription description, IDisposable context)> m_AdditionQueue
+            = new ConcurrentBag<(InputDeviceDescription, IDisposable)>();
+
+        // Available devices by InputSystem device ID
+        private readonly Dictionary<InputDevice, TBackendDevice> m_DeviceLookup
+            = new Dictionary<InputDevice, TBackendDevice>();
+
+        protected override void OnStop()
+        {
+            while (m_AdditionQueue.TryTake(out var pair))
+            {
+                pair.context?.Dispose();
+            }
+
+            foreach (var pair in m_DeviceLookup)
+            {
+                OnDeviceRemoved(pair.Value);
+                InputSystem.RemoveDevice(pair.Key);
+            }
+            m_DeviceLookup.Clear();
+        }
+
+        protected override void OnUpdate()
+        {
+            while (m_AdditionQueue.TryTake(out var context))
+            {
+                AddDevice(context.description, context.context);
+            }
+        }
+
+        public void QueueDeviceAdd(InputDeviceDescription description, IDisposable context)
+        {
+            m_AdditionQueue.Add((description, context));
+        }
+
+        public void QueueDeviceRemove(InputDevice device)
+        {
+            var removeEvent = DeviceRemoveEvent.Create(device.deviceId);
+            QueueEvent(ref removeEvent);
+        }
+
+        private void AddDevice(InputDeviceDescription description, IDisposable context)
+        {
+            using (context)
+            {
+                // The input system will throw if a device layout can't be found
+                InputDevice device;
+                try
+                {
+                    device = InputSystem.AddDevice(description);
+                }
+                catch (ArgumentException)
+                {
+                    // Ignore layout-not-found exception
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    Logging.Exception("Failed to add device to the input system!", ex);
+                    return;
+                }
+
+                try
+                {
+                    var backendDevice = OnDeviceAdded(device, context);
+                    m_DeviceLookup.Add(device, backendDevice);
+                }
+                catch (Exception ex)
+                {
+                    InputSystem.RemoveDevice(device);
+                    Logging.Exception("Error in device added callback!", ex);
+                    return;
+                }
+            }
+        }
+
+        protected sealed override void OnDeviceChange(InputDevice device, InputDeviceChange change)
+        {
+            if (change == InputDeviceChange.Removed)
+            {
+                if (!m_DeviceLookup.TryGetValue(device, out var backendDevice))
+                    return;
+
+                OnDeviceRemoved(backendDevice);
+                m_DeviceLookup.Remove(device);
+            }
+        }
+
+        protected sealed override unsafe long? OnDeviceCommand(InputDevice device, InputDeviceCommand* command)
         {
             if (device == null)
                 return null;
@@ -255,5 +306,10 @@ namespace HIDrogen
 
             return OnDeviceCommand(backendDevice, command);
         }
+
+        protected abstract TBackendDevice OnDeviceAdded(InputDevice device, IDisposable context);
+        protected abstract void OnDeviceRemoved(TBackendDevice device);
+
+        protected virtual unsafe long? OnDeviceCommand(TBackendDevice device, InputDeviceCommand* command) => null;
     }
 }

@@ -40,10 +40,33 @@ namespace HIDrogen.Backend
             m_Handle = handle;
             // Elements initialized in Probe()
             m_Controllers = new X360WirelessController[kControllerCount];
+        }
 
+        protected override void OnDispose()
+        {
+            for (uint i = 0; i < m_Controllers.Length; i++)
+            {
+                m_Controllers[i]?.Dispose();
+                m_Controllers[i] = null;
+            }
+            m_Controllers = null;
+
+            m_Handle?.Dispose();
+            m_Handle = null;
+        }
+
+        protected override void OnStart()
+        {
 #if UNITY_EDITOR
             // Power off controllers when exiting play mode
             UnityEditor.EditorApplication.playModeStateChanged += PlayModeStateChanged;
+#endif
+        }
+
+        protected override void OnStop()
+        {
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.playModeStateChanged -= PlayModeStateChanged;
 #endif
         }
 
@@ -59,23 +82,6 @@ namespace HIDrogen.Backend
             }
         }
 #endif
-
-        protected override void OnDispose()
-        {
-#if UNITY_EDITOR
-            UnityEditor.EditorApplication.playModeStateChanged -= PlayModeStateChanged;
-#endif
-
-            for (uint i = 0; i < m_Controllers.Length; i++)
-            {
-                m_Controllers[i]?.Dispose();
-                m_Controllers[i] = null;
-            }
-            m_Controllers = null;
-
-            m_Handle?.Dispose();
-            m_Handle = null;
-        }
 
         public static unsafe bool Probe(
             in libusb_temp_device device,

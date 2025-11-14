@@ -53,7 +53,7 @@ namespace HIDrogen.Backend
             )
             .CreateDelegate(typeof(HIDParser_ParseReportDescriptor));
 
-        private readonly Thread m_EnumerationThread;
+        private Thread m_EnumerationThread;
         private readonly EventWaitHandle m_ThreadStop = new EventWaitHandle(false, EventResetMode.ManualReset);
 
         // This lookup is used by the enumeration thread in addition to the main thread
@@ -69,17 +69,10 @@ namespace HIDrogen.Backend
 
             // Initialize platform-specific resources
             PlatformInitialize();
-
-            // Start threads
-            m_EnumerationThread = new Thread(DeviceDiscoveryThread) { IsBackground = true };
-            m_EnumerationThread.Start();
         }
 
         protected override void OnDispose()
         {
-            // Stop threads
-            m_ThreadStop.Set();
-            m_EnumerationThread.Join();
             m_ThreadStop.Dispose();
 
             // Clean up platform-specific resources
@@ -89,6 +82,19 @@ namespace HIDrogen.Backend
             int result = hid_exit();
             if (result < 0)
                 Logging.InteropError("Error when freeing hidapi");
+        }
+
+        protected override void OnStart()
+        {
+            m_EnumerationThread = new Thread(DeviceDiscoveryThread) { IsBackground = true };
+            m_EnumerationThread.Start();
+        }
+
+        protected override void OnStop()
+        {
+            m_ThreadStop.Set();
+            m_EnumerationThread.Join();
+            m_EnumerationThread = null;
         }
 
         private void DeviceDiscoveryThread()

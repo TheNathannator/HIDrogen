@@ -10,7 +10,7 @@ namespace HIDrogen
 
         static partial void PlatformInitialize()
         {
-            TryInitializeBackend(ref s_USBBackend);
+            TryInitializeService(ref s_USBBackend);
             if (TryInitializeBackend(ref s_HidApiBackend))
             {
                 LinuxShim.Initialize();
@@ -19,7 +19,7 @@ namespace HIDrogen
 
         static partial void PlatformUninitialize()
         {
-            TryUninitializeBackend(ref s_USBBackend);
+            TryUninitializeService(ref s_USBBackend);
             TryUninitializeBackend(ref s_HidApiBackend);
             LinuxShim.Uninitialize();
         }

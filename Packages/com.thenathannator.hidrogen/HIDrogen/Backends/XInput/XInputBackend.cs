@@ -33,15 +33,15 @@ namespace HIDrogen.Backend
         private readonly XInputBackendDevice[] m_Devices = new XInputBackendDevice[XInput.MaxCount];
         private readonly bool[] m_BannedDevices = new bool[XInput.MaxCount];
 
-        public XInputBackend()
-        {
-            CheckForNewDevices();
-        }
-
         protected override void OnDispose()
         {
             foreach (var device in m_Devices)
                 device?.Dispose();
+        }
+
+        protected override void OnStart()
+        {
+            CheckForNewDevices();
         }
 
         protected override void OnUpdate()

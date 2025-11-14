@@ -62,6 +62,36 @@ namespace HIDrogen
         static partial void PlatformUninitialize();
 
         private static bool TryInitializeBackend<T>(ref T field)
+            where T : CustomInputBackend, new()
+        {
+            try
+            {
+                field = new T();
+                field.Start();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logging.Exception($"Failed to initialize {typeof(T).Name} backend", ex);
+                return false;
+            }
+        }
+
+        private static void TryUninitializeBackend<T>(ref T field)
+            where T : CustomInputBackend
+        {
+            try
+            {
+                field?.Dispose();
+                field = default;
+            }
+            catch (Exception ex)
+            {
+                Logging.Exception($"Failed to uninitialize {typeof(T).Name} backend", ex);
+            }
+        }
+
+        private static bool TryInitializeService<T>(ref T field)
             where T : new()
         {
             try
@@ -76,7 +106,7 @@ namespace HIDrogen
             }
         }
 
-        private static void TryUninitializeBackend<T>(ref T field)
+        private static void TryUninitializeService<T>(ref T field)
             where T : IDisposable
         {
             try

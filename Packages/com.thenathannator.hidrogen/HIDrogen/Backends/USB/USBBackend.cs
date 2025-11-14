@@ -145,8 +145,7 @@ namespace HIDrogen.Backend
             foreach (var removed in m_RemovedDevices)
             {
                 Logging.Verbose($"Removing disconnected device at location {removed}");
-                m_Devices[removed].Dispose();
-                m_Devices.Remove(removed);
+                RemoveDevice(removed);
             }
         }
 
@@ -183,7 +182,7 @@ namespace HIDrogen.Backend
                 if (X360Receiver.Probe(device, handle, descriptor, out var receiver))
                 {
                     Logging.Verbose($"Found Xbox 360 receiver. Location: {location}, hardware IDs: {descriptor.idVendor:X4}:{descriptor.idProduct:X4}");
-                    m_Devices.Add(location, receiver);
+                    AddDevice(location, receiver);
                     success = true;
                     return;
                 }
@@ -202,6 +201,21 @@ namespace HIDrogen.Backend
                 {
                     handle?.Dispose();
                 }
+            }
+        }
+
+        private void AddDevice(in USBDeviceLocation location, CustomInputBackend device)
+        {
+            device.Start();
+            m_Devices.Add(location, device);
+        }
+
+        private void RemoveDevice(in USBDeviceLocation location)
+        {
+            if (m_Devices.TryGetValue(location, out var device))
+            {
+                device.Dispose();
+                m_Devices.Remove(location);
             }
         }
 

@@ -25,41 +25,37 @@ namespace HIDrogen.Backend
 
         public GameInputBackend()
         {
-            try
-            {
-                if (!GameInput.Create(out m_GameInput, out int result))
-                    throw new Exception($"Failed to create GameInput instance: 0x{result:X8}");
-
-                if (!m_GameInput.RegisterDeviceCallback(
-                    null,
-                    GameInputKind.RawDeviceReport,
-                    GameInputDeviceStatus.Connected,
-                    GameInputEnumerationKind.AsyncEnumeration,
-                    null,
-                    OnGameInputDeviceStatusChange,
-                    out m_DeviceCallbackToken,
-                    out result
-                ))
-                {
-                    m_GameInput.Dispose();
-                    throw new Exception($"Failed to register GameInput device callback: 0x{result:X8}");
-                }
-            }
-            catch
-            {
-                m_DeviceCallbackToken?.TryUnregister(1_000_000);
-                m_GameInput?.Dispose();
-                throw;
-            }
+            if (!GameInput.Create(out m_GameInput, out int result))
+                throw new Exception($"Failed to create GameInput instance: 0x{result:X8}");
         }
 
         protected override void OnDispose()
         {
-            m_DeviceCallbackToken?.Unregister(1_000_000);
-            m_DeviceCallbackToken = null;
-
             m_GameInput?.Dispose();
             m_GameInput = null;
+        }
+
+        protected override void OnStart()
+        {
+            if (!m_GameInput.RegisterDeviceCallback(
+                null,
+                GameInputKind.RawDeviceReport,
+                GameInputDeviceStatus.Connected,
+                GameInputEnumerationKind.AsyncEnumeration,
+                null,
+                OnGameInputDeviceStatusChange,
+                out m_DeviceCallbackToken,
+                out int result
+            ))
+            {
+                throw new Exception($"Failed to register GameInput device callback: 0x{result:X8}");
+            }
+        }
+
+        protected override void OnStop()
+        {
+            m_DeviceCallbackToken?.Unregister(1_000_000);
+            m_DeviceCallbackToken = null;
         }
 
         private void OnGameInputDeviceStatusChange(

@@ -17,7 +17,7 @@ namespace HIDrogen
             TryInitializeBackend(ref s_XInputBackend);
 #endif
             TryInitializeBackend(ref s_GameInputBackend);
-            TryInitializeBackend(ref s_USBBackend);
+            TryInitializeService(ref s_USBBackend);
         }
 
 
@@ -27,7 +27,7 @@ namespace HIDrogen
             TryUninitializeBackend(ref s_XInputBackend);
 #endif
             TryUninitializeBackend(ref s_GameInputBackend);
-            TryUninitializeBackend(ref s_USBBackend);
+            TryUninitializeService(ref s_USBBackend);
         }
     }
 }
