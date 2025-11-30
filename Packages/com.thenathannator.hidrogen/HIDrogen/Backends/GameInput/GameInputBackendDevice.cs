@@ -31,7 +31,7 @@ namespace HIDrogen.Backend
         private EventWaitHandle m_ThreadStop = new EventWaitHandle(false, EventResetMode.ManualReset);
 
         private NativeArray<byte> m_LastReport = new NativeArray<byte>(1, Allocator.Persistent);
-        private UIntPtr m_LastReportLength = UIntPtr.Zero;
+        private int m_LastReportLength = 0;
 
         public GameInputBackendDevice(GameInputBackend backend, IGameInput gameInput, IGameInputDevice gipDevice, InputDevice device)
         {
@@ -147,33 +147,40 @@ namespace HIDrogen.Backend
             // Unfolded `using (rawReport)` statement due to C# 7.3 limitations
             try
             {
-                byte reportId = (byte)rawReport.ReportInfo.id;
-                UIntPtr bufferSize = rawReport.GetRawDataSize();
-                // Add 1 to accomodate report ID
-                bufferSize += 1;
-                // hack: ensure at least 10 bytes are allocated, for PlasticBand state translation purposes
-                bufferSize = (UIntPtr)Math.Max((ulong)bufferSize, 10);
+                const int minReportSize = 10;
+                const int maxReportSize = 64 + 1; // + 1 to accomodate report ID
 
-                byte* buffer = stackalloc byte[(int)bufferSize];
-                buffer[0] = reportId;
-                UIntPtr readSize = rawReport.GetRawData(bufferSize - 1, buffer + 1);
-                Debug.Assert(readSize == bufferSize - 1);
+                byte* buffer = stackalloc byte[maxReportSize];
+                buffer[0] = (byte)rawReport.ReportInfo.id;
 
-                int iBufferSize = (int)bufferSize;
-                if (bufferSize == m_LastReportLength &&
-                    UnsafeUtility.MemCmp(buffer, m_LastReport.GetUnsafeReadOnlyPtr(), iBufferSize) == 0)
-                    return true;
+                int readSize = (int)rawReport.GetRawData((UIntPtr)maxReportSize - 1, buffer + 1);
+                readSize += 1; // + 1 to accomodate report ID
 
-                if (m_LastReport.Length < iBufferSize)
+                // hack: ensure a minimum report size, for PlasticBand state translation purposes
+                // excess bytes will be invisible to any device layouts not expecting them
+                if (readSize < minReportSize)
                 {
-                    m_LastReport.Dispose();
-                    m_LastReport = new NativeArray<byte>(iBufferSize, Allocator.Persistent);
+                    // stack-allocated buffers are not initialized, make sure the excess bytes are zeroed out
+                    UnsafeUtility.MemSet(buffer + readSize, 0, minReportSize - readSize);
+                    readSize = minReportSize;
                 }
 
-                UnsafeUtility.MemCpy(m_LastReport.GetUnsafePtr(), buffer, iBufferSize);
-                m_LastReportLength = bufferSize;
+                if (readSize == m_LastReportLength &&
+                    UnsafeUtility.MemCmp(buffer, m_LastReport.GetUnsafeReadOnlyPtr(), readSize) == 0)
+                {
+                    return true;
+                }
 
-                m_Backend.QueueStateEvent(device, GameInputBackend.InputFormat, buffer, iBufferSize);
+                if (m_LastReport.Length < readSize)
+                {
+                    m_LastReport.Dispose();
+                    m_LastReport = new NativeArray<byte>(readSize, Allocator.Persistent);
+                }
+
+                UnsafeUtility.MemCpy(m_LastReport.GetUnsafePtr(), buffer, readSize);
+                m_LastReportLength = readSize;
+
+                m_Backend.QueueStateEvent(device, GameInputBackend.InputFormat, buffer, readSize);
             }
             finally
             {
