@@ -78,8 +78,5 @@ crashlytics-build.properties
 /[Aa]ssets/[Ss]treamingAssets/aa.meta
 /[Aa]ssets/[Ss]treamingAssets/aa/*
 
-# Package cache
-Packages/packages-lock.json
-
 # For the macos folks!
 .DS_Store
