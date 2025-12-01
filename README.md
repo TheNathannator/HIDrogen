@@ -38,7 +38,7 @@ See the [Unity documentation](https://docs.unity3d.com/Manual/upm-git.html) for 
 #### Via URL
 
 1. Open the Unity Package Manager and hit the + button, then select `Add package from git URL`.
-2. Paste in `https://github.com/TheNathannator/HIDrogen.git?path=/Packages/com.thenathannator.hidrogen#v0.5.0` and hit Add.
+2. Paste in `https://github.com/TheNathannator/HIDrogen.git?path=/Packages/com.thenathannator.hidrogen#v0.5.1` and hit Add.
 
 To update, increment the version number at the end of the URL to the new version number and repeat these steps with the new URL. Alternatively, you can edit the URL listed in your `manifest.json` file as described in the [Via Manifest](#via-manifest) section.
 
@@ -49,7 +49,7 @@ In your Packages > `manifest.json` file, add the following line to your `depende
 ```diff
 {
   "dependencies": {
-+   "com.thenathannator.hidrogen": "https://github.com/TheNathannator/HIDrogen.git?path=/Packages/com.thenathannator.hidrogen#v0.5.0"
++   "com.thenathannator.hidrogen": "https://github.com/TheNathannator/HIDrogen.git?path=/Packages/com.thenathannator.hidrogen#v0.5.1"
   }
 }
 ```

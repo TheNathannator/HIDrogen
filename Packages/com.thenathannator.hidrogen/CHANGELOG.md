@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Dates are relative to UTC.
 
+## [0.5.1]
+
+### Fixed
+
+- Backends that fail to initialize no longer leave input system callbacks registered.
+- GameInput raw report reading has been tweaked to help prevent issues with newer versions of GameInput.
+- SharpGameInput has been updated to v0.3.0 to fix crashes related to report callbacks.
+
 ## [0.5.0]
 
 ### Added
