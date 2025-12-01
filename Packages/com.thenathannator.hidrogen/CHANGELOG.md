@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Dates are relative to UTC.
 
+## [Unreleased]
+
+### Fixed
+
+- Fix some oversights caused by refactoring done in v0.5.1:
+  - Backends are once again cleaned up properly.
+  - XInput device additions are processed again.
+
 ## [0.5.1]
 
 ### Fixed

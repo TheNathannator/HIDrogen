@@ -37,6 +37,8 @@ namespace HIDrogen.Backend
 
         protected override void OnStart()
         {
+            base.OnStart();
+
             if (!m_GameInput.RegisterDeviceCallback(
                 null,
                 GameInputKind.RawDeviceReport,
@@ -56,6 +58,8 @@ namespace HIDrogen.Backend
         {
             m_DeviceCallbackToken?.Unregister(1_000_000);
             m_DeviceCallbackToken = null;
+
+            base.OnStop();
         }
 
         private void OnGameInputDeviceStatusChange(

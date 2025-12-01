@@ -57,6 +57,8 @@ namespace HIDrogen.Backend
 
         protected override void OnStart()
         {
+            base.OnStart();
+
 #if UNITY_EDITOR
             // Power off controllers when exiting play mode
             UnityEditor.EditorApplication.playModeStateChanged += PlayModeStateChanged;
@@ -68,6 +70,8 @@ namespace HIDrogen.Backend
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.playModeStateChanged -= PlayModeStateChanged;
 #endif
+
+            base.OnStop();
         }
 
 #if UNITY_EDITOR

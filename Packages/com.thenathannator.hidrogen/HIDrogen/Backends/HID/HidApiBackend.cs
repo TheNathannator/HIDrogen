@@ -86,6 +86,8 @@ namespace HIDrogen.Backend
 
         protected override void OnStart()
         {
+            base.OnStart();
+
             m_EnumerationThread = new Thread(DeviceDiscoveryThread) { IsBackground = true };
             m_EnumerationThread.Start();
         }
@@ -95,6 +97,8 @@ namespace HIDrogen.Backend
             m_ThreadStop.Set();
             m_EnumerationThread.Join();
             m_EnumerationThread = null;
+
+            base.OnStop();
         }
 
         private void DeviceDiscoveryThread()

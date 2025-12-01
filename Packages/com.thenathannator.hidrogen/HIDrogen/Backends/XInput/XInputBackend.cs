@@ -41,11 +41,15 @@ namespace HIDrogen.Backend
 
         protected override void OnStart()
         {
+            base.OnStart();
+
             CheckForNewDevices();
         }
 
         protected override void OnUpdate()
         {
+            base.OnUpdate();
+
             double currentTime = InputState.currentTime;
             if (Math.Abs(currentTime - m_LastRefreshTime) >= kRefreshPeriod)
             {
