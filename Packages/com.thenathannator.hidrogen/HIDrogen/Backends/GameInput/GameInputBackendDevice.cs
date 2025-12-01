@@ -2,7 +2,7 @@
 using System;
 using System.Threading;
 using HIDrogen.Imports.Windows;
-using SharpGameInput;
+using SharpGameInput.v0;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
@@ -151,7 +151,7 @@ namespace HIDrogen.Backend
                 const int maxReportSize = 64 + 1; // + 1 to accomodate report ID
 
                 byte* buffer = stackalloc byte[maxReportSize];
-                buffer[0] = (byte)rawReport.ReportInfo.id;
+                buffer[0] = (byte)rawReport.GetReportInfo().id;
 
                 int readSize = (int)rawReport.GetRawData((UIntPtr)maxReportSize - 1, buffer + 1);
                 readSize += 1; // + 1 to accomodate report ID

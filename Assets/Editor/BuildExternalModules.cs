@@ -57,14 +57,7 @@ public static class BuildExternalModules
             string[] precompiled = CompilationPipeline.GetPrecompiledAssemblyPaths(CompilationPipeline.PrecompiledAssemblySources.UnityEngine);
             string coreModulePath = precompiled.First((p) => p.EndsWith("UnityEngine.CoreModule.dll"));
 
-            // SharpGameInput
-            using (new DirectoryBuildPropsScope("Submodules/SharpGameInput/source", coreModulePath))
-            {
-                string outputDirectory = BuildProject("Submodules/SharpGameInput/source/SharpGameInput.csproj", 0.1f);
-                File.Copy(Path.Combine(outputDirectory, "SharpGameInput.dll"), OutputPluginsPath + "/SharpGameInput.dll", overwrite: true);
-                File.Copy(Path.Combine(outputDirectory, "SharpGameInput.pdb"), OutputPluginsPath + "/SharpGameInput.pdb", overwrite: true);
-                Debug.Log("Successfully built SharpGameInput");
-            }
+            BuildProject("Submodules/SharpGameInput/SharpGameInput.v0/Source/SharpGameInput.v0.csproj", coreModulePath, 0.1f);
         }
         catch (Exception ex)
         {
@@ -78,7 +71,21 @@ public static class BuildExternalModules
         }
     }
 
-    private static string BuildProject(string projectFile, float progress)
+    private static void BuildProject(string projectPath, string coreModulePath, float progress)
+    {
+        string projectDirectory = Path.GetDirectoryName(projectPath);
+        string projectName = Path.GetFileNameWithoutExtension(projectPath);
+
+        using (new DirectoryBuildPropsScope(projectDirectory, coreModulePath))
+        {
+            string outputDirectory = RunBuildProjectCommand(projectPath, progress);
+            File.Copy(Path.Combine(outputDirectory, projectName + ".dll"), OutputPluginsPath + "/" + projectName + ".dll", overwrite: true);
+            File.Copy(Path.Combine(outputDirectory, projectName + ".pdb"), OutputPluginsPath + "/" + projectName + ".pdb", overwrite: true);
+            Debug.Log("Successfully built " + projectName);
+        }
+    }
+
+    private static string RunBuildProjectCommand(string projectFile, float progress)
     {
         string assemblyName = Path.GetFileNameWithoutExtension(projectFile);
 

@@ -1,7 +1,7 @@
 #if UNITY_STANDALONE_WIN
 using System;
 using System.Collections.Concurrent;
-using SharpGameInput;
+using SharpGameInput.v0;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Layouts;
@@ -71,7 +71,7 @@ namespace HIDrogen.Backend
             if ((currentStatus & GameInputDeviceStatus.Connected) == (previousStatus & GameInputDeviceStatus.Connected))
                 return;
 
-            ref readonly var info = ref device.DeviceInfo;
+            ref readonly var info = ref device.GetDeviceInfo();
 
             // We only cover Xbox One devices
             if (info.deviceFamily != GameInputDeviceFamily.XboxOne && info.deviceFamily != GameInputDeviceFamily.Virtual)

@@ -13,7 +13,7 @@
     "allowUnsafeCode": true,
     "overrideReferences": true,
     "precompiledReferences": [
-        "SharpGameInput.dll"
+        "SharpGameInput.v0.dll"
     ],
     "autoReferenced": true,
     "defineConstraints": [],
