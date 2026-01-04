@@ -47,6 +47,8 @@ namespace HIDrogen.Backend
         private readonly HashSet<USBDeviceLocation> m_PresentDevices = new HashSet<USBDeviceLocation>();
         private readonly List<USBDeviceLocation> m_RemovedDevices = new List<USBDeviceLocation>();
 
+        private readonly XUSBBackend m_XUSBBackend = new XUSBBackend();
+
         public USBBackend()
         {
             var result = libusb_init(out m_Context);
@@ -67,6 +69,8 @@ namespace HIDrogen.Backend
             {
                 return;
             }
+
+            m_XUSBBackend.Dispose();
 
             // Stop threads
             m_ThreadStop?.Set();
@@ -183,6 +187,15 @@ namespace HIDrogen.Backend
                 {
                     Logging.Verbose($"Found Xbox 360 receiver. Location: {location}, hardware IDs: {descriptor.idVendor:X4}:{descriptor.idProduct:X4}");
                     AddDevice(location, receiver);
+                    success = true;
+                    return;
+                }
+
+                // if (descriptor.idVendor == 0x1430 && descriptor.idProduct == 0x4748)
+                if (m_XUSBBackend.Probe(device, handle, descriptor, out var controller))
+                {
+                    Logging.Verbose($"Found XUSB device. Location: {location}, hardware IDs: {descriptor.idVendor:X4}:{descriptor.idProduct:X4}");
+                    m_Devices.Add(location, controller);
                     success = true;
                     return;
                 }
