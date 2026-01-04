@@ -30,6 +30,7 @@ namespace HIDrogen.Backend
             (0x045e, 0x0291),
             (0x045e, 0x02a9),
             (0x045e, 0x0719),
+            (0x045e, 0x02aa),
         };
 
         private libusb_device_handle m_Handle;
