@@ -138,20 +138,14 @@ namespace HIDrogen.Imports.Linux
 
     internal class udev_device : UdevHandle
     {
-        private readonly bool _ownsHandle;
-
         internal udev_device(Udev udev, IntPtr handle, bool ownsHandle)
             : base(udev, handle, ownsHandle)
         {
-            _ownsHandle = ownsHandle;
         }
 
         protected override bool ReleaseHandle()
         {
-            if (_ownsHandle)
-            {
-                m_udev.device_unref(handle);
-            }
+            m_udev.device_unref(handle);
             return true;
         }
 
@@ -186,6 +180,11 @@ namespace HIDrogen.Imports.Linux
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate IntPtr _udev_unref(
+            IntPtr handle
+        );
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate IntPtr _udev_ref(
             IntPtr handle
         );
         #endregion
@@ -313,7 +312,7 @@ namespace HIDrogen.Imports.Linux
         private _udev_new m_udev_context_new;
 
         private _udev_unref m_udev_context_unref;
-        private _udev_unref m_udev_device_ref;
+        private _udev_ref m_udev_device_ref;
         private _udev_unref m_udev_device_unref;
         private _udev_unref m_udev_monitor_unref;
         private _udev_unref m_udev_enumerate_unref;
@@ -534,7 +533,7 @@ namespace HIDrogen.Imports.Linux
             if (devPtr == IntPtr.Zero)
                 return null;
 
-            m_udev_device_ref(devPtr);
+            devPtr = m_udev_device_ref(devPtr);
             return new udev_device(this, devPtr, true);
         }
         #endregion
