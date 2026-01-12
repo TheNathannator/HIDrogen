@@ -182,6 +182,11 @@ namespace HIDrogen.Imports.Linux
         private delegate IntPtr _udev_unref(
             IntPtr handle
         );
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate IntPtr _udev_ref(
+            IntPtr handle
+        );
         #endregion
 
         #region udev_monitor
@@ -307,6 +312,7 @@ namespace HIDrogen.Imports.Linux
         private _udev_new m_udev_context_new;
 
         private _udev_unref m_udev_context_unref;
+        private _udev_ref m_udev_device_ref;
         private _udev_unref m_udev_device_unref;
         private _udev_unref m_udev_monitor_unref;
         private _udev_unref m_udev_enumerate_unref;
@@ -346,6 +352,7 @@ namespace HIDrogen.Imports.Linux
                     !m_Library.TryGetExport("udev_new", out m_udev_context_new)
 
                     || !m_Library.TryGetExport("udev_unref", out m_udev_context_unref)
+                    || !m_Library.TryGetExport("udev_device_ref", out m_udev_device_ref)
                     || !m_Library.TryGetExport("udev_device_unref", out m_udev_device_unref)
                     || !m_Library.TryGetExport("udev_monitor_unref", out m_udev_monitor_unref)
                     || !m_Library.TryGetExport("udev_enumerate_unref", out m_udev_enumerate_unref)
@@ -407,6 +414,7 @@ namespace HIDrogen.Imports.Linux
             m_udev_context_new = null;
 
             m_udev_context_unref = null;
+            m_udev_device_ref = null;
             m_udev_device_unref = null;
             m_udev_monitor_unref = null;
             m_udev_enumerate_unref = null;
@@ -522,9 +530,11 @@ namespace HIDrogen.Imports.Linux
         public udev_device device_get_parent_with_subsystem_devtype(udev_device device, string subsystem, string devtype)
         {
             var devPtr = m_udev_device_get_parent_with_subsystem_devtype(device, subsystem, devtype);
-            return devPtr == IntPtr.Zero
-                ? null
-                : new udev_device(this, devPtr, false); // The device is *not* owned by us here
+            if (devPtr == IntPtr.Zero)
+                return null;
+
+            devPtr = m_udev_device_ref(devPtr);
+            return new udev_device(this, devPtr, true);
         }
         #endregion
 
