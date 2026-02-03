@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Dates are relative to UTC.
 
+## [0.5.3]
+
+### Added
+
+- Include another set of hardware IDs for Xbox 360 wireless receiver support. ([#10](https://github.com/TheNathannator/HIDrogen/pull/10))
+
+### Fixed
+
+- Fix incorrect string return marshalling for libudev on Linux ([#12](https://github.com/TheNathannator/HIDrogen/pull/12)).
+  - This fixes crashes that occurred when connecting devices that hidapi doesn't report a revision value for, most commonly Bluetooth controllers.
+
 ## [0.5.2]
 
 ### Fixed

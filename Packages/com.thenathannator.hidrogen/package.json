@@ -1,6 +1,6 @@
 {
   "name": "com.thenathannator.hidrogen",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "displayName": "HIDrogen",
   "description": "An add-on for the Unity InputSystem package that provides proper HID device support on Linux.",
   "unity": "2019.4",
