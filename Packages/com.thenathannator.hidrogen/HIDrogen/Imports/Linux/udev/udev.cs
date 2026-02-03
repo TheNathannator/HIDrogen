@@ -250,14 +250,12 @@ namespace HIDrogen.Imports.Linux
         );
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.LPStr)]
-        private delegate string _udev_list_entry_get_name(
+        private delegate IntPtr _udev_list_entry_get_name(
             IntPtr entry
         );
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.LPStr)]
-        private delegate string _udev_list_entry_get_value(
+        private delegate IntPtr _udev_list_entry_get_value(
             IntPtr entry
         );
         #endregion
@@ -277,14 +275,12 @@ namespace HIDrogen.Imports.Linux
         );
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.LPStr)]
-        private delegate string _udev_device_get_syspath(
+        private delegate IntPtr _udev_device_get_syspath(
             udev_device device
         );
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.LPStr)]
-        private delegate string _udev_device_get_sysattr_value(
+        private delegate IntPtr _udev_device_get_sysattr_value(
             udev_device device,
             [MarshalAs(UnmanagedType.LPStr)] string attribute
         );
@@ -497,10 +493,16 @@ namespace HIDrogen.Imports.Linux
             => new udev_list_entry(this, m_udev_list_entry_get_next(entry));
 
         public string list_entry_get_name(IntPtr entry)
-            => m_udev_list_entry_get_name(entry);
+        {
+            var ptr = m_udev_list_entry_get_name(entry);
+            return ptr == IntPtr.Zero ? null : Marshal.PtrToStringAnsi(ptr);
+        }
 
         public string list_entry_get_value(IntPtr entry)
-            => m_udev_list_entry_get_value(entry);
+        {
+            var ptr = m_udev_list_entry_get_value(entry);
+            return ptr == IntPtr.Zero ? null : Marshal.PtrToStringAnsi(ptr);
+        }
         #endregion
 
         #region udev_device
@@ -511,10 +513,16 @@ namespace HIDrogen.Imports.Linux
             => new udev_device(this, m_udev_device_new_from_syspath(context, path), true);
 
         public string device_get_syspath(udev_device device)
-            => m_udev_device_get_syspath(device);
+        {
+            var ptr = m_udev_device_get_syspath(device);
+            return ptr == IntPtr.Zero ? null : Marshal.PtrToStringAnsi(ptr);
+        }
 
         public string device_get_sysattr_value(udev_device device, string attribute)
-            => m_udev_device_get_sysattr_value(device, attribute);
+        {
+            var ptr = m_udev_device_get_sysattr_value(device, attribute);
+            return ptr == IntPtr.Zero ? null : Marshal.PtrToStringAnsi(ptr);
+        }
 
         public udev_list_entry device_get_sysattr_list_entry(udev_device device)
             => new udev_list_entry(this, m_udev_device_get_sysattr_list_entry(device));
