@@ -15,7 +15,7 @@ namespace HIDrogen.Backend
 {
     using static libusb;
 
-    internal enum X360LedState : byte
+    enum X360LedState : byte
     {
         Off = 0,
 
