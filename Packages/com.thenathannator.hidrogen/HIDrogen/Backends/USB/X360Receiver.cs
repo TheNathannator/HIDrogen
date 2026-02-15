@@ -11,14 +11,14 @@ namespace HIDrogen.Backend
 {
     using static libusb;
 
-    internal class USBQueueContext : IDisposable
+    internal struct X360WirelessAddContext : IDisposable
     {
         public uint controllerIndex;
 
         public void Dispose() { }
     }
 
-    internal class X360Receiver : CustomInputBackend<X360WirelessController>
+    internal class X360Receiver : CustomInputBackend<X360WirelessController, X360WirelessAddContext>
     {
         // Each wireless receiver supports up to 4 controllers.
         private const int kControllerCount = 4;
@@ -328,10 +328,8 @@ namespace HIDrogen.Backend
             return true;
         }
 
-        protected override X360WirelessController OnDeviceAdded(InputDevice device, IDisposable _context)
+        protected override X360WirelessController OnDeviceAdded(InputDevice device, X360WirelessAddContext context)
         {
-            var context = (USBQueueContext)_context;
-
             var controller = m_Controllers[context.controllerIndex];
             if (!controller.connected)
             {

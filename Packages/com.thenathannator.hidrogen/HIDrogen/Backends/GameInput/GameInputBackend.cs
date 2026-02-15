@@ -10,7 +10,7 @@ using UnityEngine.InputSystem.Utilities;
 
 namespace HIDrogen.Backend
 {
-    internal partial class GameInputBackend : CustomInputBackend<GameInputBackendDevice>
+    internal partial class GameInputBackend : CustomInputBackend<GameInputBackendDevice, IGameInputDevice>
     {
         public const string InterfaceName = "GameInput";
         public static readonly FourCC InputFormat = new FourCC('G', 'I', 'P');
@@ -129,9 +129,9 @@ namespace HIDrogen.Backend
             return description;
         }
 
-        protected override GameInputBackendDevice OnDeviceAdded(InputDevice device, IDisposable context)
+        protected override GameInputBackendDevice OnDeviceAdded(InputDevice device, IGameInputDevice context)
         {
-            var backendDevice = new GameInputBackendDevice(this, m_GameInput, (IGameInputDevice)context, device);
+            var backendDevice = new GameInputBackendDevice(this, m_GameInput, context, device);
             // We don't use `context` as the key, as it is disposed after this callback
             m_DevicesByInstance.TryAdd(backendDevice.gipDevice, backendDevice);
             return backendDevice;

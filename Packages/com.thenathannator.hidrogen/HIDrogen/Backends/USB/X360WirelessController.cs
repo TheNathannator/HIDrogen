@@ -214,7 +214,7 @@ namespace HIDrogen.Backend
                 capabilities = JsonUtility.ToJson(m_Capabilities),
             };
 
-            m_Receiver.QueueDeviceAdd(description, new USBQueueContext()
+            m_Receiver.QueueDeviceAdd(description, new X360WirelessAddContext()
             {
                 controllerIndex = m_ControllerIndex
             });

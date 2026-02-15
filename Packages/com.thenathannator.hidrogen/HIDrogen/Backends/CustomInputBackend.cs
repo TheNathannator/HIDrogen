@@ -20,8 +20,9 @@ namespace HIDrogen
         unsafe long? OnDeviceCommand(InputDevice device, InputDeviceCommand* command);
     }
 
-    internal abstract class CustomInputBackend<TBackendDevice> : ICustomInputBackend
+    internal abstract class CustomInputBackend<TBackendDevice, TAddContext> : ICustomInputBackend
         where TBackendDevice : class
+        where TAddContext : IDisposable
     {
         // Safety limit, to avoid allocating too much on the stack
         // (InputSystem.StateEventBuffer.kMaxSize)
@@ -31,9 +32,9 @@ namespace HIDrogen
         private readonly Dictionary<InputDevice, TBackendDevice> m_DeviceLookup
             = new Dictionary<InputDevice, TBackendDevice>();
 
-        // Queue for devices; they must be managed on the main thread
-        private readonly ConcurrentBag<(InputDeviceDescription description, IDisposable context)> m_AdditionQueue
-            = new ConcurrentBag<(InputDeviceDescription, IDisposable)>();
+        // Queues for devices; they must be managed on the main thread
+        private readonly ConcurrentBag<(InputDeviceDescription description, TAddContext context)> m_AdditionQueue
+            = new ConcurrentBag<(InputDeviceDescription, TAddContext)>();
 
         // We use a custom buffering implementation because the built-in implementation is
         // not friendly to managed threads, despite what the docs for InputSystem.QueueEvent/QueueStateEvent
@@ -212,12 +213,12 @@ namespace HIDrogen
         protected virtual void OnStop() {}
         protected virtual void OnUpdate() {}
 
-        protected abstract TBackendDevice OnDeviceAdded(InputDevice device, IDisposable context);
+        protected abstract TBackendDevice OnDeviceAdded(InputDevice device, TAddContext context);
         protected abstract void OnDeviceRemoved(TBackendDevice device);
 
         protected virtual unsafe long? OnDeviceCommand(TBackendDevice device, InputDeviceCommand* command) => null;
 
-        public void QueueDeviceAdd(InputDeviceDescription description, IDisposable context)
+        public void QueueDeviceAdd(InputDeviceDescription description, TAddContext context)
         {
             m_AdditionQueue.Add((description, context));
         }

@@ -10,7 +10,7 @@ using UnityEngine.InputSystem.Utilities;
 
 namespace HIDrogen.Backend
 {
-    internal class XInputQueueContext : IDisposable
+    internal struct XInputAddContext : IDisposable
     {
         public uint userIndex;
 
@@ -25,7 +25,7 @@ namespace HIDrogen.Backend
     }
 
 #if UNITY_STANDALONE_WIN
-    internal partial class XInputBackend : CustomInputBackend<XInputBackendDevice>
+    internal partial class XInputBackend : CustomInputBackend<XInputBackendDevice, XInputAddContext>
     {
         private const double kRefreshPeriod = 1.0;
         private double m_LastRefreshTime;
@@ -107,17 +107,15 @@ namespace HIDrogen.Backend
                     }),
                 };
 
-                QueueDeviceAdd(description, new XInputQueueContext()
+                QueueDeviceAdd(description, new XInputAddContext()
                 {
                     userIndex = i
                 });
             }
         }
 
-        protected override XInputBackendDevice OnDeviceAdded(InputDevice device, IDisposable _context)
+        protected override XInputBackendDevice OnDeviceAdded(InputDevice device, XInputAddContext context)
         {
-            var context = (XInputQueueContext)_context;
-
             if (context.userIndex >= m_Devices.Length)
                 throw new Exception($"Attempted to create device for invalid XInput user index {context.userIndex}!");
             if (m_Devices[context.userIndex] != null)

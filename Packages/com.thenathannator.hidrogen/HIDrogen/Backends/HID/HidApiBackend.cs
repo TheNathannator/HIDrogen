@@ -16,20 +16,20 @@ namespace HIDrogen.Backend
 {
     using static hidapi;
 
+    internal struct HidApiAddContext : IDisposable
+    {
+        public string path;
+        public int inputPrependCount;
+        public HID.HIDDeviceDescriptor descriptor;
+
+        public void Dispose() {}
+    }
+
     /// <summary>
     /// Provides input through the hidapi library.
     /// </summary>
-    internal partial class HidApiBackend : CustomInputBackend<HidApiDevice>
+    internal partial class HidApiBackend : CustomInputBackend<HidApiDevice, HidApiAddContext>
     {
-        private class DeviceAddContext : IDisposable
-        {
-            public string path;
-            public int inputPrependCount;
-            public HID.HIDDeviceDescriptor descriptor;
-
-            public void Dispose() {}
-        }
-
         public const string InterfaceName = "HID";
         public static readonly FourCC InputFormat = new FourCC('H', 'I', 'D');
         public static readonly FourCC OutputFormat = new FourCC('H', 'I', 'D', 'O');
@@ -137,7 +137,7 @@ namespace HIDrogen.Backend
                     MakeDeviceDescription(info, out var description, out var descriptor, out int inputPrependCount))
                 {
                     Logging.Verbose($"Found new device, VID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
-                    QueueDeviceAdd(description, new DeviceAddContext()
+                    QueueDeviceAdd(description, new HidApiAddContext()
                     {
                         path = info.path,
                         inputPrependCount = inputPrependCount,
@@ -147,10 +147,8 @@ namespace HIDrogen.Backend
             }
         }
 
-        protected override HidApiDevice OnDeviceAdded(InputDevice device, IDisposable _context)
+        protected override HidApiDevice OnDeviceAdded(InputDevice device, HidApiAddContext context)
         {
-            var context = (DeviceAddContext)_context;
-
             var hidDevice = new HidApiDevice(this, context.path, device, context.descriptor, context.inputPrependCount);
             m_DevicesByPath.TryAdd(context.path, hidDevice);
             return hidDevice;
