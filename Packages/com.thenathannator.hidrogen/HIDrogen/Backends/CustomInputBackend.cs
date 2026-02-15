@@ -14,6 +14,10 @@ namespace HIDrogen
     {
         void Start();
         void Stop();
+
+        void Update();
+        void OnDeviceChange(InputDevice device, InputDeviceChange change);
+        unsafe long? OnDeviceCommand(InputDevice device, InputDeviceCommand* command);
     }
 
     internal abstract class CustomInputBackend<TBackendDevice> : ICustomInputBackend
@@ -66,65 +70,78 @@ namespace HIDrogen
             GC.SuppressFinalize(this);
         }
 
-        public unsafe void Start()
+        private void CheckStarted()
+        {
+            if (!m_Started)
+            {
+                throw new InvalidOperationException("Backend has not been started yet!");
+            }
+        }
+
+        public void Start()
         {
             if (!m_Started)
             {
                 m_Started = true;
-
-                try
-                {
-                    OnStart();
-
-                    InputSystem.onBeforeUpdate += Update;
-                    InputSystem.onDeviceChange += OnDeviceChange;
-                    InputSystem.onDeviceCommand += OnDeviceCommand;
-                }
-                catch (Exception ex)
-                {
-                    Logging.Exception($"Failed to start {GetType()} backend!", ex);
-                }
+                OnStart();
             }
         }
 
-        public unsafe void Stop()
+        public void Stop()
         {
             if (m_Started)
             {
                 m_Started = false;
 
-                InputSystem.onBeforeUpdate -= Update;
-                InputSystem.onDeviceChange -= OnDeviceChange;
-                InputSystem.onDeviceCommand -= OnDeviceCommand;
-
-                try
+                while (m_AdditionQueue.TryTake(out var pair))
                 {
-                    while (m_AdditionQueue.TryTake(out var pair))
-                    {
-                        pair.context?.Dispose();
-                    }
-
-                    foreach (var pair in m_DeviceLookup)
-                    {
-                        OnDeviceRemoved(pair.Value);
-                        InputSystem.RemoveDevice(pair.Key);
-                    }
-                    m_DeviceLookup.Clear();
-
-                    OnStop();
+                    pair.context?.Dispose();
                 }
-                catch (Exception ex)
+
+                foreach (var pair in m_DeviceLookup)
                 {
-                    Logging.Exception($"Failed to stop {GetType()} backend!", ex);
+                    OnDeviceRemoved(pair.Value);
+                    InputSystem.RemoveDevice(pair.Key);
                 }
+                m_DeviceLookup.Clear();
+
+                OnStop();
             }
         }
 
-        private void Update()
+        public void Update()
         {
+            CheckStarted();
+
             OnUpdate();
             FlushDeviceQueue();
             FlushEventBuffer();
+        }
+
+        public void OnDeviceChange(InputDevice device, InputDeviceChange change)
+        {
+            CheckStarted();
+
+            if (change == InputDeviceChange.Removed)
+            {
+                if (!m_DeviceLookup.TryGetValue(device, out var backendDevice))
+                    return;
+
+                OnDeviceRemoved(backendDevice);
+                m_DeviceLookup.Remove(device);
+            }
+        }
+
+        public unsafe long? OnDeviceCommand(InputDevice device, InputDeviceCommand* command)
+        {
+            CheckStarted();
+
+            if (!m_DeviceLookup.TryGetValue(device, out var backendDevice))
+            {
+                return null;
+            }
+
+            return OnDeviceCommand(backendDevice, command);
         }
 
         private void FlushDeviceQueue()
@@ -187,31 +204,6 @@ namespace HIDrogen
                 }
             }
             buffer.Reset();
-        }
-
-        private void OnDeviceChange(InputDevice device, InputDeviceChange change)
-        {
-            if (change == InputDeviceChange.Removed)
-            {
-                if (!m_DeviceLookup.TryGetValue(device, out var backendDevice))
-                    return;
-
-                OnDeviceRemoved(backendDevice);
-                m_DeviceLookup.Remove(device);
-            }
-        }
-
-        private unsafe long? OnDeviceCommand(InputDevice device, InputDeviceCommand* command)
-        {
-            if (device == null)
-                return null;
-            if (command == null)
-                return InputDeviceCommand.GenericFailure;
-
-            if (!m_DeviceLookup.TryGetValue(device, out var backendDevice))
-                return null;
-
-            return OnDeviceCommand(backendDevice, command);
         }
 
         protected abstract void OnDispose();

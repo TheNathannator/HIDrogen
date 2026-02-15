@@ -29,7 +29,7 @@ namespace HIDrogen.Backend
         public override int GetHashCode() => (bus, port, address).GetHashCode();
     }
 
-    internal class USBBackend : IDisposable
+    internal class USBService : ICustomInputService
     {
         private static readonly unsafe IntPtr s_LogCallback = Marshal.GetFunctionPointerForDelegate<libusb_log_cb>(LogCallback);
 
@@ -47,7 +47,9 @@ namespace HIDrogen.Backend
         private readonly HashSet<USBDeviceLocation> m_PresentDevices = new HashSet<USBDeviceLocation>();
         private readonly List<USBDeviceLocation> m_RemovedDevices = new List<USBDeviceLocation>();
 
-        public USBBackend()
+        private bool m_Started = false;
+
+        public USBService()
         {
             var result = libusb_init(out m_Context);
             if (result != libusb_error.SUCCESS)
@@ -56,9 +58,6 @@ namespace HIDrogen.Backend
             }
 
             libusb_set_log_cb(m_Context, s_LogCallback, libusb_log_cb_mode.GLOBAL | libusb_log_cb_mode.CONTEXT);
-
-            m_DeviceThread = new Thread(DeviceThread) { IsBackground = true };
-            m_DeviceThread.Start();
         }
 
         public void Dispose()
@@ -68,25 +67,43 @@ namespace HIDrogen.Backend
                 return;
             }
 
-            // Stop threads
-            m_ThreadStop?.Set();
-
-            m_DeviceThread?.Join();
-            m_DeviceThread = null;
+            Stop();
 
             m_ThreadStop?.Dispose();
             m_ThreadStop = null;
 
-            // Clear devices
             foreach (var device in m_Devices.Values)
             {
                 device?.Dispose();
             }
             m_Devices.Clear();
 
-            // Uninitialize libusb
             m_Context?.Dispose();
             m_Context = null;
+        }
+
+        public void Start()
+        {
+            if (!m_Started)
+            {
+                m_Started = true;
+
+                m_DeviceThread = new Thread(DeviceThread) { IsBackground = true };
+                m_DeviceThread.Start();
+            }
+        }
+
+        public void Stop()
+        {
+            if (m_Started)
+            {
+                m_Started = false;
+
+                m_ThreadStop?.Set();
+
+                m_DeviceThread?.Join();
+                m_DeviceThread = null;
+            }
         }
 
         private void DeviceThread()

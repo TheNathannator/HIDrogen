@@ -1,4 +1,5 @@
 using System;
+using HIDrogen.Backend;
 
 namespace HIDrogen
 {
@@ -7,6 +8,8 @@ namespace HIDrogen
     /// </summary>
     internal static partial class Initialization
     {
+        private static readonly BackendManager s_BackendManager = new BackendManager();
+
 // Ignore initialization if in editor and current build platform doesn't match editor runtime platform
 #if !UNITY_EDITOR || (UNITY_STANDALONE_WIN && UNITY_EDITOR_WIN) || (UNITY_STANDALONE_OSX && UNITY_EDITOR_OSX) || (UNITY_STANDALONE_LINUX && UNITY_EDITOR_LINUX)
         /// <summary>
@@ -29,7 +32,11 @@ namespace HIDrogen
             try
             {
                 Logging.Verbose("Initializing backends");
+
+                s_BackendManager.TryCreateService<USBService>();
                 PlatformInitialize();
+
+                s_BackendManager.Start();
             }
             catch (Exception ex)
             {
@@ -49,7 +56,11 @@ namespace HIDrogen
             try
             {
                 Logging.Verbose("Uninitializing backends");
+
+                s_BackendManager.Stop();
                 PlatformUninitialize();
+
+                s_BackendManager.Dispose();
             }
             catch (Exception ex)
             {
@@ -60,64 +71,5 @@ namespace HIDrogen
 
         static partial void PlatformInitialize();
         static partial void PlatformUninitialize();
-
-        private static bool TryInitializeBackend<T>(ref T field)
-            where T : ICustomInputBackend, new()
-        {
-            try
-            {
-                field = new T();
-                field.Start();
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Logging.Exception($"Failed to initialize {typeof(T).Name} backend", ex);
-                return false;
-            }
-        }
-
-        private static void TryUninitializeBackend<T>(ref T field)
-            where T : ICustomInputBackend
-        {
-            try
-            {
-                field?.Dispose();
-                field = default;
-            }
-            catch (Exception ex)
-            {
-                Logging.Exception($"Failed to uninitialize {typeof(T).Name} backend", ex);
-            }
-        }
-
-        private static bool TryInitializeService<T>(ref T field)
-            where T : new()
-        {
-            try
-            {
-                field = new T();
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Logging.Exception($"Failed to initialize {typeof(T).Name} backend", ex);
-                return false;
-            }
-        }
-
-        private static void TryUninitializeService<T>(ref T field)
-            where T : IDisposable
-        {
-            try
-            {
-                field?.Dispose();
-                field = default;
-            }
-            catch (Exception ex)
-            {
-                Logging.Exception($"Failed to uninitialize {typeof(T).Name} backend", ex);
-            }
-        }
     }
 }
