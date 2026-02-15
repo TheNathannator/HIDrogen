@@ -62,7 +62,7 @@ namespace HIDrogen
         static partial void PlatformUninitialize();
 
         private static bool TryInitializeBackend<T>(ref T field)
-            where T : CustomInputBackend, new()
+            where T : ICustomInputBackend, new()
         {
             try
             {
@@ -78,7 +78,7 @@ namespace HIDrogen
         }
 
         private static void TryUninitializeBackend<T>(ref T field)
-            where T : CustomInputBackend
+            where T : ICustomInputBackend
         {
             try
             {

@@ -38,7 +38,7 @@ namespace HIDrogen.Backend
         private Thread m_DeviceThread;
         private EventWaitHandle m_ThreadStop = new EventWaitHandle(false, EventResetMode.ManualReset);
 
-        private readonly Dictionary<USBDeviceLocation, IDisposable> m_Devices = new Dictionary<USBDeviceLocation, IDisposable>();
+        private readonly Dictionary<USBDeviceLocation, ICustomInputBackend> m_Devices = new Dictionary<USBDeviceLocation, ICustomInputBackend>();
         private readonly Dictionary<USBDeviceLocation, int> m_DeviceAttempts = new Dictionary<USBDeviceLocation, int>();
 
         private readonly HashSet<USBDeviceLocation> m_IgnoredDevices = new HashSet<USBDeviceLocation>();
@@ -204,7 +204,7 @@ namespace HIDrogen.Backend
             }
         }
 
-        private void AddDevice(in USBDeviceLocation location, CustomInputBackend device)
+        private void AddDevice(in USBDeviceLocation location, ICustomInputBackend device)
         {
             device.Start();
             m_Devices.Add(location, device);
