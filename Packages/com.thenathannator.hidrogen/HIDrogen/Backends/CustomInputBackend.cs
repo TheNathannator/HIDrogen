@@ -305,5 +305,60 @@ namespace HIDrogen
             // Queue state event
             QueueEvent((InputEvent*)stateEvent);
         }
+
+        public unsafe void QueueDeltaStateEvent<TValue>(InputControl control, ref TValue value)
+            where TValue : unmanaged
+        {
+            QueueDeltaStateEvent(control, UnsafeUtility.AddressOf(ref value), sizeof(TValue));
+        }
+
+        public unsafe void QueueDeltaStateEvent<TValue>(InputDevice device, uint offset, ref TValue value)
+            where TValue : unmanaged
+        {
+            QueueDeltaStateEvent(device, offset, UnsafeUtility.AddressOf(ref value), sizeof(TValue));
+        }
+
+        // Based on InputSystem.QueueDeltaStateEvent<T>
+        public unsafe void QueueDeltaStateEvent(InputControl control, void* stateBuffer, int stateLength)
+        {
+            var stateBlock = control.stateBlock;
+            
+            if (stateBlock.bitOffset != 0)
+                throw new InvalidOperationException($"Cannot send delta state events against bitfield controls: {control}");
+
+            uint alignedSizeInBytes = (stateBlock.sizeInBits + 7) >> 3;
+            if (stateLength != alignedSizeInBytes)
+                throw new ArgumentException($"Size {stateLength} of delta state provided for control '{control}' does not match size {alignedSizeInBytes} of control");
+
+            var device = control.device;
+            uint offset = stateBlock.byteOffset - device.stateBlock.byteOffset;
+            QueueDeltaStateEvent(device, offset, stateBuffer, stateLength);
+        }
+
+        // Based on InputSystem.QueueDeltaStateEvent<T>
+        public unsafe void QueueDeltaStateEvent(InputDevice device, uint offset, void* stateBuffer, int stateLength)
+        {
+            if (stateBuffer == null || stateLength < 1 || stateLength > kMaxStateSize)
+            {
+                return;
+            }
+
+            // Create state buffer
+            int eventSize = stateLength + (sizeof(DeltaStateEvent) - 1); // DeltaStateEvent already includes 1 byte at the end
+            byte* _deltaEvent = stackalloc byte[eventSize];
+            var deltaEvent = (DeltaStateEvent*)_deltaEvent;
+
+            *deltaEvent = new DeltaStateEvent()
+            {
+                baseEvent = new InputEvent(DeltaStateEvent.Type, eventSize, device.deviceId),
+                stateFormat = device.stateBlock.format,
+                stateOffset = offset
+            };
+
+            // Copy state data
+            UnsafeUtility.MemCpy(deltaEvent->deltaState, stateBuffer, stateLength);
+
+            QueueEvent(&deltaEvent->baseEvent);
+        }
     }
 }
