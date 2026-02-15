@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Dates are relative to UTC.
 
+## [Unreleased]
+
+### Changed
+
+- A device that gets removed and re-added in the same update (from e.g. refreshing devices from scratch) is now ensured to have its removal event fired before its addition event.
+
 ## [0.5.3]
 
 ### Added

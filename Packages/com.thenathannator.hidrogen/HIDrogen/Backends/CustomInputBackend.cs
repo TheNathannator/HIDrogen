@@ -35,6 +35,7 @@ namespace HIDrogen
         // Queues for devices; they must be managed on the main thread
         private readonly ConcurrentBag<(InputDeviceDescription description, TAddContext context)> m_AdditionQueue
             = new ConcurrentBag<(InputDeviceDescription, TAddContext)>();
+        internal readonly ConcurrentBag<InputDevice> m_RemovalQueue = new ConcurrentBag<InputDevice>();
 
         // We use a custom buffering implementation because the built-in implementation is
         // not friendly to managed threads, despite what the docs for InputSystem.QueueEvent/QueueStateEvent
@@ -147,6 +148,12 @@ namespace HIDrogen
 
         private void FlushDeviceQueue()
         {
+            // Process device removals first, for backends that may remove and re-add a device in the same update
+            while (m_RemovalQueue.TryTake(out var device))
+            {
+                InputSystem.RemoveDevice(device);
+            }
+
             while (m_AdditionQueue.TryTake(out var _context))
             {
                 var (description, context) = _context;
@@ -225,8 +232,7 @@ namespace HIDrogen
 
         public void QueueDeviceRemove(InputDevice device)
         {
-            var removeEvent = DeviceRemoveEvent.Create(device.deviceId);
-            QueueEvent(ref removeEvent);
+            m_RemovalQueue.Add(device);
         }
 
         public unsafe void QueueEvent(InputEventPtr eventPtr)
