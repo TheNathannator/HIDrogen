@@ -198,10 +198,16 @@ namespace HIDrogen.Backend
                         }
                     }
 
+                    string productName = null;
+                    if (santroller && protocol == 2)
+                        productName = usb?.get_sysattr_value("interface")?.Trim();
+                    if (string.IsNullOrEmpty(productName))
+                        productName = input?.get_sysattr_value("name");
+
                     var description = new InputDeviceDescription()
                     {
                         interfaceName = "Evdev",
-                        product = input?.get_sysattr_value("name"),
+                        product = productName,
                         capabilities = JsonUtility.ToJson(new EvdevCapabilities()
                         {
                             bus = id.bus, vendorId = id.vendor, productId = id.product,
@@ -239,25 +245,9 @@ namespace HIDrogen.Backend
         private int ReadUsbInstrumentIdentity(udev_device usbInterface, string path, bool santroller, out int flags)
         {
             flags = 0;
-            if (usbInterface == null)
-                return 0;
             try
             {
-                string interfaceNumber = usbInterface.get_sysattr_value("bInterfaceNumber");
-                if (!int.TryParse(interfaceNumber, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int target))
-                    throw new IOException("Missing USB interface number.");
-                using (var usb = usbInterface.get_parent_with_subsystem_devtype("usb", "usb_device"))
-                {
-                    if (usb == null)
-                        throw new IOException("Missing USB device parent.");
-                    using (var stream = File.OpenRead(Path.Combine(usb.get_syspath(), "descriptors")))
-                    using (var buffer = new MemoryStream())
-                    {
-                        // Sysfs reports a maximum size, not the actual descriptor length.
-                        stream.CopyTo(buffer);
-                        return ParseUsbInstrumentIdentity(buffer.ToArray(), target, santroller, out flags);
-                    }
-                }
+                return ReadUsbInstrumentIdentity(usbInterface, santroller, out flags);
             }
             catch (IOException ex)
             {
@@ -268,6 +258,29 @@ namespace HIDrogen.Backend
                 WarnOnce(path, $"Cannot read USB instrument identity for '{path}'; continuing without it: {ex.Message}");
             }
             return 0;
+        }
+
+        internal static int ReadUsbInstrumentIdentity(udev_device usbInterface, bool santroller, out int flags)
+        {
+            flags = 0;
+            if (usbInterface == null)
+                return 0;
+
+            string interfaceNumber = usbInterface.get_sysattr_value("bInterfaceNumber");
+            if (!int.TryParse(interfaceNumber, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int target))
+                throw new IOException("Missing USB interface number.");
+            using (var usb = usbInterface.get_parent_with_subsystem_devtype("usb", "usb_device"))
+            {
+                if (usb == null)
+                    throw new IOException("Missing USB device parent.");
+                using (var stream = File.OpenRead(Path.Combine(usb.get_syspath(), "descriptors")))
+                using (var buffer = new MemoryStream())
+                {
+                    // Sysfs reports a maximum size, not the actual descriptor length.
+                    stream.CopyTo(buffer);
+                    return ParseUsbInstrumentIdentity(buffer.ToArray(), target, santroller, out flags);
+                }
+            }
         }
 
         internal static int ParseXInputSubType(byte[] descriptors, int targetInterface)

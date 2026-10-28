@@ -297,12 +297,16 @@ namespace HIDrogen.Backend
             if (version == 0 && PlatformGetVersionNumber(info.path, out ushort fixedVersion))
                 version = fixedVersion;
 
+            string productName = info.productName;
+            if (PlatformGetProductName(info, out string fixedProductName))
+                productName = fixedProductName;
+
             // Create final description
             description = new InputDeviceDescription()
             {
                 interfaceName = InterfaceName,
                 manufacturer = info.manufacturerName,
-                product = info.productName,
+                product = productName,
                 serial = info.serialNumber,
                 version = version.ToString(),
                 capabilities = JsonUtility.ToJson(descriptor)

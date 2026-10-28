@@ -1,3 +1,5 @@
+using HIDrogen.Imports;
+
 namespace HIDrogen.Backend
 {
     internal partial class HidApiBackend
@@ -11,6 +13,7 @@ namespace HIDrogen.Backend
             ref int bytesWritten, ref bool success);
         partial void PlatformGetDescriptorSize(string path, ref int size, ref bool success);
         partial void PlatformGetVersionNumber(string path, ref ushort version, ref bool success);
+        partial void PlatformGetProductName(in hid_device_info info, ref string productName, ref bool success);
 
         private bool PlatformMonitor()
         {
@@ -51,6 +54,14 @@ namespace HIDrogen.Backend
             version = 0;
             bool success = false;
             PlatformGetVersionNumber(path, ref version, ref success);
+            return success;
+        }
+
+        internal bool PlatformGetProductName(in hid_device_info info, out string productName)
+        {
+            productName = null;
+            bool success = false;
+            PlatformGetProductName(info, ref productName, ref success);
             return success;
         }
     }

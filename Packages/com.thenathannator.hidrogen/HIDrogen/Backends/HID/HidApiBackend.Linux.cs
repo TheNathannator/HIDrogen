@@ -1,6 +1,7 @@
 #if UNITY_STANDALONE_LINUX
 using System;
 using System.Globalization;
+using HIDrogen.Imports;
 using HIDrogen.Imports.Linux;
 using HIDrogen.Imports.Posix;
 using HIDrogen.Imports.Posix.Sys;
@@ -280,6 +281,49 @@ namespace HIDrogen.Backend
                             string versionStr = inputDevice.get_sysattr_value("id/version");
                             success = ushort.TryParse(versionStr, NumberStyles.HexNumber, null, out version);
                         }
+                    }
+                }
+            }
+        }
+
+        partial void PlatformGetProductName(in hid_device_info info, ref string productName, ref bool success)
+        {
+            productName = default;
+            success = false;
+
+            if (info.vendorId != 0x1209 || (info.productId != 0x2882 && info.productId != 0x2883))
+                return;
+
+            if (Stat.statx(0, info.path, 0, 0, out var pathStats) < 0)
+                return;
+
+            var hidrawDevice = m_Udev.device_new_from_devnum(pathStats.DeviceType, pathStats.DeviceNumber);
+            if (hidrawDevice == null || hidrawDevice.IsInvalid)
+                return;
+
+            using (hidrawDevice)
+            {
+                var usbInterface = hidrawDevice.get_parent_with_subsystem_devtype("usb", "usb_interface");
+                if (usbInterface == null || usbInterface.IsInvalid)
+                    return;
+
+                using (usbInterface)
+                {
+                    try
+                    {
+                        if (EvdevBackend.ReadUsbInstrumentIdentity(usbInterface, true, out _) == 0)
+                            return;
+                    }
+                    catch
+                    {
+                        return;
+                    }
+
+                    string name = usbInterface.get_sysattr_value("interface");
+                    if (!string.IsNullOrEmpty(name))
+                    {
+                        productName = name.Trim();
+                        success = true;
                     }
                 }
             }

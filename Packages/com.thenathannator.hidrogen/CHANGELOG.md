@@ -15,6 +15,8 @@ Dates are relative to UTC.
 - Expose xpad's wired XInput subtype from sysfs USB descriptors.
 - Native Santroller HID fallback discovery with legacy USB-version identity and
   current firmware's per-interface type/capability metadata.
+- Pull device product names from the USB interface descriptor string for
+  Santroller v2 devices over both evdev and hidraw.
 
 ### Changed
 
