@@ -12,6 +12,12 @@ namespace HIDrogen.Backend
     {
         private udev_context m_Udev;
 
+        partial void PlatformClaimPath(string path, ref bool claimed)
+            => claimed = LinuxInputOwnership.TryClaim(path);
+
+        partial void PlatformReleasePath(string path)
+            => LinuxInputOwnership.Release(path);
+
         partial void PlatformInitialize()
         {
             m_Udev = Udev.Instance.context_new();

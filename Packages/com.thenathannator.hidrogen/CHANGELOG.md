@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Dates are relative to UTC.
 
+## [Unreleased]
+
+### Added
+
+- Linux evdev input backend for instrument layouts, with hidraw-first ownership,
+  initial-state synchronization and dropped-event recovery.
+- Expose xpad's wired XInput subtype from sysfs USB descriptors.
+- Native Santroller HID fallback discovery with legacy USB-version identity and
+  current firmware's per-interface type/capability metadata.
+
+### Changed
+
+- Leave Linux Xbox 360 receivers attached to an existing kernel driver so evdev
+  can provide their input.
+
 ## [0.5.3]
 
 ### Added

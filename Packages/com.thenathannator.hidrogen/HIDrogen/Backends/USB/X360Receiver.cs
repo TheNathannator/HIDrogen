@@ -119,6 +119,18 @@ namespace HIDrogen.Backend
                 return false;
             }
 
+#if UNITY_STANDALONE_LINUX
+            // Leave receivers managed by xpad attached; their instruments use evdev.
+            int driverActive = libusb_kernel_driver_active(handle, 0);
+            if (driverActive == 1)
+                return false;
+            if (driverActive < 0 && driverActive != (int)libusb_error.NOT_SUPPORTED)
+            {
+                libusb_checkerror((libusb_error)driverActive, "Failed to query receiver kernel driver");
+                return false;
+            }
+#endif
+
             bool success = false;
             libusb_config_descriptor* config = null;
             try

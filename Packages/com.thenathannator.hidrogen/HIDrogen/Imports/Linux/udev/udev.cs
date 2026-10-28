@@ -152,6 +152,9 @@ namespace HIDrogen.Imports.Linux
         public string get_syspath()
             => m_udev.device_get_syspath(this);
 
+        public string get_driver()
+            => m_udev.device_get_driver(this);
+
         public string get_sysattr_value(string attribute)
             => m_udev.device_get_sysattr_value(this, attribute);
 
@@ -326,6 +329,7 @@ namespace HIDrogen.Imports.Linux
         private _udev_device_new_from_devnum m_udev_device_new_from_devnum;
         private _udev_device_new_from_syspath m_udev_device_new_from_syspath;
         private _udev_device_get_syspath m_udev_device_get_syspath;
+        private _udev_device_get_syspath m_udev_device_get_driver;
         private _udev_device_get_sysattr_value m_udev_device_get_sysattr_value;
         private _udev_device_get_sysattr_list_entry m_udev_device_get_sysattr_list_entry;
         private _udev_device_get_parent_with_subsystem_devtype m_udev_device_get_parent_with_subsystem_devtype;
@@ -365,6 +369,7 @@ namespace HIDrogen.Imports.Linux
                     || !m_Library.TryGetExport("udev_device_new_from_devnum", out m_udev_device_new_from_devnum)
                     || !m_Library.TryGetExport("udev_device_new_from_syspath", out m_udev_device_new_from_syspath)
                     || !m_Library.TryGetExport("udev_device_get_syspath", out m_udev_device_get_syspath)
+                    || !m_Library.TryGetExport("udev_device_get_driver", out m_udev_device_get_driver)
                     || !m_Library.TryGetExport("udev_device_get_sysattr_value", out m_udev_device_get_sysattr_value)
                     || !m_Library.TryGetExport("udev_device_get_sysattr_list_entry", out m_udev_device_get_sysattr_list_entry)
                     || !m_Library.TryGetExport("udev_device_get_parent_with_subsystem_devtype", out m_udev_device_get_parent_with_subsystem_devtype)
@@ -426,6 +431,7 @@ namespace HIDrogen.Imports.Linux
             m_udev_device_new_from_devnum = null;
             m_udev_device_new_from_syspath = null;
             m_udev_device_get_syspath = null;
+            m_udev_device_get_driver = null;
             m_udev_device_get_sysattr_value = null;
             m_udev_device_get_sysattr_list_entry = null;
             m_udev_device_get_parent_with_subsystem_devtype = null;
@@ -515,6 +521,12 @@ namespace HIDrogen.Imports.Linux
         public string device_get_syspath(udev_device device)
         {
             var ptr = m_udev_device_get_syspath(device);
+            return ptr == IntPtr.Zero ? null : Marshal.PtrToStringAnsi(ptr);
+        }
+
+        public string device_get_driver(udev_device device)
+        {
+            var ptr = m_udev_device_get_driver(device);
             return ptr == IntPtr.Zero ? null : Marshal.PtrToStringAnsi(ptr);
         }
 

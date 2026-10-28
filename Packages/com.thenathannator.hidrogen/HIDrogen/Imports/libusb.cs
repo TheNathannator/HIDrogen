@@ -588,6 +588,9 @@ namespace HIDrogen.Imports
             IntPtr dev_handle // libusb_device_handle*
         );
 
+        [DllImport(kLibName, CallingConvention = kCallConvention)]
+        public static extern int libusb_kernel_driver_active(libusb_device_handle dev_handle, int interface_number);
+
         [DllImport(kLibName, CallingConvention = kCallConvention, EntryPoint = "libusb_set_auto_detach_kernel_driver")]
         private static extern libusb_error _libusb_set_auto_detach_kernel_driver( // -> int
             libusb_device_handle dev_handle, // libusb_device_handle*

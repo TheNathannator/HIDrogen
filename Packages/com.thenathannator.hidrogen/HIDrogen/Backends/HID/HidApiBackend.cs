@@ -12,6 +12,10 @@ using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.InputSystem.Utilities;
 
+#if UNITY_STANDALONE_LINUX
+using HIDrogen.Imports.Posix;
+#endif
+
 namespace HIDrogen.Backend
 {
     using static hidapi;
@@ -23,12 +27,24 @@ namespace HIDrogen.Backend
     {
         private class DeviceAddContext : IDisposable
         {
+            public HidApiBackend backend;
             public string path;
+            public bool transferred;
             public int inputPrependCount;
             public HID.HIDDeviceDescriptor descriptor;
 
-            public void Dispose() {}
+            public void Dispose()
+            {
+                if (!transferred)
+                    backend.PlatformReleasePath(path);
+            }
         }
+
+        private volatile bool m_DiscoveryComplete;
+        public bool discoveryComplete => m_DiscoveryComplete;
+
+        partial void PlatformClaimPath(string path, ref bool claimed);
+        partial void PlatformReleasePath(string path);
 
         public const string InterfaceName = "HID";
         public static readonly FourCC InputFormat = new FourCC('H', 'I', 'D');
@@ -59,6 +75,24 @@ namespace HIDrogen.Backend
         // This lookup is used by the enumeration thread in addition to the main thread
         private readonly ConcurrentDictionary<string, HidApiDevice> m_DevicesByPath
             = new ConcurrentDictionary<string, HidApiDevice>();
+        private readonly ConcurrentDictionary<string, byte> m_ProbedPaths
+            = new ConcurrentDictionary<string, byte>();
+
+        internal void ProbePath(string path)
+        {
+            if (m_ProbedPaths.ContainsKey(path))
+                return;
+            foreach (var info in hid_enumerate())
+            {
+                if (info.path == path)
+                {
+                    TryQueueDevice(info);
+                    return;
+                }
+            }
+            // Enumeration can omit inaccessible devices entirely.
+            m_ProbedPaths.TryAdd(path, 0);
+        }
 
         public HidApiBackend()
         {
@@ -131,19 +165,45 @@ namespace HIDrogen.Backend
 
         private void EnumerateDevices()
         {
+            var present = new System.Collections.Generic.HashSet<string>();
             foreach (var info in hid_enumerate())
             {
-                if (!m_DevicesByPath.ContainsKey(info.path) &&
-                    MakeDeviceDescription(info, out var description, out var descriptor, out int inputPrependCount))
+                present.Add(info.path);
+                TryQueueDevice(info);
+            }
+            foreach (var path in m_ProbedPaths.Keys)
+            {
+                if (!present.Contains(path))
+                    m_ProbedPaths.TryRemove(path, out _);
+            }
+            m_DiscoveryComplete = true;
+        }
+
+        private void TryQueueDevice(in hid_device_info info)
+        {
+            if (m_DevicesByPath.ContainsKey(info.path))
+                return;
+            bool claimed = true;
+            PlatformClaimPath(info.path, ref claimed);
+            if (!claimed)
+                return;
+
+            m_ProbedPaths.TryAdd(info.path, 0);
+            var context = new DeviceAddContext() { backend = this, path = info.path };
+            try
+            {
+                if (MakeDeviceDescription(info, out var description, out var descriptor, out int inputPrependCount))
                 {
                     Logging.Verbose($"Found new device, VID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
-                    QueueDeviceAdd(description, new DeviceAddContext()
-                    {
-                        path = info.path,
-                        inputPrependCount = inputPrependCount,
-                        descriptor = descriptor,
-                    });
+                    context.inputPrependCount = inputPrependCount;
+                    context.descriptor = descriptor;
+                    QueueDeviceAdd(description, context);
+                    context = null;
                 }
+            }
+            finally
+            {
+                context?.Dispose();
             }
         }
 
@@ -153,6 +213,7 @@ namespace HIDrogen.Backend
 
             var hidDevice = new HidApiDevice(this, context.path, device, context.descriptor, context.inputPrependCount);
             m_DevicesByPath.TryAdd(context.path, hidDevice);
+            context.transferred = true;
             return hidDevice;
         }
 
@@ -160,6 +221,7 @@ namespace HIDrogen.Backend
         {
             m_DevicesByPath.TryRemove(device.path, out _);
             device.Dispose();
+            PlatformReleasePath(device.path);
         }
 
         private unsafe bool MakeDeviceDescription(
@@ -176,6 +238,13 @@ namespace HIDrogen.Backend
             // Get descriptor
             if (!PlatformGetDescriptor(info.path, out var descriptorBytes))
             {
+#if UNITY_STANDALONE_LINUX
+                if (Posix.errno == Errno.EACCES || Posix.errno == Errno.EPERM)
+                {
+                    Logging.Warning($"Cannot read hidraw device '{info.path}'; supported instruments will try evdev instead.");
+                    return false;
+                }
+#endif
                 Logging.InteropError("Error getting descriptor");
                 return false;
             }

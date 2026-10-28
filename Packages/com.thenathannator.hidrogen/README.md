@@ -9,6 +9,7 @@ An add-on for the [Unity InputSystem](https://github.com/Unity-Technologies/Inpu
 - [Usage](#usage)
 - [Configuration](#configuration)
 - [Available Backends](#available-backends)
+  - [Linux evdev Fallback](#linux-evdev-fallback)
   - [Raw HID Support on Linux](#raw-hid-support-on-linux)
     - [Dependencies](#dependencies)
     - [Configuration](#configuration-1)
@@ -30,6 +31,61 @@ Some configuration is available through compile-defines. These defines apply to 
 - `HIDROGEN_VERBOSE_LOGGING`: Enables verbose logging to help debug issues with devices.
 
 ## Available Backends
+
+### Linux evdev Fallback
+
+The evdev backend exposes supported instruments managed by `xpad`, `hid-sony`
+(`sony` in sysfs), or `hid-generic` for native Santroller HID devices.
+It prefers a usable hidraw device and falls back to
+`/dev/input/event*` when raw HID is unavailable, including permission failures.
+Instrument layouts must be supplied by a package such as PlasticBand; unrelated
+event devices are not added automatically.
+
+- Hidraw and evdev siblings are correlated through their HID parent, not VID/PID,
+  so identical controllers can be used independently.
+- Backend ownership remains with the selected transport until it is removed.
+  Changing permissions does not automatically replace an active evdev device.
+- Input nodes are scanned once per second. Every delivered `SYN_REPORT` becomes
+  a state event; initial state and `SYN_DROPPED` recovery are queried with ioctls.
+- Event nodes need their own read permissions. Desktop-session controller access
+  often already provides these, but hidraw denial does not guarantee evdev access.
+- The backend is input-only. Raw output/feature reports and instrument-specific
+  initialization are not emulated through evdev. Kernel filtering and unsupported
+  report fields cannot be undone.
+- On Linux, receivers already managed by a kernel driver are left attached
+  instead of being claimed by the raw USB Xbox 360 receiver backend.
+
+No additional native dependency beyond the existing libc/libudev support is needed.
+Wired XInput subtype metadata is read from the USB descriptors in sysfs without
+initializing libusb or claiming a USB interface. These cached descriptors are
+normally world-readable; no USB-device access rule is needed.
+If descriptor access or parsing fails, the
+backend logs a warning and continues without subtype metadata, allowing layouts
+to match using other device identifiers.
+
+#### State Contract
+
+Devices use interface name `Evdev` and state format `EVDV`. The packed state is
+352 bytes: 96 bytes of Linux `EV_KEY` bits (codes 0-767), followed by 64 native
+signed 32-bit `EV_ABS` values indexed by code. Unsupported axes remain zero.
+Capabilities include bus, vendor/product IDs, version, kernel driver, XInput
+`subType` when available, base64 key/axis capability bitmaps, and raw axis
+ranges, fuzz, flat and resolution. Consumers must select mappings by identity
+and driver and validate the required capabilities.
+
+Native Santroller devices additionally expose `santrollerProtocol` (1 or 2),
+`santrollerFlags`, and their instrument type in `subType`. Legacy `1209:2882`
+devices encode the type in the high byte of the input version. Current USB
+firmware (`1209:2882` or `1209:2883`) must supply a trailing vendor-specific
+descriptor for each native HID gamepad interface:
+`09 FF 53 41 4E 54 02 TT CC` (hexadecimal). This contains the descriptor
+length/type, `SANT` signature, protocol version 2, instrument type and capability
+flags. Only alternate setting zero of the matching HID interface is considered.
+It is read from the USB device's cached sysfs `descriptors` attribute, like
+xpad subtype metadata; neither USB transfers nor hidraw access are needed.
+Interface/profile names and HID report formats are unchanged.
+Current firmware without this metadata is warned about and left unmatched.
+Other `hid-generic` devices are not probed as evdev instruments.
 
 ### Raw HID Support on Linux
 
