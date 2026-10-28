@@ -123,6 +123,7 @@ namespace HIDrogen.Backend
         {
             using (var hid = node.get_parent_with_subsystem_devtype("hid", null))
             using (var usb = node.get_parent_with_subsystem_devtype("usb", "usb_interface"))
+            using (var usbDevice = node.get_parent_with_subsystem_devtype("usb", "usb_device"))
             using (var input = node.get_parent_with_subsystem_devtype("input", null))
             {
                 string driver = hid?.get_driver() ?? usb?.get_driver();
@@ -186,15 +187,23 @@ namespace HIDrogen.Backend
                         subType = ReadUsbInstrumentIdentity(usb, path, true, out flags);
                         if (subType != 0)
                             protocol = 2;
-                        else if (id.product == 0x2882 && (id.version >> 8) >= 3 && (id.version >> 8) <= 8)
-                        {
-                            protocol = 1;
-                            subType = id.version >> 8;
-                        }
                         else
                         {
-                            WarnOnce(path, $"Santroller evdev fallback '{path}' has no supported instrument identity. Current firmware must expose the Santroller USB identity descriptor.");
-                            return;
+                            int version = id.version;
+                            string bcd = usbDevice?.get_sysattr_value("bcdDevice");
+                            if (!string.IsNullOrEmpty(bcd) && ushort.TryParse(bcd, NumberStyles.HexNumber, null, out var usbVersion))
+                                version = usbVersion;
+
+                            if (id.product == 0x2882 && (version >> 8) >= 3 && (version >> 8) <= 8)
+                            {
+                                protocol = 1;
+                                subType = version >> 8;
+                            }
+                            else
+                            {
+                                WarnOnce(path, $"Santroller evdev fallback '{path}' has no supported instrument identity. Current firmware must expose the Santroller USB identity descriptor.");
+                                return;
+                            }
                         }
                     }
 
