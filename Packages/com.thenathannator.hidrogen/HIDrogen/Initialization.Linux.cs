@@ -7,6 +7,7 @@ namespace HIDrogen
     {
         static partial void PlatformInitialize()
         {
+            s_BackendManager.TryCreateService<USBService>();
             if (s_BackendManager.TryCreateBackend<HidApiBackend>())
             {
                 LinuxShim.Initialize();

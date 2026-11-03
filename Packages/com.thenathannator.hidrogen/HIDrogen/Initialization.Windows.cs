@@ -7,6 +7,7 @@ namespace HIDrogen
     {
         static partial void PlatformInitialize()
         {
+            s_BackendManager.TryCreateService<USBService>();
 #if UNITY_2022_2_OR_NEWER
             s_BackendManager.TryCreateBackend<XInputBackend>();
 #endif

@@ -7,6 +7,7 @@ namespace HIDrogen
     {
         static partial void PlatformInitialize()
         {
+            s_BackendManager.TryCreateService<USBService>();
         }
 
         static partial void PlatformUninitialize()

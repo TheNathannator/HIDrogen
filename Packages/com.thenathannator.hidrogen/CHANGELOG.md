@@ -12,6 +12,7 @@ Dates are relative to UTC.
 
 - A device that gets removed and re-added in the same update (from e.g. refreshing devices from scratch) is now ensured to have its removal event fired before its addition event.
 - File paths and line numbers are no longer included in error messages.
+- The libusb backend is no longer added regardless of platform; it will now only be added on PC standalone platforms by default.
 
 ### Fixed
 

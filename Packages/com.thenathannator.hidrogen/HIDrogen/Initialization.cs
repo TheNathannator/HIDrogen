@@ -1,5 +1,4 @@
 using System;
-using HIDrogen.Backend;
 
 namespace HIDrogen
 {
@@ -32,8 +31,6 @@ namespace HIDrogen
             try
             {
                 Logging.Verbose("Initializing backends");
-
-                s_BackendManager.TryCreateService<USBService>();
                 PlatformInitialize();
 
                 s_BackendManager.Start();
