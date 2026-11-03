@@ -12,7 +12,7 @@ public class DirectoryBuildPropsScope : IDisposable
 {
     private readonly string _path;
 
-    public DirectoryBuildPropsScope(string directory, string coreModulePath)
+    public DirectoryBuildPropsScope(string directory, string coreModulePath, string[] defines)
     {
         _path = Path.Combine(directory, "Directory.Build.props");
         File.WriteAllText(_path,
@@ -20,7 +20,7 @@ public class DirectoryBuildPropsScope : IDisposable
             <Project xmlns=""http://schemas.microsoft.com/developer/msbuild/2003"">
 
                 <PropertyGroup>
-                    <DefineConstants>$(DefineConstants);UNITY_STANDALONE</DefineConstants>
+                    <DefineConstants>$(DefineConstants);{string.Join(";", defines)}</DefineConstants>
                 </PropertyGroup>
 
                 <ItemGroup>
@@ -57,7 +57,12 @@ public static class BuildExternalModules
             string[] precompiled = CompilationPipeline.GetPrecompiledAssemblyPaths(CompilationPipeline.PrecompiledAssemblySources.UnityEngine);
             string coreModulePath = precompiled.First((p) => p.EndsWith("UnityEngine.CoreModule.dll"));
 
-            BuildProject("Submodules/SharpGameInput/SharpGameInput.v0/Source/SharpGameInput.v0.csproj", coreModulePath, 0.1f);
+            BuildProject(
+                "Submodules/SharpGameInput/SharpGameInput.v0/Source/SharpGameInput.v0.csproj",
+                coreModulePath,
+                0.1f,
+                "SHARPGAMEINPUT_UNITY"
+            );
         }
         catch (Exception ex)
         {
@@ -71,13 +76,13 @@ public static class BuildExternalModules
         }
     }
 
-    private static void BuildProject(string projectPath, string coreModulePath, float progress)
+    private static void BuildProject(string projectPath, string coreModulePath, float progress, params string[] defines)
     {
         string projectDirectory = Path.GetDirectoryName(projectPath);
         string projectName = Path.GetFileNameWithoutExtension(projectPath);
 
         string buildOutputDir;
-        using (new DirectoryBuildPropsScope(projectDirectory, coreModulePath))
+        using (new DirectoryBuildPropsScope(projectDirectory, coreModulePath, defines))
         {
             buildOutputDir = RunBuildProjectCommand(projectPath, progress);
         }
@@ -95,10 +100,18 @@ public static class BuildExternalModules
     {
         string assemblyName = Path.GetFileNameWithoutExtension(projectFile);
 
-        // Fire up `dotnet` to publish the project
-        var output = RunCommand("dotnet",
-            $@"build ""{projectFile}"" /nologo /p:Configuration=Release /p:TargetFramework=netstandard2.0 /p:GenerateFullPaths=true /consoleloggerparameters:NoSummary",
-            ProgressTitle, $"Building project {assemblyName}", progress
+        // Fire up `dotnet` to build the project
+        var output = RunCommand(
+            "dotnet",
+            $@"build ""{projectFile}"" " +
+                "/nologo " +
+                "/p:Configuration=Release " +
+                "/p:TargetFramework=netstandard2.0 " +
+                "/p:GenerateFullPaths=true " +
+                "/consoleloggerparameters:NoSummary",
+            ProgressTitle,
+            $"Building project {assemblyName}",
+            progress
         );
 
         string assemblySearch = $"{assemblyName} -> ";
