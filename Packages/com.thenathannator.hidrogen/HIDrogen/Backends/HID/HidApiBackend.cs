@@ -65,7 +65,7 @@ namespace HIDrogen.Backend
             // Initialize hidapi
             int result = hid_init();
             if (result < 0)
-                throw new Exception(Logging.MakeInteropErrorMessage("Failed to initialize hidapi"));
+                throw new Exception(Logging.MakeLastErrorMessage("Failed to initialize hidapi"));
 
             // Initialize platform-specific resources
             PlatformInitialize();
@@ -81,7 +81,7 @@ namespace HIDrogen.Backend
             // Free hidapi
             int result = hid_exit();
             if (result < 0)
-                Logging.InteropError("Error when freeing hidapi");
+                Logging.LastError("Error when freeing hidapi");
         }
 
         protected override void OnStart()
@@ -174,7 +174,7 @@ namespace HIDrogen.Backend
             // Get descriptor
             if (!PlatformGetDescriptor(info.path, out var descriptorBytes))
             {
-                Logging.InteropError("Error getting descriptor");
+                Logging.LastError("Error getting descriptor");
                 return false;
             }
 

@@ -41,7 +41,7 @@ namespace HIDrogen.Backend
         {
             m_Handle = hid_open_path(path);
             if (m_Handle == null || m_Handle.IsInvalid)
-                throw new Exception(Logging.MakeInteropErrorMessage($"Error when opening HID device '{path}': {hid_error()}"));
+                throw new Exception(Logging.MakeLastErrorMessage($"Error when opening HID device '{path}': {hid_error()}"));
 
             m_Backend = backend;
             this.path = path;
@@ -102,13 +102,13 @@ namespace HIDrogen.Backend
                     errorCount++;
                     if (errorCount >= retryThreshold)
                     {
-                        Logging.InteropError($"hid_read error: {hid_error(m_Handle)}");
+                        Logging.LastError($"hid_read error: {hid_error(m_Handle)}");
                         break;
                     }
 #if HIDROGEN_VERBOSE_LOGGING
                     else
                     {
-                        Logging.InteropError($"hid_read error (attempt {errorCount}): {hid_error(m_Handle)}");
+                        Logging.LastError($"hid_read error (attempt {errorCount}): {hid_error(m_Handle)}");
                     }
 #endif
                     continue;

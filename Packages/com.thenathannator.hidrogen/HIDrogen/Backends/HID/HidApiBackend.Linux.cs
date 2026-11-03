@@ -17,7 +17,7 @@ namespace HIDrogen.Backend
             m_Udev = Udev.Instance.context_new();
             if (m_Udev == null || m_Udev.IsInvalid)
             {
-                Logging.InteropError("Failed to initialize udev");
+                Logging.LastError("Failed to initialize udev");
                 throw new Exception("Failed to initialize udev!");
             }
         }
@@ -34,7 +34,7 @@ namespace HIDrogen.Backend
             var monitor = m_Udev.monitor_new_from_netlink("udev");
             if (monitor == null || monitor.IsInvalid)
             {
-                Logging.InteropError("Failed to initialize device monitor");
+                Logging.LastError("Failed to initialize device monitor");
                 success = false;
                 return;
             }
@@ -44,7 +44,7 @@ namespace HIDrogen.Backend
                 // Add filter for hidraw devices
                 if (monitor.filter_add_match_subsystem_devtype("hidraw", null) < 0)
                 {
-                    Logging.InteropError("Failed to add filter to device monitor");
+                    Logging.LastError("Failed to add filter to device monitor");
                     success = false;
                     return;
                 }
@@ -52,7 +52,7 @@ namespace HIDrogen.Backend
                 // Enable monitor
                 if (monitor.enable_receiving() < 0)
                 {
-                    Logging.InteropError("Failed to enable receiving on device monitor");
+                    Logging.LastError("Failed to enable receiving on device monitor");
                     success = false;
                     return;
                 }
@@ -61,7 +61,7 @@ namespace HIDrogen.Backend
                 var fd = monitor.get_fd();
                 if (fd == null || fd.IsInvalid)
                 {
-                    Logging.InteropError("Failed to get device monitor file descriptor");
+                    Logging.LastError("Failed to get device monitor file descriptor");
                     success = false;
                     return;
                 }
@@ -77,7 +77,7 @@ namespace HIDrogen.Backend
                         if (result < 0) // Error
                         {
                             errorCount++;
-                            Logging.InteropError("Error while polling for device monitor events");
+                            Logging.LastError("Error while polling for device monitor events");
                             if (errorCount >= errorThreshold)
                             {
                                 Logging.Error($"Error threshold reached, stopping udev monitoring");
@@ -95,7 +95,7 @@ namespace HIDrogen.Backend
                         var dev = monitor.receive_device();
                         if (dev == null || dev.IsInvalid)
                         {
-                            Logging.InteropError("Failed to get changed device");
+                            Logging.LastError("Failed to get changed device");
                             continue;
                         }
 
@@ -207,7 +207,7 @@ namespace HIDrogen.Backend
             // Use statx to grab the device type and number, and then construct a udev device
             if (Stat.statx(0, path, 0, 0, out var pathStats) < 0)
             {
-                Logging.InteropError("Error getting device type info");
+                Logging.LastError("Error getting device type info");
                 success = false;
                 return;
             }
@@ -215,7 +215,7 @@ namespace HIDrogen.Backend
             var hidrawDevice = m_Udev.device_new_from_devnum(pathStats.DeviceType, pathStats.DeviceNumber);
             if (hidrawDevice == null || hidrawDevice.IsInvalid)
             {
-                Logging.InteropError("Failed to get hidraw device instance");
+                Logging.LastError("Failed to get hidraw device instance");
                 success = false;
                 return;
             }
@@ -226,7 +226,7 @@ namespace HIDrogen.Backend
                 var hidDevice = hidrawDevice.get_parent_with_subsystem_devtype("hid", null);
                 if (hidDevice == null || hidDevice.IsInvalid)
                 {
-                    Logging.InteropError("Failed to get HID device instance");
+                    Logging.LastError("Failed to get HID device instance");
                     success = false;
                     return;
                 }
@@ -237,7 +237,7 @@ namespace HIDrogen.Backend
                     var enumerate = m_Udev.enumerate_new();
                     if (enumerate == null || enumerate.IsInvalid)
                     {
-                        Logging.InteropError("Failed to make udev enumeration");
+                        Logging.LastError("Failed to make udev enumeration");
                         success = false;
                         return;
                     }
@@ -249,7 +249,7 @@ namespace HIDrogen.Backend
                             enumerate.add_match_subsystem("input") < 0 ||
                             enumerate.scan_devices() < 0)
                         {
-                            Logging.InteropError("Failed to scan udev devices");
+                            Logging.LastError("Failed to scan udev devices");
                             success = false;
                             return;
                         }
@@ -263,7 +263,7 @@ namespace HIDrogen.Backend
                             (inputDevice = m_Udev.device_new_from_syspath(entryPath)) == null ||
                             inputDevice.IsInvalid)
                         {
-                            Logging.InteropError("Failed to get input device instance");
+                            Logging.LastError("Failed to get input device instance");
                             success = false;
                             return;
                         }

@@ -28,15 +28,15 @@ namespace HIDrogen
             Debug.LogException(ex);
         }
 
-        public static string MakeInteropErrorMessage(string message)
+        public static string MakeLastErrorMessage(string message)
 #if UNITY_STANDALONE_LINUX
             => $"{message} ({Posix.errno})";
 #else
             => $"{message} (0x{Marshal.GetLastWin32Error():X8})";
 #endif
 
-        public static void InteropError(string message)
-            => Debug.LogError($"[HIDrogen] {MakeInteropErrorMessage(message)}");
+        public static void LastError(string message)
+            => Debug.LogError($"[HIDrogen] {MakeLastErrorMessage(message)}");
 
         [Conditional("HIDROGEN_VERBOSE_LOGGING")]
         public static void Verbose(string message)
