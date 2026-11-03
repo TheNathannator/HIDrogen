@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 #if UNITY_STANDALONE_WIN
 using HIDrogen.Imports.Windows;
 using UnityEngine;
@@ -10,13 +10,6 @@ using UnityEngine.InputSystem.Utilities;
 
 namespace HIDrogen.Backend
 {
-    internal struct XInputAddContext : IDisposable
-    {
-        public uint userIndex;
-
-        public void Dispose() {}
-    }
-
     // Constants always provided for other places to use
     internal partial class XInputBackend
     {
@@ -25,12 +18,30 @@ namespace HIDrogen.Backend
     }
 
 #if UNITY_STANDALONE_WIN
-    internal partial class XInputBackend : CustomInputBackend<XInputBackendDevice, XInputAddContext>
+    internal partial class XInputBackend : CustomInputBackend<XInputBackendDevice, XInputBackend.AddContext>
     {
+        internal struct AddContext : IDisposable
+        {
+            public XInputBackend backend;
+            public uint userIndex;
+
+            public AddContext(XInputBackend backend, uint userIndex)
+            {
+                this.backend = backend;
+                this.userIndex = userIndex;
+            }
+
+            public void Dispose()
+            {
+                backend.m_QueuedDevices[userIndex] = false;
+            }
+        }
+
         private const double kRefreshPeriod = 1.0;
         private double m_LastRefreshTime;
 
         private readonly XInputBackendDevice[] m_Devices = new XInputBackendDevice[XInput.MaxCount];
+        private readonly bool[] m_QueuedDevices = new bool[XInput.MaxCount];
         private readonly bool[] m_BannedDevices = new bool[XInput.MaxCount];
 
         protected override void OnDispose()
@@ -62,7 +73,7 @@ namespace HIDrogen.Backend
         {
             for (uint i = 0; i < m_Devices.Length; i++)
             {
-                if (m_Devices[i] != null)
+                if (m_Devices[i] != null || m_QueuedDevices[i])
                     continue;
 
                 var result = XInput.Instance.GetCapabilities(i, XInputCapabilityRequest.Gamepad, out var capabilities);
@@ -107,14 +118,12 @@ namespace HIDrogen.Backend
                     }),
                 };
 
-                QueueDeviceAdd(description, new XInputAddContext()
-                {
-                    userIndex = i
-                });
+                m_QueuedDevices[i] = true;
+                QueueDeviceAdd(description, new AddContext(this, i));
             }
         }
 
-        protected override XInputBackendDevice OnDeviceAdded(InputDevice device, XInputAddContext context)
+        protected override XInputBackendDevice OnDeviceAdded(InputDevice device, AddContext context)
         {
             if (context.userIndex >= m_Devices.Length)
                 throw new Exception($"Attempted to create device for invalid XInput user index {context.userIndex}!");

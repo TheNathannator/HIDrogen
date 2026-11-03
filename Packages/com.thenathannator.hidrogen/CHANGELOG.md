@@ -12,6 +12,10 @@ Dates are relative to UTC.
 
 - A device that gets removed and re-added in the same update (from e.g. refreshing devices from scratch) is now ensured to have its removal event fired before its addition event.
 
+### Fixed
+
+- The XInput backend no longer attempts to add the same device multiple times.
+
 ## [0.5.3]
 
 ### Added
