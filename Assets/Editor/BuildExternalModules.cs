@@ -59,6 +59,7 @@ public static class BuildExternalModules
 
             BuildProject(
                 "Submodules/SharpGameInput/SharpGameInput.v0/Source/SharpGameInput.v0.csproj",
+                Path.Combine(OutputPluginsPath, "SharpGameInput"),
                 coreModulePath,
                 0.1f,
                 "SHARPGAMEINPUT_UNITY"
@@ -76,23 +77,34 @@ public static class BuildExternalModules
         }
     }
 
-    private static void BuildProject(string projectPath, string coreModulePath, float progress, params string[] defines)
+    private static void BuildProject(
+        string projectPath,
+        string outputDir,
+        string coreModulePath,
+        float progress,
+        params string[] defines
+    )
     {
         string projectDirectory = Path.GetDirectoryName(projectPath);
         string projectName = Path.GetFileNameWithoutExtension(projectPath);
 
-        string buildOutputDir;
+        string buildDir;
         using (new DirectoryBuildPropsScope(projectDirectory, coreModulePath, defines))
         {
-            buildOutputDir = RunBuildProjectCommand(projectPath, progress);
+            buildDir = RunBuildProjectCommand(projectPath, progress);
         }
 
-        string pluginOutputDir = Path.Combine(OutputPluginsPath, projectName);
-        Directory.CreateDirectory(pluginOutputDir);
-
-        string pluginBasePath = Path.Combine(pluginOutputDir, projectName);
-        File.Copy(Path.Combine(buildOutputDir, projectName + ".dll"), pluginBasePath + ".dll", overwrite: true);
-        File.Copy(Path.Combine(buildOutputDir, projectName + ".pdb"), pluginBasePath + ".pdb", overwrite: true);
+        Directory.CreateDirectory(outputDir);
+        File.Copy(
+            Path.Combine(buildDir, projectName + ".dll"),
+            Path.Combine(outputDir, projectName + ".dll"),
+            overwrite: true
+        );
+        File.Copy(
+            Path.Combine(buildDir, projectName + ".pdb"),
+            Path.Combine(outputDir, projectName + ".pdb"),
+            overwrite: true
+        );
         Debug.Log("Successfully built " + projectName);
     }
 
