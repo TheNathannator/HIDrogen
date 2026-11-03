@@ -76,13 +76,19 @@ public static class BuildExternalModules
         string projectDirectory = Path.GetDirectoryName(projectPath);
         string projectName = Path.GetFileNameWithoutExtension(projectPath);
 
+        string buildOutputDir;
         using (new DirectoryBuildPropsScope(projectDirectory, coreModulePath))
         {
-            string outputDirectory = RunBuildProjectCommand(projectPath, progress);
-            File.Copy(Path.Combine(outputDirectory, projectName + ".dll"), OutputPluginsPath + "/" + projectName + ".dll", overwrite: true);
-            File.Copy(Path.Combine(outputDirectory, projectName + ".pdb"), OutputPluginsPath + "/" + projectName + ".pdb", overwrite: true);
-            Debug.Log("Successfully built " + projectName);
+            buildOutputDir = RunBuildProjectCommand(projectPath, progress);
         }
+
+        string pluginOutputDir = Path.Combine(OutputPluginsPath, projectName);
+        Directory.CreateDirectory(pluginOutputDir);
+
+        string pluginBasePath = Path.Combine(pluginOutputDir, projectName);
+        File.Copy(Path.Combine(buildOutputDir, projectName + ".dll"), pluginBasePath + ".dll", overwrite: true);
+        File.Copy(Path.Combine(buildOutputDir, projectName + ".pdb"), pluginBasePath + ".pdb", overwrite: true);
+        Debug.Log("Successfully built " + projectName);
     }
 
     private static string RunBuildProjectCommand(string projectFile, float progress)
