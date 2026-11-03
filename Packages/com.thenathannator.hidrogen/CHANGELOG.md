@@ -17,6 +17,7 @@ Dates are relative to UTC.
 ### Fixed
 
 - The XInput backend no longer attempts to add the same device multiple times.
+- The GameInput backend will no longer send empty state events, and instead converts these into device soft-reset events.
 
 ## [0.5.3]
 

@@ -150,6 +150,20 @@ namespace HIDrogen.Backend
                 const int minReportSize = 10;
                 const int maxReportSize = 64 + 1; // + 1 to accomodate report ID
 
+                byte reportId = (byte)rawReport.GetReportInfo().id;
+
+                // Newer versions of GameInput don't support background raw reports for GIP devices, and will
+                // send empty reports when the window loses focus. Interpret this as a device reset event to
+                // avoid an exception when using `eventPtr.EnumerateControls()` on state events for
+                // PlasticBand-Unity's translating devices, caused by the empty report being less than the
+                // expected size which makes state translation reject the state.
+                if (rawReport.GetRawDataSize() == UIntPtr.Zero)
+                {
+                    var reset = DeviceResetEvent.Create(device.deviceId);
+                    m_Backend.QueueEvent(ref reset);
+                    return true;
+                }
+
                 byte* buffer = stackalloc byte[maxReportSize];
                 buffer[0] = (byte)rawReport.GetReportInfo().id;
 
