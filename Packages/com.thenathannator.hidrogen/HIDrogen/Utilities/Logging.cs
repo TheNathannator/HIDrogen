@@ -41,5 +41,9 @@ namespace HIDrogen
         [Conditional("HIDROGEN_VERBOSE_LOGGING")]
         public static void Verbose(string message)
             => Message(message);
+
+        [Conditional("HIDROGEN_VERBOSE_LOGGING")]
+        public static void Verbose(Exception ex)
+            => Message(ex.ToString());
     }
 }

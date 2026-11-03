@@ -144,14 +144,23 @@ namespace HIDrogen
                     {
                         device = InputSystem.AddDevice(description);
                     }
-                    catch (ArgumentException)
-                    {
-                        // Ignore layout-not-found exception
-                        continue;
-                    }
                     catch (Exception ex)
                     {
-                        Logging.Exception("Failed to add device to the input system!", ex);
+                        // Exception filters not used here, as they ended up being more surprising
+                        // than helpful with how non-matching ArgumentExceptions were allowed to go
+                        // uncaught, and addressing that with a second ArgumentException block with
+                        // no filter just resulted in duplication of the log message
+
+                        if (ex is ArgumentException argEx && argEx.ParamName == "description")
+                        {
+                            // Silence layout-not-found exception
+                            Logging.Verbose(ex);
+                        }
+                        else
+                        {
+                            Logging.Exception($"Failed to add device to the input system! (Description '{description}')", ex);
+                        }
+
                         continue;
                     }
 
