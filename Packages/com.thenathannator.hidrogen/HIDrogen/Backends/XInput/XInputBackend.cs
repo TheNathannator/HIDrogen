@@ -40,14 +40,25 @@ namespace HIDrogen.Backend
         private const double kRefreshPeriod = 1.0;
         private double m_LastRefreshTime;
 
+        private readonly XInput m_XInput;
+
         private readonly XInputBackendDevice[] m_Devices = new XInputBackendDevice[XInput.MaxCount];
         private readonly bool[] m_QueuedDevices = new bool[XInput.MaxCount];
         private readonly bool[] m_BannedDevices = new bool[XInput.MaxCount];
 
+        public XInputBackend()
+        {
+            m_XInput = new XInput();
+        }
+
         protected override void OnDispose()
         {
             foreach (var device in m_Devices)
+            {
                 device?.Dispose();
+            }
+
+            m_XInput.Dispose();
         }
 
         protected override void OnStart()
@@ -76,7 +87,7 @@ namespace HIDrogen.Backend
                 if (m_Devices[i] != null || m_QueuedDevices[i])
                     continue;
 
-                var result = XInput.Instance.GetCapabilities(i, XInputCapabilityRequest.Gamepad, out var capabilities);
+                var result = m_XInput.GetCapabilities(i, XInputCapabilityRequest.Gamepad, out var capabilities);
                 if (result != Win32Error.ERROR_SUCCESS)
                 {
                     if (result == Win32Error.ERROR_DEVICE_NOT_CONNECTED)
@@ -130,14 +141,16 @@ namespace HIDrogen.Backend
             if (m_Devices[context.userIndex] != null)
                 throw new Exception($"Attempted to create duplicate device for XInput user index {context.userIndex}!");
 
-            var backendDevice = new XInputBackendDevice(this, context.userIndex, device);
+            var backendDevice = new XInputBackendDevice(this, m_XInput, context.userIndex, device);
             m_Devices[context.userIndex] = backendDevice;
+            m_QueuedDevices[context.userIndex] = false;
             return backendDevice;
         }
 
         protected override void OnDeviceRemoved(XInputBackendDevice device)
         {
             m_Devices[device.userIndex] = null;
+            m_QueuedDevices[device.userIndex] = false;
             device.Dispose();
         }
 

@@ -10,6 +10,7 @@ namespace HIDrogen.Backend
     internal class XInputBackendDevice : IDisposable
     {
         private readonly XInputBackend m_Backend;
+        private readonly XInput m_XInput;
 
         public uint userIndex { get; }
         public InputDevice device { get; }
@@ -17,9 +18,10 @@ namespace HIDrogen.Backend
         private Thread m_ReadThread;
         private EventWaitHandle m_ThreadStop = new EventWaitHandle(false, EventResetMode.ManualReset);
 
-        public XInputBackendDevice(XInputBackend backend, uint userIndex, InputDevice device)
+        public XInputBackendDevice(XInputBackend backend, XInput xinput, uint userIndex, InputDevice device)
         {
             m_Backend = backend;
+            m_XInput = xinput;
             this.userIndex = userIndex;
             this.device = device;
 
@@ -42,7 +44,7 @@ namespace HIDrogen.Backend
             uint lastPacketNumber = 0;
             while (!m_ThreadStop.WaitOne(1))
             {
-                var result = XInput.Instance.GetState(userIndex, out var state);
+                var result = m_XInput.GetState(userIndex, out var state);
                 if (result != Win32Error.ERROR_SUCCESS)
                 {
                     if (result != Win32Error.ERROR_DEVICE_NOT_CONNECTED)
@@ -68,7 +70,7 @@ namespace HIDrogen.Backend
                 rightMotor = (ushort)(rumble->highFrequencyMotorSpeed * ushort.MaxValue),
             };
 
-            var result = XInput.Instance.SetState(userIndex, vibration);
+            var result = m_XInput.SetState(userIndex, vibration);
             if (result != 0)
             {
                 if (result != Win32Error.ERROR_DEVICE_NOT_CONNECTED)

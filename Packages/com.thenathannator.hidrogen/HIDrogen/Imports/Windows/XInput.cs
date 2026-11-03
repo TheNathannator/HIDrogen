@@ -124,8 +124,6 @@ namespace HIDrogen.Imports.Windows
     {
         public const uint MaxCount = 4;
 
-        public static XInput Instance { get; } = new XInput();
-
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private delegate Win32Error XInputGetState(
             uint UserIndex,
