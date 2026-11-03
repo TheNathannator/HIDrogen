@@ -1,7 +1,5 @@
-using System;
+﻿using System;
 using System.Diagnostics;
-using System.IO;
-using System.Runtime.CompilerServices;
 
 #if UNITY_STANDALONE_LINUX
 using HIDrogen.Imports.Posix;
@@ -21,12 +19,8 @@ namespace HIDrogen
         public static void Warning(string message)
             => Debug.LogWarning($"[HIDrogen] {message}");
 
-        public static void Error(
-            string message,
-            [CallerFilePath] string sourceFilePath = "",
-            [CallerLineNumber] int sourceLineNumber = 0
-        )
-            => Debug.LogError($"[HIDrogen {Path.GetFileName(sourceFilePath)}({sourceLineNumber})] {message}");
+        public static void Error(string message)
+            => Debug.LogError($"[HIDrogen] {message}");
 
         public static void Exception(string message, Exception ex)
         {
@@ -41,12 +35,8 @@ namespace HIDrogen
             => $"{message} (0x{Marshal.GetLastWin32Error():X8})";
 #endif
 
-        public static void InteropError(
-            string message,
-            [CallerFilePath] string sourceFilePath = "",
-            [CallerLineNumber] int sourceLineNumber = 0
-        )
-            => Debug.LogError($"[HIDrogen {Path.GetFileName(sourceFilePath)}({sourceLineNumber})] {MakeInteropErrorMessage(message)}");
+        public static void InteropError(string message)
+            => Debug.LogError($"[HIDrogen] {MakeInteropErrorMessage(message)}");
 
         [Conditional("HIDROGEN_VERBOSE_LOGGING")]
         public static void Verbose(string message)
