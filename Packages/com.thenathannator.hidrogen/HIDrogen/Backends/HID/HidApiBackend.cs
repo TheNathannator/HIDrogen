@@ -215,7 +215,7 @@ namespace HIDrogen.Backend
             }
 
             // Check against safety limit
-            if (descriptor.inputReportSize > kMaxStateSize)
+            if (descriptor.inputReportSize > CustomInputBuffer.MaxStateSize)
             {
                 Logging.Warning("Device has an excessive amount of input data, ignoring for safety.");
                 return false;

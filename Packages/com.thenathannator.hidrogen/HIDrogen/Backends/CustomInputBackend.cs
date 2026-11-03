@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using HIDrogen.LowLevel;
-using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
@@ -24,9 +22,7 @@ namespace HIDrogen
         where TBackendDevice : class
         where TAddContext : IDisposable
     {
-        // Safety limit, to avoid allocating too much on the stack
-        // (InputSystem.StateEventBuffer.kMaxSize)
-        protected const int kMaxStateSize = 512;
+        private readonly CustomInputBuffer m_InputBuffer = new CustomInputBuffer();
 
         // Map from input system instance to backend instance
         private readonly Dictionary<InputDevice, TBackendDevice> m_DeviceLookup
@@ -37,21 +33,7 @@ namespace HIDrogen
             = new ConcurrentBag<(InputDeviceDescription, TAddContext)>();
         internal readonly ConcurrentBag<InputDevice> m_RemovalQueue = new ConcurrentBag<InputDevice>();
 
-        // We use a custom buffering implementation because the built-in implementation is
-        // not friendly to managed threads, despite what the docs for InputSystem.QueueEvent/QueueStateEvent
-        // may claim, so we need to flush events on the main thread.
-        private readonly SlimEventBuffer[] m_InputBuffers = new SlimEventBuffer[2];
-        private volatile int m_CurrentBuffer = 0;
-
         private bool m_Started = false;
-
-        protected CustomInputBackend()
-        {
-            for (int i = 0; i < m_InputBuffers.Length; i++)
-            {
-                m_InputBuffers[i] = new SlimEventBuffer();
-            }
-        }
 
         ~CustomInputBackend()
         {
@@ -64,10 +46,7 @@ namespace HIDrogen
             Stop();
             OnDispose();
 
-            foreach (var buffer in m_InputBuffers)
-            {
-                buffer.Dispose();
-            }
+            m_InputBuffer.Dispose();
 
             GC.SuppressFinalize(this);
         }
@@ -193,25 +172,20 @@ namespace HIDrogen
 
         private void FlushEventBuffer()
         {
-            SlimEventBuffer buffer;
-            lock (m_InputBuffers)
+            using (var buffer = m_InputBuffer.SwapBuffer())
             {
-                buffer = m_InputBuffers[m_CurrentBuffer];
-                m_CurrentBuffer = (m_CurrentBuffer + 1) % m_InputBuffers.Length;
-            }
-
-            foreach (var eventPtr in buffer)
-            {
-                try
+                foreach (var eventPtr in buffer)
                 {
-                    InputSystem.QueueEvent(eventPtr);
-                }
-                catch (Exception ex)
-                {
-                    Logging.Exception("Error when flushing an event!", ex);
+                    try
+                    {
+                        InputSystem.QueueEvent(eventPtr);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logging.Exception("Error when flushing an event!", ex);
+                    }
                 }
             }
-            buffer.Reset();
         }
 
         protected abstract void OnDispose();
@@ -235,130 +209,58 @@ namespace HIDrogen
             m_RemovalQueue.Add(device);
         }
 
-        public unsafe void QueueEvent(InputEventPtr eventPtr)
+        public void QueueEvent(InputEventPtr eventPtr)
         {
-            lock (m_InputBuffers)
-            {
-                m_InputBuffers[m_CurrentBuffer].AppendEvent(eventPtr);
-            }
+            m_InputBuffer.QueueEvent(eventPtr);
         }
 
-        public unsafe void QueueEvent<TEvent>(ref TEvent inputEvent)
+        public void QueueEvent<TEvent>(ref TEvent inputEvent)
             where TEvent : struct, IInputEventTypeInfo
         {
-            QueueEvent((InputEvent*)UnsafeUtility.AddressOf(ref inputEvent));
+            m_InputBuffer.QueueEvent(ref inputEvent);
         }
 
-        public unsafe void QueueStateEvent<TState>(InputDevice device, ref TState state)
+        public void QueueStateEvent<TState>(InputDevice device, ref TState state)
             where TState : unmanaged, IInputStateTypeInfo
         {
-            QueueStateEvent(device, state.format, UnsafeUtility.AddressOf(ref state), sizeof(TState));
+            m_InputBuffer.QueueStateEvent(device, ref state);
         }
 
-        public unsafe void QueueStateEvent(InputDevice device, FourCC format, byte[] stateBuffer)
+        public void QueueStateEvent(InputDevice device, FourCC format, byte[] stateBuffer)
         {
-            fixed (byte* ptr = stateBuffer)
-            {
-                QueueStateEvent(device, format, ptr, stateBuffer.Length);
-            }
+            m_InputBuffer.QueueStateEvent(device, format, stateBuffer);
         }
 
-        public unsafe void QueueStateEvent(InputDevice device, FourCC format, byte[] stateBuffer, int offset, int length)
+        public void QueueStateEvent(InputDevice device, FourCC format, byte[] stateBuffer, int offset, int length)
         {
-            if (stateBuffer.Length < offset)
-            {
-                throw new ArgumentOutOfRangeException(nameof(offset));
-            }
-
-            if ((stateBuffer.Length - offset) < length)
-            {
-                throw new ArgumentOutOfRangeException(nameof(length));
-            }
-
-            fixed (byte* ptr = stateBuffer)
-            {
-                QueueStateEvent(device, format, ptr + offset, length);
-            }
+            m_InputBuffer.QueueStateEvent(device, format, stateBuffer, offset, length);
         }
 
-        // Based on InputSystem.QueueStateEvent<T>
         public unsafe void QueueStateEvent(InputDevice device, FourCC format, void* stateBuffer, int stateLength)
         {
-            if (stateBuffer == null || stateLength < 1 || stateLength > kMaxStateSize)
-            {
-                return;
-            }
-
-            // Create state buffer
-            int eventSize = stateLength + (sizeof(StateEvent) - 1); // StateEvent already includes 1 byte at the end
-            byte* _stateEvent = stackalloc byte[eventSize];
-            StateEvent* stateEvent = (StateEvent*)_stateEvent;
-            *stateEvent = new StateEvent
-            {
-                baseEvent = new InputEvent(StateEvent.Type, eventSize, device.deviceId),
-                stateFormat = format
-            };
-
-            // Copy state data
-            UnsafeUtility.MemCpy(stateEvent->state, stateBuffer, stateLength);
-
-            // Queue state event
-            QueueEvent((InputEvent*)stateEvent);
+            m_InputBuffer.QueueStateEvent(device, format, stateBuffer, stateLength);
         }
 
-        public unsafe void QueueDeltaStateEvent<TValue>(InputControl control, ref TValue value)
+        public void QueueDeltaStateEvent<TValue>(InputControl control, ref TValue value)
             where TValue : unmanaged
         {
-            QueueDeltaStateEvent(control, UnsafeUtility.AddressOf(ref value), sizeof(TValue));
+            m_InputBuffer.QueueDeltaStateEvent(control, ref value);
         }
 
-        public unsafe void QueueDeltaStateEvent<TValue>(InputDevice device, uint offset, ref TValue value)
+        public void QueueDeltaStateEvent<TValue>(InputDevice device, uint offset, ref TValue value)
             where TValue : unmanaged
         {
-            QueueDeltaStateEvent(device, offset, UnsafeUtility.AddressOf(ref value), sizeof(TValue));
+            m_InputBuffer.QueueDeltaStateEvent(device, offset, ref value);
         }
 
-        // Based on InputSystem.QueueDeltaStateEvent<T>
         public unsafe void QueueDeltaStateEvent(InputControl control, void* stateBuffer, int stateLength)
         {
-            var stateBlock = control.stateBlock;
-            
-            if (stateBlock.bitOffset != 0)
-                throw new InvalidOperationException($"Cannot send delta state events against bitfield controls: {control}");
-
-            uint alignedSizeInBytes = (stateBlock.sizeInBits + 7) >> 3;
-            if (stateLength != alignedSizeInBytes)
-                throw new ArgumentException($"Size {stateLength} of delta state provided for control '{control}' does not match size {alignedSizeInBytes} of control");
-
-            var device = control.device;
-            uint offset = stateBlock.byteOffset - device.stateBlock.byteOffset;
-            QueueDeltaStateEvent(device, offset, stateBuffer, stateLength);
+            m_InputBuffer.QueueDeltaStateEvent(control, stateBuffer, stateLength);
         }
 
-        // Based on InputSystem.QueueDeltaStateEvent<T>
         public unsafe void QueueDeltaStateEvent(InputDevice device, uint offset, void* stateBuffer, int stateLength)
         {
-            if (stateBuffer == null || stateLength < 1 || stateLength > kMaxStateSize)
-            {
-                return;
-            }
-
-            // Create state buffer
-            int eventSize = stateLength + (sizeof(DeltaStateEvent) - 1); // DeltaStateEvent already includes 1 byte at the end
-            byte* _deltaEvent = stackalloc byte[eventSize];
-            var deltaEvent = (DeltaStateEvent*)_deltaEvent;
-
-            *deltaEvent = new DeltaStateEvent()
-            {
-                baseEvent = new InputEvent(DeltaStateEvent.Type, eventSize, device.deviceId),
-                stateFormat = device.stateBlock.format,
-                stateOffset = offset
-            };
-
-            // Copy state data
-            UnsafeUtility.MemCpy(deltaEvent->deltaState, stateBuffer, stateLength);
-
-            QueueEvent(&deltaEvent->baseEvent);
+            m_InputBuffer.QueueDeltaStateEvent(device, offset, stateBuffer, stateLength);
         }
     }
 }
