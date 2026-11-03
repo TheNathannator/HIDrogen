@@ -184,7 +184,7 @@ namespace HIDrogen.Backend
             }
 
             // Expected return is the size of the string buffer
-            return bytes.Length; 
+            return bytes.Length;
         }
 
         public override string ToString()
