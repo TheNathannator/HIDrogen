@@ -23,6 +23,15 @@ namespace HIDrogen.LowLevel
         private long m_UsedLength;
         private int m_EventCount;
 
+        public void Dispose()
+        {
+            m_Buffer?.Dispose();
+            m_Buffer = null;
+
+            m_UsedLength = 0;
+            m_EventCount = 0;
+        }
+
         public void AppendEvent(InputEvent* eventPtr, int capacityIncrementInBytes = 2048)
         {
             if (eventPtr == null)
@@ -91,24 +100,6 @@ namespace HIDrogen.LowLevel
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
-        }
-
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        private void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                m_Buffer?.Dispose();
-                m_Buffer = null;
-            }
-
-            m_UsedLength = 0;
-            m_EventCount = 0;
         }
 
         public struct Enumerator : IEnumerator<InputEventPtr>
