@@ -1,16 +1,23 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Microsoft.Win32.SafeHandles;
 
 namespace HIDrogen.Imports.Posix
 {
-    internal class fd : SafeHandleMinusOneIsInvalid
+    internal class fd : SafeHandle
     {
-        internal fd() : base(false) => SetHandle((IntPtr)(-1));
-        internal fd(int fd, bool ownsHandle) : base(ownsHandle) => SetHandle((IntPtr)fd);
+        public override bool IsInvalid => (int)handle < 0;
 
-        protected override bool ReleaseHandle() => Fcntl.close((int)handle) >= 0;
+        internal fd(int fd, bool ownsHandle) : base((IntPtr)(-1), ownsHandle)
+        {
+            SetHandle((IntPtr)fd);
+        }
+
+        protected override bool ReleaseHandle()
+        {
+            return Fcntl.close((int)handle) >= 0;
+        }
+
         public int DangerousGetFileDescriptor() => (int)DangerousGetHandle();
     }
 
@@ -86,7 +93,7 @@ namespace HIDrogen.Imports.Posix
         public static fd open(string file, int flags)
         {
             int fd = _open(file, flags);
-            return fd < 0 ? new fd() : new fd(fd, true);
+            return new fd(fd, true);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
