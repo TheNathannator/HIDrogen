@@ -10,11 +10,13 @@ namespace HIDrogen.Backend
 {
     internal partial class HidApiBackend
     {
+        private Udev m_UdevLib;
         private udev_context m_Udev;
 
         partial void PlatformInitialize()
         {
-            m_Udev = Udev.Instance.context_new();
+            m_UdevLib = new Udev();
+            m_Udev = m_UdevLib.context_new();
             if (m_Udev == null || m_Udev.IsInvalid)
             {
                 Logging.LastError("Failed to initialize udev");
@@ -256,10 +258,10 @@ namespace HIDrogen.Backend
 
                         // Get the first device found
                         udev_list_entry entry;
-                        string entryPath;
+                        IntPtr entryPath;
                         udev_device inputDevice;
                         if ((entry = enumerate.get_list_entry()).IsInvalid ||
-                            string.IsNullOrEmpty(entryPath = entry.get_name()) ||
+                            (entryPath = entry.get_name()) != IntPtr.Zero ||
                             (inputDevice = m_Udev.device_new_from_syspath(entryPath)) == null ||
                             inputDevice.IsInvalid)
                         {
@@ -271,7 +273,7 @@ namespace HIDrogen.Backend
                         // Grab the version number from the found device
                         using (inputDevice)
                         {
-                            string versionStr = inputDevice.get_sysattr_value("id/version");
+                            string versionStr = inputDevice.get_sysattr_value("id/version").ToString();
                             success = ushort.TryParse(versionStr, NumberStyles.HexNumber, null, out version);
                         }
                     }
