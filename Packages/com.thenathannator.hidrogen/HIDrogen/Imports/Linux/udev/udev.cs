@@ -465,9 +465,7 @@ namespace HIDrogen.Imports.Linux
         public fd monitor_get_fd(udev_monitor monitor)
         {
             int fd = m_udev_monitor_get_fd(monitor);
-            return fd < 0
-                ? new fd()
-                : new fd(fd, false); // The file descriptor is *not* owned by us here
+            return new fd(fd, false); // The file descriptor is *not* owned by us here
         }
         #endregion
 
