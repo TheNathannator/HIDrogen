@@ -17,7 +17,7 @@ namespace HIDrogen
 #if UNITY_EDITOR
         [UnityEditor.InitializeOnLoadMethod]
 #else
-        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.BeforeSceneLoad)]
+        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.BeforeSplashScreen)]
 #endif
         internal static void Initialize()
         {
@@ -32,12 +32,25 @@ namespace HIDrogen
             {
                 Logging.Verbose("Initializing backends");
                 PlatformInitialize();
-
-                s_BackendManager.Start();
             }
             catch (Exception ex)
             {
                 Logging.Exception("Failed to initialize backends", ex);
+            }
+        }
+
+        // Defer start of backends to later to give device layouts time to be registered
+        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void DeferredStart()
+        {
+            try
+            {
+                Logging.Verbose("Starting backends");
+                s_BackendManager.Start();
+            }
+            catch (Exception ex)
+            {
+                Logging.Exception("Failed to start backends", ex);
             }
         }
 
