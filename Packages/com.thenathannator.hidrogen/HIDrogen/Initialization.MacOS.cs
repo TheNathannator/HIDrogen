@@ -1,5 +1,6 @@
 #if UNITY_STANDALONE_OSX
 using HIDrogen.Backend;
+using HIDrogen.Services;
 
 namespace HIDrogen
 {
