@@ -75,7 +75,13 @@ namespace HIDrogen.Backend
                     while (!m_ThreadStop.WaitOne(1000))
                     {
                         // Check if any events are available
-                        int result = Fcntl.poll(Fcntl.POLLIN, 0, fd);
+                        int result;
+                        unsafe
+                        {
+                            var poll = new pollfd(fd, Fcntl.POLLIN);
+                            result = Fcntl.poll(&poll, 0);
+                        }
+
                         if (result < 0) // Error
                         {
                             errorCount++;
