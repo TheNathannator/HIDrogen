@@ -1,5 +1,6 @@
 #if UNITY_STANDALONE_LINUX
 using System;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 using HIDrogen.Imports.Posix;
 using HIDrogen.LowLevel;
@@ -9,30 +10,13 @@ namespace HIDrogen.Imports.Linux
     #region Handles
     internal abstract class UdevHandle : SafeHandleZeroIsInvalid
     {
-        protected readonly Udev m_udev;
-        private readonly bool m_AddedRef;
+        protected readonly Udev m_Udev;
 
         internal UdevHandle(Udev udev, IntPtr handle, bool ownsHandle)
             : base(handle, ownsHandle)
         {
-            m_udev = udev;
-
-            // Explicitly suppress Udev finalizer until our own disposal,
-            // to ensure DangerousRelease is handled correctly in finalizers
-            GC.SuppressFinalize(m_udev);
-            m_udev.DangerousAddRef(ref m_AddedRef);
+            m_Udev = udev;
         }
-
-        protected override void Dispose(bool disposing)
-        {
-            base.Dispose(disposing);
-            if (m_AddedRef)
-            {
-                GC.ReRegisterForFinalize(m_udev);
-                m_udev.DangerousRelease();
-            }
-        }
-
     }
 
     internal class udev_context : UdevHandle
@@ -44,96 +28,93 @@ namespace HIDrogen.Imports.Linux
 
         protected override bool ReleaseHandle()
         {
-            m_udev.context_unref(handle);
+            m_Udev.raw_context_unref?.Invoke(handle);
             return true;
         }
 
-        public udev_monitor monitor_new_from_netlink(string name)
-            => m_udev.monitor_new_from_netlink(this, name);
-
-        public udev_enumerate enumerate_new()
-            => m_udev.enumerate_new(this);
+        public udev_device device_new_from_syspath(IntPtr syspath)
+        {
+            var handle = m_Udev.raw_device_new_from_syspath(this, syspath);
+            return new udev_device(m_Udev, handle, true);
+        }
 
         public udev_device device_new_from_devnum(char type, uint devnum)
-            => m_udev.device_new_from_devnum(this, type, devnum);
+        {
+            var handle = m_Udev.raw_device_new_from_devnum(this, (sbyte)type, devnum);
+            return new udev_device(m_Udev, handle, true);
+        }
 
-        public udev_device device_new_from_syspath(string path)
-            => m_udev.device_new_from_syspath(this, path);
+        public unsafe udev_device device_new_from_subsystem_sysname(string subsystem, string sysname)
+        {
+            using (var subsystem_ptr = Udev.MarshalString(subsystem))
+            using (var sysname_ptr = Udev.MarshalString(sysname))
+            {
+                var handle = m_Udev.raw_device_new_from_subsystem_sysname(this, subsystem_ptr, sysname_ptr);
+                return new udev_device(m_Udev, handle, true);
+            }
+        }
+
+        // public udev_device device_new_from_device_id(string id)
+        // {
+        //     ...
+        // }
+
+        public udev_device device_new_from_environment()
+        {
+            var handle = m_Udev.raw_device_new_from_environment(this);
+            return new udev_device(m_Udev, handle, true);
+        }
+
+        public unsafe udev_monitor monitor_new_from_netlink(string name)
+        {
+            using (var name_ptr = Udev.MarshalString(name))
+            {
+                var handle = m_Udev.raw_monitor_new_from_netlink(this, name_ptr);
+                return new udev_monitor(m_Udev, handle, true);
+            }
+        }
+
+        public udev_enumerate enumerate_new()
+        {
+            var handle = m_Udev.raw_enumerate_new(this);
+            return new udev_enumerate(m_Udev, handle, true);
+        }
     }
 
-    internal class udev_monitor : UdevHandle
+    internal readonly ref struct udev_list_entry
     {
-        internal udev_monitor(Udev udev, IntPtr handle, bool ownsHandle)
-            : base(udev, handle, ownsHandle)
-        {
-        }
-
-        protected override bool ReleaseHandle()
-        {
-            m_udev.monitor_unref(handle);
-            return true;
-        }
-
-        public int filter_add_match_subsystem_devtype(string subsystem, string devtype)
-            => m_udev.monitor_filter_add_match_subsystem_devtype(this, subsystem, devtype);
-
-        public int enable_receiving()
-            => m_udev.monitor_enable_receiving(this);
-
-        public udev_device receive_device()
-            => m_udev.monitor_receive_device(this);
-
-        public fd get_fd()
-            => m_udev.monitor_get_fd(this);
-    }
-
-    internal class udev_enumerate : UdevHandle
-    {
-        internal udev_enumerate(Udev udev, IntPtr handle, bool ownsHandle)
-            : base(udev, handle, ownsHandle)
-        {
-        }
-
-        protected override bool ReleaseHandle()
-        {
-            m_udev.enumerate_unref(handle);
-            return true;
-        }
-
-        public int add_match_parent(udev_device parent)
-            => m_udev.enumerate_add_match_parent(this, parent);
-
-        public int add_match_subsystem(string subsystem)
-            => m_udev.enumerate_add_match_subsystem(this, subsystem);
-
-        public int scan_devices()
-            => m_udev.enumerate_scan_devices(this);
-
-        public udev_list_entry get_list_entry()
-            => m_udev.enumerate_get_list_entry(this);
-    }
-
-    public readonly ref struct udev_list_entry
-    {
-        private readonly Udev m_udev;
+        private readonly Udev m_Udev;
         private readonly IntPtr m_Entry;
 
         public bool IsInvalid => m_Entry == IntPtr.Zero;
 
         internal udev_list_entry(Udev udev, IntPtr entry)
         {
-            m_udev = udev;
+            m_Udev = udev;
             m_Entry = entry;
         }
 
         public udev_list_entry get_next()
-            => m_udev.list_entry_get_next(m_Entry);
+        {
+            var next = m_Udev.raw_list_entry_get_next(m_Entry);
+            return new udev_list_entry(m_Udev, next);
+        }
 
-        public string get_name()
-            => m_udev.list_entry_get_name(m_Entry);
+        public unsafe udev_list_entry get_by_name(IntPtr name)
+        {
+            var next = m_Udev.raw_list_entry_get_by_name(m_Entry, (byte*)name);
+            return new udev_list_entry(m_Udev, next);
+        }
 
-        public string get_value()
-            => m_udev.list_entry_get_value(m_Entry);
+        public unsafe IntPtr get_name()
+        {
+            return (IntPtr)m_Udev.raw_list_entry_get_name(m_Entry);
+        }
+
+        public unsafe IntPtr get_value()
+        {
+            return (IntPtr)m_Udev.raw_list_entry_get_value(m_Entry);
+        }
     }
 
     internal class udev_device : UdevHandle
@@ -145,27 +126,381 @@ namespace HIDrogen.Imports.Linux
 
         protected override bool ReleaseHandle()
         {
-            m_udev.device_unref(handle);
+            m_Udev.raw_device_unref?.Invoke(handle);
             return true;
         }
 
-        public string get_syspath()
-            => m_udev.device_get_syspath(this);
+        public udev_device get_parent()
+        {
+            var handle = m_Udev.raw_device_get_parent(this);
+            return new udev_device(m_Udev, handle, false); // The handle is *not* owned by us here
+        }
 
-        public string get_sysattr_value(string attribute)
-            => m_udev.device_get_sysattr_value(this, attribute);
+        public unsafe udev_device get_parent_with_subsystem_devtype(string subsystem, string devtype)
+        {
+            using (var subsystem_ptr = Udev.MarshalString(subsystem))
+            using (var devtype_ptr = Udev.MarshalString(devtype))
+            {
+                var handle = m_Udev.raw_device_get_parent_with_subsystem_devtype(this, subsystem_ptr, devtype_ptr);
+                return new udev_device(m_Udev, handle, false); // The handle is *not* owned by us here
+            }
+        }
+
+        public unsafe IntPtr get_devpath()
+        {
+            return (IntPtr)m_Udev.raw_device_get_devpath(this);
+        }
+
+        public unsafe Udev.OutputString get_subsystem()
+        {
+            byte* ptr = m_Udev.raw_device_get_subsystem(this);
+            return Udev.UnmarshalString(ptr);
+        }
+
+        public unsafe Udev.OutputString get_devtype()
+        {
+            byte* ptr = m_Udev.raw_device_get_devtype(this);
+            return Udev.UnmarshalString(ptr);
+        }
+
+        public unsafe IntPtr get_syspath()
+        {
+            return (IntPtr)m_Udev.raw_device_get_syspath(this);
+        }
+
+        public unsafe Udev.OutputString get_sysname()
+        {
+            byte* ptr = m_Udev.raw_device_get_sysname(this);
+            return Udev.UnmarshalString(ptr);
+        }
+
+        public unsafe Udev.OutputString get_sysnum()
+        {
+            byte* ptr = m_Udev.raw_device_get_sysnum(this);
+            return Udev.UnmarshalString(ptr);
+        }
+
+        public unsafe Udev.OutputString get_devnode()
+        {
+            byte* ptr = m_Udev.raw_device_get_devnode(this);
+            return Udev.UnmarshalString(ptr);
+        }
+
+        public bool get_is_initialized()
+        {
+            return m_Udev.raw_device_get_is_initialized(this) > 0;
+        }
+
+        public udev_list_entry get_devlinks_list_entry()
+        {
+            var entry = m_Udev.raw_device_get_devlinks_list_entry(this);
+            return new udev_list_entry(m_Udev, entry);
+        }
+
+        public udev_list_entry get_properties_list_entry()
+        {
+            var entry = m_Udev.raw_device_get_properties_list_entry(this);
+            return new udev_list_entry(m_Udev, entry);
+        }
+
+        public udev_list_entry get_tags_list_entry()
+        {
+            var entry = m_Udev.raw_device_get_tags_list_entry(this);
+            return new udev_list_entry(m_Udev, entry);
+        }
+
+        // public udev_list_entry get_current_tags_list_entry()
+        // {
+        //     ...
+        // }
 
         public udev_list_entry get_sysattr_list_entry()
-            => m_udev.device_get_sysattr_list_entry(this);
+        {
+            var entry = m_Udev.raw_device_get_sysattr_list_entry(this);
+            return new udev_list_entry(m_Udev, entry);
+        }
 
-        public udev_device get_parent_with_subsystem_devtype(string subsystem, string devtype)
-            => m_udev.device_get_parent_with_subsystem_devtype(this, subsystem, devtype);
+        public unsafe Udev.OutputString get_property_value(string key)
+        {
+            using (var key_ptr = Udev.MarshalString(key))
+            {
+                byte* ptr = m_Udev.raw_device_get_property_value(this, key_ptr);
+                return Udev.UnmarshalString(ptr);
+            }
+        }
+
+        public unsafe Udev.OutputString get_driver()
+        {
+            byte* ptr = m_Udev.raw_device_get_driver(this);
+            return Udev.UnmarshalString(ptr);
+        }
+
+        public ulong get_devnum()
+        {
+            return m_Udev.raw_device_get_devnum(this);
+        }
+
+        public unsafe Udev.OutputString get_action()
+        {
+            byte* ptr = m_Udev.raw_device_get_action(this);
+            return Udev.UnmarshalString(ptr);
+        }
+
+        public ulong get_seqnum()
+        {
+            return m_Udev.raw_device_get_seqnum(this);
+        }
+
+        public ulong get_usec_since_initialized()
+        {
+            return m_Udev.raw_device_get_usec_since_initialized(this);
+        }
+
+        public unsafe Udev.OutputString get_sysattr_value(string sysattr)
+        {
+            using (var sysattr_ptr = Udev.MarshalString(sysattr))
+            {
+                byte* ptr = m_Udev.raw_device_get_sysattr_value(this, sysattr_ptr);
+                return Udev.UnmarshalString(ptr);
+            }
+        }
+
+        // public int set_sysattr_value(string sysattr, string value)
+        // {
+        //     ...
+        // }
+
+        public unsafe bool has_tag(string tag)
+        {
+            using (var tag_ptr = Udev.MarshalString(tag))
+            {
+                return m_Udev.raw_device_has_tag(this, tag_ptr) > 0;
+            }
+        }
+
+        // public unsafe bool has_current_tag(string tag)
+        // {
+        //     ...
+        // }
+    }
+
+    internal class udev_monitor : UdevHandle
+    {
+        internal udev_monitor(Udev udev, IntPtr handle, bool ownsHandle)
+            : base(udev, handle, ownsHandle)
+        {
+        }
+
+        protected override bool ReleaseHandle()
+        {
+            m_Udev.raw_monitor_unref?.Invoke(handle);
+            return true;
+        }
+
+        public int enable_receiving()
+        {
+            return m_Udev.raw_monitor_enable_receiving(this);
+        }
+
+        public int set_receive_buffer_size(int size)
+        {
+            return m_Udev.raw_monitor_set_receive_buffer_size(this, size);
+        }
+
+        public fd get_fd()
+        {
+            int fd = m_Udev.raw_monitor_get_fd(this);
+            return new fd(fd, false); // The file descriptor is *not* owned by us here
+        }
+
+        public udev_device receive_device()
+        {
+            var handle = m_Udev.raw_monitor_receive_device(this);
+            return new udev_device(m_Udev, handle, true);
+        }
+
+        public unsafe int filter_add_match_subsystem_devtype(string subsystem, string devtype)
+        {
+            using (var subsystem_ptr = Udev.MarshalString(subsystem))
+            using (var devtype_ptr = Udev.MarshalString(devtype))
+            {
+                return m_Udev.raw_monitor_filter_add_match_subsystem_devtype(this, subsystem_ptr, devtype_ptr);
+            }
+        }
+
+        public unsafe int filter_add_match_tag(string tag)
+        {
+            using (var tag_ptr = Udev.MarshalString(tag))
+            {
+                return m_Udev.raw_monitor_filter_add_match_tag(this, tag_ptr);
+            }
+        }
+
+        public int filter_update()
+        {
+            return m_Udev.raw_monitor_filter_update(this);
+        }
+
+        public int filter_remove()
+        {
+            return m_Udev.raw_monitor_filter_remove(this);
+        }
+    }
+
+    internal class udev_enumerate : UdevHandle
+    {
+        internal udev_enumerate(Udev udev, IntPtr handle, bool ownsHandle)
+            : base(udev, handle, ownsHandle)
+        {
+        }
+
+        protected override bool ReleaseHandle()
+        {
+            m_Udev.raw_enumerate_unref?.Invoke(handle);
+            return true;
+        }
+
+        public unsafe int add_match_subsystem(string subsystem)
+        {
+            using (var subsystem_ptr = Udev.MarshalString(subsystem))
+            {
+                return m_Udev.raw_enumerate_add_match_subsystem(this, subsystem_ptr);
+            }
+        }
+
+        public unsafe int add_nomatch_subsystem(string subsystem)
+        {
+            using (var subsystem_ptr = Udev.MarshalString(subsystem))
+            {
+                return m_Udev.raw_enumerate_add_nomatch_subsystem(this, subsystem_ptr);
+            }
+        }
+
+        public unsafe int add_match_sysattr(string sysattr, string value)
+        {
+            using (var sysattr_ptr = Udev.MarshalString(sysattr))
+            using (var value_ptr = Udev.MarshalString(value))
+            {
+                return m_Udev.raw_enumerate_add_match_sysattr(this, sysattr_ptr, value_ptr);
+            }
+        }
+
+        public unsafe int add_nomatch_sysattr(string sysattr, string value)
+        {
+            using (var sysattr_ptr = Udev.MarshalString(sysattr))
+            using (var value_ptr = Udev.MarshalString(value))
+            {
+                return m_Udev.raw_enumerate_add_nomatch_sysattr(this, sysattr_ptr, value_ptr);
+            }
+        }
+
+        public unsafe int add_match_property(string property, string value)
+        {
+            using (var property_ptr = Udev.MarshalString(property))
+            using (var value_ptr = Udev.MarshalString(value))
+            {
+                return m_Udev.raw_enumerate_add_match_property(this, property_ptr, value_ptr);
+            }
+        }
+
+        public unsafe int add_match_sysname(string sysname)
+        {
+            using (var sysname_ptr = Udev.MarshalString(sysname))
+            {
+                return m_Udev.raw_enumerate_add_match_sysname(this, sysname_ptr);
+            }
+        }
+
+        public unsafe int add_match_tag(string tag)
+        {
+            using (var tag_ptr = Udev.MarshalString(tag))
+            {
+                return m_Udev.raw_enumerate_add_match_tag(this, tag_ptr);
+            }
+        }
+
+        public int add_match_parent(udev_device parent)
+        {
+            return m_Udev.raw_enumerate_add_match_parent(this, parent);
+        }
+
+        public int add_match_is_initialized()
+        {
+            return m_Udev.raw_enumerate_add_match_is_initialized(this);
+        }
+
+        public unsafe int add_syspath(IntPtr syspath)
+        {
+            return m_Udev.raw_enumerate_add_syspath(this, (byte*)syspath);
+        }
+
+        public int scan_devices()
+        {
+            return m_Udev.raw_enumerate_scan_devices(this);
+        }
+
+        public int scan_subsystems()
+        {
+            return m_Udev.raw_enumerate_scan_subsystems(this);
+        }
+
+        public udev_list_entry get_list_entry()
+        {
+            var entry = m_Udev.raw_enumerate_get_list_entry(this);
+            return new udev_list_entry(m_Udev, entry);
+        }
     }
     #endregion
 
     internal sealed class Udev : IDisposable
     {
-        public static Udev Instance { get; } = new Udev();
+        public unsafe struct InputString : IDisposable
+        {
+            private byte* m_Ptr;
+
+            public InputString(string str)
+            {
+                if (str == null)
+                {
+                    m_Ptr = null;
+                }
+                else
+                {
+                    m_Ptr = (byte*)Marshal.StringToHGlobalAnsi(str);
+                }
+            }
+
+            public void Dispose()
+            {
+                if (m_Ptr != null)
+                {
+                    Marshal.FreeHGlobal((IntPtr)m_Ptr);
+                    m_Ptr = null;
+                }
+            }
+
+            public static implicit operator byte*(InputString str) => str.m_Ptr;
+        }
+
+        public unsafe ref struct OutputString
+        {
+            private byte* m_Ptr;
+
+            public OutputString(byte* ptr)
+            {
+                m_Ptr = ptr;
+            }
+
+            public override string ToString()
+            {
+                if (m_Ptr == null)
+                {
+                    return null;
+                }
+
+                return Marshal.PtrToStringAnsi((IntPtr)m_Ptr);
+            }
+        }
 
         // Because not all Linux distros seem to ship a consistently-named version of libudev
         // in their package managers (some have .so, others .so.0 and .so.1, others only .so.1),
@@ -174,161 +509,604 @@ namespace HIDrogen.Imports.Linux
         //
         // Thanks, Linux. -w-
 
-        #region udev
+        #region udev_context
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate IntPtr _udev_new();
+        public delegate IntPtr udev_new(); // -> udev*
 
-        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
-        private delegate IntPtr _udev_unref(
-            IntPtr handle
-        );
-        #endregion
-
-        #region udev_monitor
-        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
-        private delegate IntPtr _udev_monitor_new_from_netlink(
-            udev_context udev,
-            [MarshalAs(UnmanagedType.LPStr)] string name
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate IntPtr udev_ref( // -> udev*
+            IntPtr handle // udev*
         );
 
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate int _udev_monitor_filter_add_match_subsystem_devtype(
-            udev_monitor udev_monitor,
-            [MarshalAs(UnmanagedType.LPStr)] string subsystem,
-            [MarshalAs(UnmanagedType.LPStr)] string devtype
-        );
-
-        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate int _udev_monitor_enable_receiving(
-            udev_monitor udev_monitor
-        );
-
-        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate IntPtr _udev_monitor_receive_device(
-            udev_monitor udev_monitor
-        );
-
-        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate int _udev_monitor_get_fd(
-            udev_monitor udev_monitor
-        );
-        #endregion
-
-        #region udev_enumerate
-        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate IntPtr _udev_enumerate_new(
-            udev_context udev
-        );
-
-        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate int _udev_enumerate_add_match_parent(
-            udev_enumerate udev_enumerate,
-            udev_device parent
-        );
-
-        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate int _udev_enumerate_add_match_subsystem(
-            udev_enumerate udev_enumerate,
-            [MarshalAs(UnmanagedType.LPStr)] string subsystem
-        );
-
-        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate int _udev_enumerate_scan_devices(
-            udev_enumerate udev_enumerate
-        );
-
-        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate IntPtr _udev_enumerate_get_list_entry(
-            udev_enumerate udev_enumerate
+        public delegate IntPtr udev_unref( // -> udev*
+            IntPtr handle // udev*
         );
         #endregion
 
         #region udev_list_entry
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate IntPtr _udev_list_entry_get_next(
-            IntPtr entry
+        public delegate IntPtr udev_list_entry_get_next( // -> udev_list_entry*
+            IntPtr entry // udev_list_entry*
         );
 
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate IntPtr _udev_list_entry_get_name(
-            IntPtr entry
+        public unsafe delegate IntPtr udev_list_entry_get_by_name( // -> udev_list_entry*
+            IntPtr entry, // udev_list_entry*
+            byte* name // const char*
         );
 
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate IntPtr _udev_list_entry_get_value(
-            IntPtr entry
+        public unsafe delegate byte* udev_list_entry_get_name( // -> const char*
+            IntPtr entry // udev_list_entry*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate byte* udev_list_entry_get_value( // -> const char*
+            IntPtr entry // udev_list_entry*
         );
         #endregion
 
         #region udev_device
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate IntPtr _udev_device_new_from_devnum(
-            udev_context udev,
-            char type,
-            uint devnum
+        public delegate IntPtr udev_device_ref( // -> udev_device*
+            IntPtr handle // udev_device*
         );
 
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate IntPtr _udev_device_new_from_syspath(
-            udev_context udev,
-            [MarshalAs(UnmanagedType.LPStr)] string path
+        public delegate IntPtr udev_device_unref( // -> udev_device*
+            IntPtr handle // udev_device*
         );
 
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate IntPtr _udev_device_get_syspath(
-            udev_device device
+        public delegate IntPtr udev_device_new_from_syspath( // -> udev_device*
+            udev_context udev, // udev*
+            IntPtr syspath
         );
 
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate IntPtr _udev_device_get_sysattr_value(
-            udev_device device,
-            [MarshalAs(UnmanagedType.LPStr)] string attribute
+        public delegate IntPtr udev_device_new_from_devnum( // -> udev_device*
+            udev_context udev,  // udev*
+            sbyte type, // char
+            ulong devnum // dev_t
         );
 
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate IntPtr _udev_device_get_sysattr_list_entry(
-            udev_device device
+        public unsafe delegate IntPtr udev_device_new_from_subsystem_sysname( // -> udev_device*
+            udev_context udev,  // udev*
+            byte* subsystem, // const char*
+            byte* sysname // const char*
         );
 
+        // Not guaranteed to be available; added in systemd 189
+        // [EditorBrowsable(EditorBrowsableState.Advanced)]
+        // [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        // public unsafe delegate IntPtr udev_device_new_from_device_id( // -> udev_device*
+        //     udev_context udev, // udev*
+        //     byte* id // const char*
+        // );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate IntPtr _udev_device_get_parent_with_subsystem_devtype(
-            udev_device device,
-            [MarshalAs(UnmanagedType.LPStr)] string subsystem,
-            [MarshalAs(UnmanagedType.LPStr)] string devtype
+        public delegate IntPtr udev_device_new_from_environment( // -> udev_device*
+            udev_context udev // udev*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate IntPtr udev_device_get_parent( // -> udev_device*
+            udev_device device // udev_device*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate IntPtr udev_device_get_parent_with_subsystem_devtype( // -> udev_device*
+            udev_device device, // udev_device*
+            byte* subsystem, // const char*
+            byte* devtype // const char*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate byte* udev_device_get_devpath( // -> const char*
+            udev_device device // udev_device*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate byte* udev_device_get_subsystem( // -> const char*
+            udev_device device // udev_device*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate byte* udev_device_get_devtype( // -> const char*
+            udev_device device // udev_device*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate byte* udev_device_get_syspath( // -> const char*
+            udev_device device // udev_device*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate byte* udev_device_get_sysname( // -> const char*
+            udev_device device // udev_device*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate byte* udev_device_get_sysnum( // -> const char*
+            udev_device device // udev_device*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate byte* udev_device_get_devnode( // -> const char*
+            udev_device device // udev_device*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate int udev_device_get_is_initialized( // -> int
+            udev_device device // udev_device*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate IntPtr udev_device_get_devlinks_list_entry( // -> udev_list_entry*
+            udev_device device // udev_device*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate IntPtr udev_device_get_properties_list_entry( // -> udev_list_entry*
+            udev_device device // udev_device*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate IntPtr udev_device_get_tags_list_entry( // -> udev_list_entry*
+            udev_device device // udev_device*
+        );
+
+        // Not guaranteed to be available; added in systemd 247
+        // [EditorBrowsable(EditorBrowsableState.Advanced)]
+        // [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        // public delegate IntPtr udev_device_get_current_tags_list_entry( // -> udev_list_entry*
+        //     udev_device device // udev_device*
+        // );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate IntPtr udev_device_get_sysattr_list_entry( // -> udev_list_entry*
+            udev_device device // udev_device*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate byte* udev_device_get_property_value( // -> const char*
+            udev_device device, // udev_device*
+            byte* key // const char*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate byte* udev_device_get_driver( // -> const char*
+            udev_device device // udev_device*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate ulong udev_device_get_devnum( // -> dev_t
+            udev_device device // udev_device*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate byte* udev_device_get_action( // -> const char*
+            udev_device device // udev_device*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate ulong udev_device_get_seqnum( // -> unsigned long long int
+            udev_device device // udev_device*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate ulong udev_device_get_usec_since_initialized( // -> unsigned long long int
+            udev_device device // udev_device*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate byte* udev_device_get_sysattr_value( // -> const char*
+            udev_device device, // udev_device*
+            byte* sysattr // const char*
+        );
+
+        // Not guaranteed to be available; added in systemd 199
+        // [EditorBrowsable(EditorBrowsableState.Advanced)]
+        // [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        // public unsafe delegate int udev_device_set_sysattr_value( // -> int
+        //     udev_device device, // udev_device*
+        //     byte* sysattr, // const char*
+        //     byte* value // const char*
+        // );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate int udev_device_has_tag( // -> int
+            udev_device device, // udev_device*
+            byte* tag // const char*
+        );
+
+        // Not guaranteed to be available; added in systemd 247
+        // [EditorBrowsable(EditorBrowsableState.Advanced)]
+        // [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        // public unsafe delegate int udev_device_has_current_tag( // -> int
+        //     udev_device device, // udev_device*
+        //     byte* tag // const char*
+        // );
+        #endregion
+
+        #region udev_monitor
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate IntPtr udev_monitor_ref( // -> udev_monitor*
+            IntPtr handle // udev_monitor*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate IntPtr udev_monitor_unref( // -> udev_monitor*
+            IntPtr handle // udev_monitor*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate IntPtr udev_monitor_new_from_netlink( // udev_monitor*
+            udev_context udev, // udev*
+            byte* name // const char*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate int udev_monitor_enable_receiving( // -> int
+            udev_monitor monitor // udev_monitor*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate int udev_monitor_set_receive_buffer_size( // -> int
+            udev_monitor monitor, // udev_monitor*
+            int size // int
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate int udev_monitor_get_fd( // -> int
+            udev_monitor monitor // udev_monitor*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate IntPtr udev_monitor_receive_device( // -> udev_device*
+            udev_monitor monitor // udev_monitor*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate int udev_monitor_filter_add_match_subsystem_devtype( // -> int
+            udev_monitor monitor, // udev_monitor*
+            byte* subsystem, // const char*
+            byte* devtype // const char*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate int udev_monitor_filter_add_match_tag( // -> int
+            udev_monitor monitor, // udev_monitor*
+            byte* tag // const char*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate int udev_monitor_filter_update( // -> int
+            udev_monitor monitor // udev_monitor*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate int udev_monitor_filter_remove( // -> int
+            udev_monitor monitor // udev_monitor*
+        );
+        #endregion
+
+        #region udev_enumerate
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate IntPtr udev_enumerate_ref( // -> udev_enumerate*
+            IntPtr handle // udev_enumerate*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate IntPtr udev_enumerate_unref( // -> udev_enumerate*
+            IntPtr handle // udev_enumerate*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate IntPtr udev_enumerate_new( // -> udev_enumerate*
+            udev_context udev // udev*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate int udev_enumerate_add_match_subsystem( // -> int
+            udev_enumerate enumerate, // udev_enumerate*
+            byte* subsystem // const char*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate int udev_enumerate_add_nomatch_subsystem( // -> int
+            udev_enumerate enumerate, // udev_enumerate*
+            byte* subsystem // const char*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate int udev_enumerate_add_match_sysattr( // -> int
+            udev_enumerate enumerate, // udev_enumerate*
+            byte* sysattr, // const char*
+            byte* value // const char*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate int udev_enumerate_add_nomatch_sysattr( // -> int
+            udev_enumerate enumerate, // udev_enumerate*
+            byte* sysattr, // const char*
+            byte* value // const char*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate int udev_enumerate_add_match_property( // -> int
+            udev_enumerate enumerate, // udev_enumerate*
+            byte* property, // const char*
+            byte* value // const char*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate int udev_enumerate_add_match_sysname( // -> int
+            udev_enumerate enumerate, // udev_enumerate*
+            byte* sysname // const char*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate int udev_enumerate_add_match_tag( // -> int
+            udev_enumerate enumerate, // udev_enumerate*
+            byte* tag // const char*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate int udev_enumerate_add_match_parent( // -> int
+            udev_enumerate enumerate, // udev_enumerate*
+            udev_device parent // udev_device*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate int udev_enumerate_add_match_is_initialized( // -> int
+            udev_enumerate enumerate // udev_enumerate*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate int udev_enumerate_add_syspath( // -> int
+            udev_enumerate enumerate, // udev_enumerate*
+            byte* syspath // const char*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate int udev_enumerate_scan_devices( // -> int
+            udev_enumerate enumerate // udev_enumerate*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate int udev_enumerate_scan_subsystems( // -> int
+            udev_enumerate enumerate // udev_enumerate*
+        );
+
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public delegate IntPtr udev_enumerate_get_list_entry( // -> udev_list_entry*
+            udev_enumerate enumerate // udev_enumerate*
+        );
+        #endregion
+
+        #region udev_util
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        public unsafe delegate int udev_util_encode_string( // int
+            byte* str, // const char*
+            byte* str_enc, // char*
+            UIntPtr len // size_t
         );
         #endregion
 
         private NativeLibrary m_Library;
+        private string m_LibraryPath;
 
-        private _udev_new m_udev_context_new;
+        // udev_context
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_ref raw_context_ref;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_unref raw_context_unref;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_new raw_context_new;
 
-        private _udev_unref m_udev_context_unref;
-        private _udev_unref m_udev_device_unref;
-        private _udev_unref m_udev_monitor_unref;
-        private _udev_unref m_udev_enumerate_unref;
+        // udev_list_entry
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_list_entry_get_next raw_list_entry_get_next;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_list_entry_get_by_name raw_list_entry_get_by_name;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_list_entry_get_name raw_list_entry_get_name;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_list_entry_get_value raw_list_entry_get_value;
 
-        private _udev_monitor_new_from_netlink m_udev_monitor_new_from_netlink;
-        private _udev_monitor_filter_add_match_subsystem_devtype m_udev_monitor_filter_add_match_subsystem_devtype;
-        private _udev_monitor_enable_receiving m_udev_monitor_enable_receiving;
-        private _udev_monitor_receive_device m_udev_monitor_receive_device;
-        private _udev_monitor_get_fd m_udev_monitor_get_fd;
+        // udev_device
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_ref raw_device_ref;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_unref raw_device_unref;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_new_from_syspath raw_device_new_from_syspath;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_new_from_devnum raw_device_new_from_devnum;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_new_from_subsystem_sysname raw_device_new_from_subsystem_sysname;
+        // [EditorBrowsable(EditorBrowsableState.Advanced)]
+        // public udev_device_new_from_device_id raw_device_new_from_device_id;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_new_from_environment raw_device_new_from_environment;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_get_parent raw_device_get_parent;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_get_parent_with_subsystem_devtype raw_device_get_parent_with_subsystem_devtype;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_get_devpath raw_device_get_devpath;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_get_subsystem raw_device_get_subsystem;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_get_devtype raw_device_get_devtype;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_get_syspath raw_device_get_syspath;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_get_sysname raw_device_get_sysname;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_get_sysnum raw_device_get_sysnum;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_get_devnode raw_device_get_devnode;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_get_is_initialized raw_device_get_is_initialized;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_get_devlinks_list_entry raw_device_get_devlinks_list_entry;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_get_properties_list_entry raw_device_get_properties_list_entry;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_get_tags_list_entry raw_device_get_tags_list_entry;
+        // [EditorBrowsable(EditorBrowsableState.Advanced)]
+        // public udev_device_get_current_tags_list_entry raw_device_get_current_tags_list_entry;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_get_sysattr_list_entry raw_device_get_sysattr_list_entry;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_get_property_value raw_device_get_property_value;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_get_driver raw_device_get_driver;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_get_devnum raw_device_get_devnum;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_get_action raw_device_get_action;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_get_seqnum raw_device_get_seqnum;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_get_usec_since_initialized raw_device_get_usec_since_initialized;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_get_sysattr_value raw_device_get_sysattr_value;
+        // [EditorBrowsable(EditorBrowsableState.Advanced)]
+        // public udev_device_set_sysattr_value raw_device_set_sysattr_value;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_device_has_tag raw_device_has_tag;
+        // [EditorBrowsable(EditorBrowsableState.Advanced)]
+        // public udev_device_has_current_tag raw_device_has_current_tag;
 
-        private _udev_enumerate_new m_udev_enumerate_new;
-        private _udev_enumerate_add_match_parent m_udev_enumerate_add_match_parent;
-        private _udev_enumerate_add_match_subsystem m_udev_enumerate_add_match_subsystem;
-        private _udev_enumerate_scan_devices m_udev_enumerate_scan_devices;
-        private _udev_enumerate_get_list_entry m_udev_enumerate_get_list_entry;
+        // udev_monitor
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_monitor_ref raw_monitor_ref;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_monitor_unref raw_monitor_unref;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_monitor_new_from_netlink raw_monitor_new_from_netlink;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_monitor_enable_receiving raw_monitor_enable_receiving;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_monitor_set_receive_buffer_size raw_monitor_set_receive_buffer_size;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_monitor_get_fd raw_monitor_get_fd;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_monitor_receive_device raw_monitor_receive_device;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_monitor_filter_add_match_subsystem_devtype raw_monitor_filter_add_match_subsystem_devtype;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_monitor_filter_add_match_tag raw_monitor_filter_add_match_tag;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_monitor_filter_update raw_monitor_filter_update;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_monitor_filter_remove raw_monitor_filter_remove;
 
-        private _udev_list_entry_get_next m_udev_list_entry_get_next;
-        private _udev_list_entry_get_name m_udev_list_entry_get_name;
-        private _udev_list_entry_get_value m_udev_list_entry_get_value;
+        // udev_enumerate
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_enumerate_ref raw_enumerate_ref;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_enumerate_unref raw_enumerate_unref;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_enumerate_new raw_enumerate_new;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_enumerate_add_match_subsystem raw_enumerate_add_match_subsystem;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_enumerate_add_nomatch_subsystem raw_enumerate_add_nomatch_subsystem;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_enumerate_add_match_sysattr raw_enumerate_add_match_sysattr;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_enumerate_add_nomatch_sysattr raw_enumerate_add_nomatch_sysattr;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_enumerate_add_match_property raw_enumerate_add_match_property;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_enumerate_add_match_sysname raw_enumerate_add_match_sysname;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_enumerate_add_match_tag raw_enumerate_add_match_tag;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_enumerate_add_match_parent raw_enumerate_add_match_parent;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_enumerate_add_match_is_initialized raw_enumerate_add_match_is_initialized;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_enumerate_add_syspath raw_enumerate_add_syspath;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_enumerate_scan_devices raw_enumerate_scan_devices;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_enumerate_scan_subsystems raw_enumerate_scan_subsystems;
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_enumerate_get_list_entry raw_enumerate_get_list_entry;
 
-        private _udev_device_new_from_devnum m_udev_device_new_from_devnum;
-        private _udev_device_new_from_syspath m_udev_device_new_from_syspath;
-        private _udev_device_get_syspath m_udev_device_get_syspath;
-        private _udev_device_get_sysattr_value m_udev_device_get_sysattr_value;
-        private _udev_device_get_sysattr_list_entry m_udev_device_get_sysattr_list_entry;
-        private _udev_device_get_parent_with_subsystem_devtype m_udev_device_get_parent_with_subsystem_devtype;
+        // udev_util
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public udev_util_encode_string raw_util_encode_string;
 
         public Udev()
         {
@@ -339,35 +1117,78 @@ namespace HIDrogen.Imports.Linux
 
                 // pain
                 if (
-                    !m_Library.TryGetExport("udev_new", out m_udev_context_new)
+                    !m_Library.TryGetExport("udev_ref", out raw_context_ref) ||
+                    !m_Library.TryGetExport("udev_unref", out raw_context_unref) ||
+                    !m_Library.TryGetExport("udev_new", out raw_context_new) ||
 
-                    || !m_Library.TryGetExport("udev_unref", out m_udev_context_unref)
-                    || !m_Library.TryGetExport("udev_device_unref", out m_udev_device_unref)
-                    || !m_Library.TryGetExport("udev_monitor_unref", out m_udev_monitor_unref)
-                    || !m_Library.TryGetExport("udev_enumerate_unref", out m_udev_enumerate_unref)
+                    !m_Library.TryGetExport("udev_list_entry_get_next", out raw_list_entry_get_next) ||
+                    !m_Library.TryGetExport("udev_list_entry_get_by_name", out raw_list_entry_get_by_name) ||
+                    !m_Library.TryGetExport("udev_list_entry_get_name", out raw_list_entry_get_name) ||
+                    !m_Library.TryGetExport("udev_list_entry_get_value", out raw_list_entry_get_value) ||
 
-                    || !m_Library.TryGetExport("udev_monitor_new_from_netlink", out m_udev_monitor_new_from_netlink)
-                    || !m_Library.TryGetExport("udev_monitor_filter_add_match_subsystem_devtype", out m_udev_monitor_filter_add_match_subsystem_devtype)
-                    || !m_Library.TryGetExport("udev_monitor_enable_receiving", out m_udev_monitor_enable_receiving)
-                    || !m_Library.TryGetExport("udev_monitor_receive_device", out m_udev_monitor_receive_device)
-                    || !m_Library.TryGetExport("udev_monitor_get_fd", out m_udev_monitor_get_fd)
+                    !m_Library.TryGetExport("udev_device_ref", out raw_device_ref) ||
+                    !m_Library.TryGetExport("udev_device_unref", out raw_device_unref) ||
+                    !m_Library.TryGetExport("udev_device_new_from_syspath", out raw_device_new_from_syspath) ||
+                    !m_Library.TryGetExport("udev_device_new_from_devnum", out raw_device_new_from_devnum) ||
+                    !m_Library.TryGetExport("udev_device_new_from_subsystem_sysname", out raw_device_new_from_subsystem_sysname) ||
+                    // !m_Library.TryGetExport("udev_device_new_from_device_id", out raw_device_new_from_device_id) ||
+                    !m_Library.TryGetExport("udev_device_new_from_environment", out raw_device_new_from_environment) ||
+                    !m_Library.TryGetExport("udev_device_get_parent", out raw_device_get_parent) ||
+                    !m_Library.TryGetExport("udev_device_get_parent_with_subsystem_devtype", out raw_device_get_parent_with_subsystem_devtype) ||
+                    !m_Library.TryGetExport("udev_device_get_devpath", out raw_device_get_devpath) ||
+                    !m_Library.TryGetExport("udev_device_get_subsystem", out raw_device_get_subsystem) ||
+                    !m_Library.TryGetExport("udev_device_get_devtype", out raw_device_get_devtype) ||
+                    !m_Library.TryGetExport("udev_device_get_syspath", out raw_device_get_syspath) ||
+                    !m_Library.TryGetExport("udev_device_get_sysname", out raw_device_get_sysname) ||
+                    !m_Library.TryGetExport("udev_device_get_sysnum", out raw_device_get_sysnum) ||
+                    !m_Library.TryGetExport("udev_device_get_devnode", out raw_device_get_devnode) ||
+                    !m_Library.TryGetExport("udev_device_get_is_initialized", out raw_device_get_is_initialized) ||
+                    !m_Library.TryGetExport("udev_device_get_devlinks_list_entry", out raw_device_get_devlinks_list_entry) ||
+                    !m_Library.TryGetExport("udev_device_get_properties_list_entry", out raw_device_get_properties_list_entry) ||
+                    !m_Library.TryGetExport("udev_device_get_tags_list_entry", out raw_device_get_tags_list_entry) ||
+                    // !m_Library.TryGetExport("udev_device_get_current_tags_list_entry", out raw_device_get_current_tags_list_entry) ||
+                    !m_Library.TryGetExport("udev_device_get_sysattr_list_entry", out raw_device_get_sysattr_list_entry) ||
+                    !m_Library.TryGetExport("udev_device_get_property_value", out raw_device_get_property_value) ||
+                    !m_Library.TryGetExport("udev_device_get_driver", out raw_device_get_driver) ||
+                    !m_Library.TryGetExport("udev_device_get_devnum", out raw_device_get_devnum) ||
+                    !m_Library.TryGetExport("udev_device_get_action", out raw_device_get_action) ||
+                    !m_Library.TryGetExport("udev_device_get_seqnum", out raw_device_get_seqnum) ||
+                    !m_Library.TryGetExport("udev_device_get_usec_since_initialized", out raw_device_get_usec_since_initialized) ||
+                    !m_Library.TryGetExport("udev_device_get_sysattr_value", out raw_device_get_sysattr_value) ||
+                    // !m_Library.TryGetExport("udev_device_set_sysattr_value", out raw_device_set_sysattr_value) ||
+                    !m_Library.TryGetExport("udev_device_has_tag", out raw_device_has_tag) ||
+                    // !m_Library.TryGetExport("udev_device_has_current_tag", out raw_device_has_current_tag) ||
 
-                    || !m_Library.TryGetExport("udev_enumerate_new", out m_udev_enumerate_new)
-                    || !m_Library.TryGetExport("udev_enumerate_add_match_parent", out m_udev_enumerate_add_match_parent)
-                    || !m_Library.TryGetExport("udev_enumerate_add_match_subsystem", out m_udev_enumerate_add_match_subsystem)
-                    || !m_Library.TryGetExport("udev_enumerate_scan_devices", out m_udev_enumerate_scan_devices)
-                    || !m_Library.TryGetExport("udev_enumerate_get_list_entry", out m_udev_enumerate_get_list_entry)
+                    !m_Library.TryGetExport("udev_monitor_ref", out raw_monitor_ref) ||
+                    !m_Library.TryGetExport("udev_monitor_unref", out raw_monitor_unref) ||
+                    !m_Library.TryGetExport("udev_monitor_new_from_netlink", out raw_monitor_new_from_netlink) ||
+                    !m_Library.TryGetExport("udev_monitor_enable_receiving", out raw_monitor_enable_receiving) ||
+                    !m_Library.TryGetExport("udev_monitor_set_receive_buffer_size", out raw_monitor_set_receive_buffer_size) ||
+                    !m_Library.TryGetExport("udev_monitor_get_fd", out raw_monitor_get_fd) ||
+                    !m_Library.TryGetExport("udev_monitor_receive_device", out raw_monitor_receive_device) ||
+                    !m_Library.TryGetExport("udev_monitor_filter_add_match_subsystem_devtype", out raw_monitor_filter_add_match_subsystem_devtype) ||
+                    !m_Library.TryGetExport("udev_monitor_filter_add_match_tag", out raw_monitor_filter_add_match_tag) ||
+                    !m_Library.TryGetExport("udev_monitor_filter_update", out raw_monitor_filter_update) ||
+                    !m_Library.TryGetExport("udev_monitor_filter_remove", out raw_monitor_filter_remove) ||
 
-                    || !m_Library.TryGetExport("udev_list_entry_get_next", out m_udev_list_entry_get_next)
-                    || !m_Library.TryGetExport("udev_list_entry_get_name", out m_udev_list_entry_get_name)
-                    || !m_Library.TryGetExport("udev_list_entry_get_value", out m_udev_list_entry_get_value)
+                    !m_Library.TryGetExport("udev_enumerate_ref", out raw_enumerate_ref) ||
+                    !m_Library.TryGetExport("udev_enumerate_unref", out raw_enumerate_unref) ||
+                    !m_Library.TryGetExport("udev_enumerate_new", out raw_enumerate_new) ||
+                    !m_Library.TryGetExport("udev_enumerate_add_match_subsystem", out raw_enumerate_add_match_subsystem) ||
+                    !m_Library.TryGetExport("udev_enumerate_add_nomatch_subsystem", out raw_enumerate_add_nomatch_subsystem) ||
+                    !m_Library.TryGetExport("udev_enumerate_add_match_sysattr", out raw_enumerate_add_match_sysattr) ||
+                    !m_Library.TryGetExport("udev_enumerate_add_nomatch_sysattr", out raw_enumerate_add_nomatch_sysattr) ||
+                    !m_Library.TryGetExport("udev_enumerate_add_match_property", out raw_enumerate_add_match_property) ||
+                    !m_Library.TryGetExport("udev_enumerate_add_match_sysname", out raw_enumerate_add_match_sysname) ||
+                    !m_Library.TryGetExport("udev_enumerate_add_match_tag", out raw_enumerate_add_match_tag) ||
+                    !m_Library.TryGetExport("udev_enumerate_add_match_parent", out raw_enumerate_add_match_parent) ||
+                    !m_Library.TryGetExport("udev_enumerate_add_match_is_initialized", out raw_enumerate_add_match_is_initialized) ||
+                    !m_Library.TryGetExport("udev_enumerate_add_syspath", out raw_enumerate_add_syspath) ||
+                    !m_Library.TryGetExport("udev_enumerate_scan_devices", out raw_enumerate_scan_devices) ||
+                    !m_Library.TryGetExport("udev_enumerate_scan_subsystems", out raw_enumerate_scan_subsystems) ||
+                    !m_Library.TryGetExport("udev_enumerate_get_list_entry", out raw_enumerate_get_list_entry) ||
 
-                    || !m_Library.TryGetExport("udev_device_new_from_devnum", out m_udev_device_new_from_devnum)
-                    || !m_Library.TryGetExport("udev_device_new_from_syspath", out m_udev_device_new_from_syspath)
-                    || !m_Library.TryGetExport("udev_device_get_syspath", out m_udev_device_get_syspath)
-                    || !m_Library.TryGetExport("udev_device_get_sysattr_value", out m_udev_device_get_sysattr_value)
-                    || !m_Library.TryGetExport("udev_device_get_sysattr_list_entry", out m_udev_device_get_sysattr_list_entry)
-                    || !m_Library.TryGetExport("udev_device_get_parent_with_subsystem_devtype", out m_udev_device_get_parent_with_subsystem_devtype)
+                    !m_Library.TryGetExport("udev_util_encode_string", out raw_util_encode_string)
                 )
                 {
                     m_Library.Dispose();
@@ -375,6 +1196,7 @@ namespace HIDrogen.Imports.Linux
                     return false;
                 }
 
+                m_LibraryPath = name;
                 return true;
             }
 
@@ -392,148 +1214,101 @@ namespace HIDrogen.Imports.Linux
             }
         }
 
-        public void DangerousAddRef(ref bool success)
-            => m_Library.DangerousAddRef(ref success);
-
-        public void DangerousRelease()
-            => m_Library.DangerousRelease();
-
         public void Dispose()
         {
-            m_udev_context_new = null;
+            raw_context_ref = null;
+            raw_context_unref = null;
+            raw_context_new = null;
 
-            m_udev_context_unref = null;
-            m_udev_device_unref = null;
-            m_udev_monitor_unref = null;
-            m_udev_enumerate_unref = null;
+            raw_list_entry_get_next = null;
+            raw_list_entry_get_by_name = null;
+            raw_list_entry_get_name = null;
+            raw_list_entry_get_value = null;
 
-            m_udev_monitor_new_from_netlink = null;
-            m_udev_monitor_filter_add_match_subsystem_devtype = null;
-            m_udev_monitor_enable_receiving = null;
-            m_udev_monitor_receive_device = null;
-            m_udev_monitor_get_fd = null;
+            raw_device_ref = null;
+            raw_device_unref = null;
+            raw_device_new_from_syspath = null;
+            raw_device_new_from_devnum = null;
+            raw_device_new_from_subsystem_sysname = null;
+            // raw_device_new_from_device_id = null;
+            raw_device_new_from_environment = null;
+            raw_device_get_parent = null;
+            raw_device_get_parent_with_subsystem_devtype = null;
+            raw_device_get_devpath = null;
+            raw_device_get_subsystem = null;
+            raw_device_get_devtype = null;
+            raw_device_get_syspath = null;
+            raw_device_get_sysname = null;
+            raw_device_get_sysnum = null;
+            raw_device_get_devnode = null;
+            raw_device_get_is_initialized = null;
+            raw_device_get_devlinks_list_entry = null;
+            raw_device_get_properties_list_entry = null;
+            raw_device_get_tags_list_entry = null;
+            // raw_device_get_current_tags_list_entry = null;
+            raw_device_get_sysattr_list_entry = null;
+            raw_device_get_property_value = null;
+            raw_device_get_driver = null;
+            raw_device_get_devnum = null;
+            raw_device_get_action = null;
+            raw_device_get_seqnum = null;
+            raw_device_get_usec_since_initialized = null;
+            raw_device_get_sysattr_value = null;
+            // raw_device_set_sysattr_value = null;
+            raw_device_has_tag = null;
+            // raw_device_has_current_tag = null;
 
-            m_udev_enumerate_new = null;
-            m_udev_enumerate_add_match_parent = null;
-            m_udev_enumerate_add_match_subsystem = null;
-            m_udev_enumerate_scan_devices = null;
-            m_udev_enumerate_get_list_entry = null;
+            raw_monitor_ref = null;
+            raw_monitor_unref = null;
+            raw_monitor_new_from_netlink = null;
+            raw_monitor_enable_receiving = null;
+            raw_monitor_set_receive_buffer_size = null;
+            raw_monitor_get_fd = null;
+            raw_monitor_receive_device = null;
+            raw_monitor_filter_add_match_subsystem_devtype = null;
+            raw_monitor_filter_add_match_tag = null;
+            raw_monitor_filter_update = null;
+            raw_monitor_filter_remove = null;
 
-            m_udev_list_entry_get_next = null;
-            m_udev_list_entry_get_name = null;
-            m_udev_list_entry_get_value = null;
+            raw_enumerate_ref = null;
+            raw_enumerate_unref = null;
+            raw_enumerate_new = null;
+            raw_enumerate_add_match_subsystem = null;
+            raw_enumerate_add_nomatch_subsystem = null;
+            raw_enumerate_add_match_sysattr = null;
+            raw_enumerate_add_nomatch_sysattr = null;
+            raw_enumerate_add_match_property = null;
+            raw_enumerate_add_match_sysname = null;
+            raw_enumerate_add_match_tag = null;
+            raw_enumerate_add_match_parent = null;
+            raw_enumerate_add_match_is_initialized = null;
+            raw_enumerate_add_syspath = null;
+            raw_enumerate_scan_devices = null;
+            raw_enumerate_scan_subsystems = null;
+            raw_enumerate_get_list_entry = null;
 
-            m_udev_device_new_from_devnum = null;
-            m_udev_device_new_from_syspath = null;
-            m_udev_device_get_syspath = null;
-            m_udev_device_get_sysattr_value = null;
-            m_udev_device_get_sysattr_list_entry = null;
-            m_udev_device_get_parent_with_subsystem_devtype = null;
+            raw_util_encode_string = null;
 
             m_Library?.Dispose();
             m_Library = null;
         }
 
         public udev_context context_new()
-            => new udev_context(this, m_udev_context_new(), true);
-
-        public void context_unref(IntPtr handle)
-            => m_udev_context_unref(handle);
-
-        public void device_unref(IntPtr handle)
-            => m_udev_device_unref(handle);
-
-        public void monitor_unref(IntPtr handle)
-            => m_udev_monitor_unref(handle);
-
-        public void enumerate_unref(IntPtr handle)
-            => m_udev_enumerate_unref(handle);
-
-        #region udev_monitor
-        public udev_monitor monitor_new_from_netlink(udev_context context, string name)
-            => new udev_monitor(this, m_udev_monitor_new_from_netlink(context, name), true);
-
-        public int monitor_filter_add_match_subsystem_devtype(udev_monitor monitor, string subsystem, string devtype)
-            => m_udev_monitor_filter_add_match_subsystem_devtype(monitor, subsystem, devtype);
-
-        public int monitor_enable_receiving(udev_monitor monitor)
-            => m_udev_monitor_enable_receiving(monitor);
-
-        public udev_device monitor_receive_device(udev_monitor monitor)
-            => new udev_device(this, m_udev_monitor_receive_device(monitor), true);
-
-        public fd monitor_get_fd(udev_monitor monitor)
         {
-            int fd = m_udev_monitor_get_fd(monitor);
-            return new fd(fd, false); // The file descriptor is *not* owned by us here
-        }
-        #endregion
-
-        #region udev_enumerate
-        public udev_enumerate enumerate_new(udev_context context)
-            => new udev_enumerate(this, m_udev_enumerate_new(context), true);
-
-        public int enumerate_add_match_parent(udev_enumerate enumerate, udev_device parent)
-            => m_udev_enumerate_add_match_parent(enumerate, parent);
-
-        public int enumerate_add_match_subsystem(udev_enumerate enumerate, string subsystem)
-            => m_udev_enumerate_add_match_subsystem(enumerate, subsystem);
-
-        public int enumerate_scan_devices(udev_enumerate enumerate)
-            => m_udev_enumerate_scan_devices(enumerate);
-
-        public udev_list_entry enumerate_get_list_entry(udev_enumerate enumerate)
-            => new udev_list_entry(this, m_udev_enumerate_get_list_entry(enumerate));
-        #endregion
-
-        #region udev_list_entry
-        public udev_list_entry list_entry_get_next(IntPtr entry)
-            => new udev_list_entry(this, m_udev_list_entry_get_next(entry));
-
-        public string list_entry_get_name(IntPtr entry)
-        {
-            var ptr = m_udev_list_entry_get_name(entry);
-            return ptr == IntPtr.Zero ? null : Marshal.PtrToStringAnsi(ptr);
+            var handle = raw_context_new();
+            return new udev_context(this, handle, true);
         }
 
-        public string list_entry_get_value(IntPtr entry)
+        // convenience methods
+        public static InputString MarshalString(string str)
         {
-            var ptr = m_udev_list_entry_get_value(entry);
-            return ptr == IntPtr.Zero ? null : Marshal.PtrToStringAnsi(ptr);
-        }
-        #endregion
-
-        #region udev_device
-        public udev_device device_new_from_devnum(udev_context context, char type, uint devnum)
-            => new udev_device(this, m_udev_device_new_from_devnum(context, type, devnum), true);
-
-        public udev_device device_new_from_syspath(udev_context context, string path)
-            => new udev_device(this, m_udev_device_new_from_syspath(context, path), true);
-
-        public string device_get_syspath(udev_device device)
-        {
-            var ptr = m_udev_device_get_syspath(device);
-            return ptr == IntPtr.Zero ? null : Marshal.PtrToStringAnsi(ptr);
+            return new InputString(str);
         }
 
-        public string device_get_sysattr_value(udev_device device, string attribute)
+        public static unsafe OutputString UnmarshalString(byte* ptr)
         {
-            var ptr = m_udev_device_get_sysattr_value(device, attribute);
-            return ptr == IntPtr.Zero ? null : Marshal.PtrToStringAnsi(ptr);
+            return new OutputString(ptr);
         }
-
-        public udev_list_entry device_get_sysattr_list_entry(udev_device device)
-            => new udev_list_entry(this, m_udev_device_get_sysattr_list_entry(device));
-
-        public udev_device device_get_parent_with_subsystem_devtype(udev_device device, string subsystem, string devtype)
-        {
-            var devPtr = m_udev_device_get_parent_with_subsystem_devtype(device, subsystem, devtype);
-            return devPtr == IntPtr.Zero
-                ? null
-                : new udev_device(this, devPtr, false); // The device is *not* owned by us here
-        }
-        #endregion
-
     }
 }
 #endif
