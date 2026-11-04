@@ -21,15 +21,22 @@ namespace HIDrogen.Imports.Posix
         public int DangerousGetFileDescriptor() => (int)DangerousGetHandle();
     }
 
+    internal struct pollfd
+    {
+        public int fd;
+        public short events;
+        public short revents;
+
+        public pollfd(fd fd, short events)
+        {
+            this.fd = fd.DangerousGetFileDescriptor();
+            this.events = events;
+            revents = 0;
+        }
+    }
+
     internal static partial class Fcntl
     {
-        private struct pollfd
-        {
-            public int fd;
-            public short events;
-            public short revents;
-        };
-
         public const int O_RDONLY = 0x00;
         public const int O_WRONLY = 0x01;
         public const int O_RDWR = 0x02;
@@ -112,27 +119,30 @@ namespace HIDrogen.Imports.Posix
         public static int write(fd fd, byte[] buffer)
             => (int)_write(fd.DangerousGetFileDescriptor(), buffer, (UIntPtr)buffer?.Length);
 
-        public static unsafe int poll(short events, int timeout, fd fd)
+        public static unsafe int poll(pollfd* fd, int fdCount, int timeout)
         {
-            var buffer = new pollfd()
-            {
-                fd = fd.DangerousGetFileDescriptor(),
-                events = events
-            };
-
-            return _poll(&buffer, (UIntPtr)1, timeout);
+            return _poll(fd, (UIntPtr)fdCount, timeout);
         }
 
-        public static unsafe int poll(short events, int timeout, params fd[] fds)
+        public static unsafe int poll(pollfd* fd, int timeout)
         {
-            var buffer = stackalloc pollfd[fds.Length];
-            for (int i = 0; i < fds.Length; i++)
-            {
-                buffer[i].fd = fds[i].DangerousGetFileDescriptor();
-                buffer[i].events = events;
-            };
+            return poll(fd, 1, timeout);
+        }
 
-            return _poll(buffer, (UIntPtr)fds.Length, timeout);
+        public static unsafe int poll(ref pollfd fd, int timeout)
+        {
+            fixed (pollfd* ptr = &fd)
+            {
+                return poll(ptr, timeout);
+            }
+        }
+
+        public static unsafe int poll(pollfd[] fds, int timeout)
+        {
+            fixed (pollfd* ptr = fds)
+            {
+                return poll(ptr, fds.Length, timeout);
+            }
         }
     }
 }
