@@ -32,7 +32,16 @@ namespace HIDrogen.Imports.Linux
             return true;
         }
 
-        public udev_device device_new_from_syspath(IntPtr syspath)
+        public unsafe udev_device device_new_from_syspath(string syspath)
+        {
+            using (var syspath_ptr = Udev.MarshalString(syspath))
+            {
+                var handle = m_Udev.raw_device_new_from_syspath(this, syspath_ptr);
+                return new udev_device(m_Udev, handle, true);
+            }
+        }
+
+        public unsafe udev_device device_new_from_syspath(Udev.OutputString syspath)
         {
             var handle = m_Udev.raw_device_new_from_syspath(this, syspath);
             return new udev_device(m_Udev, handle, true);
@@ -100,20 +109,25 @@ namespace HIDrogen.Imports.Linux
             return new udev_list_entry(m_Udev, next);
         }
 
-        public unsafe udev_list_entry get_by_name(IntPtr name)
+        public unsafe udev_list_entry get_by_name(string name)
         {
-            var next = m_Udev.raw_list_entry_get_by_name(m_Entry, (byte*)name);
-            return new udev_list_entry(m_Udev, next);
+            using (var name_ptr = Udev.MarshalString(name))
+            {
+                var next = m_Udev.raw_list_entry_get_by_name(m_Entry, name_ptr);
+                return new udev_list_entry(m_Udev, next);
+            }
         }
 
-        public unsafe IntPtr get_name()
+        public unsafe Udev.OutputString get_name()
         {
-            return (IntPtr)m_Udev.raw_list_entry_get_name(m_Entry);
+            byte* ptr = m_Udev.raw_list_entry_get_name(m_Entry);
+            return Udev.UnmarshalString(ptr);
         }
 
-        public unsafe IntPtr get_value()
+        public unsafe Udev.OutputString get_value()
         {
-            return (IntPtr)m_Udev.raw_list_entry_get_value(m_Entry);
+            byte* ptr = m_Udev.raw_list_entry_get_value(m_Entry);
+            return Udev.UnmarshalString(ptr);
         }
     }
 
@@ -146,9 +160,10 @@ namespace HIDrogen.Imports.Linux
             }
         }
 
-        public unsafe IntPtr get_devpath()
+        public unsafe Udev.OutputString get_devpath()
         {
-            return (IntPtr)m_Udev.raw_device_get_devpath(this);
+            byte* ptr = m_Udev.raw_device_get_devpath(this);
+            return Udev.UnmarshalString(ptr);
         }
 
         public unsafe Udev.OutputString get_subsystem()
@@ -163,9 +178,10 @@ namespace HIDrogen.Imports.Linux
             return Udev.UnmarshalString(ptr);
         }
 
-        public unsafe IntPtr get_syspath()
+        public unsafe Udev.OutputString get_syspath()
         {
-            return (IntPtr)m_Udev.raw_device_get_syspath(this);
+            byte* ptr = m_Udev.raw_device_get_syspath(this);
+            return Udev.UnmarshalString(ptr);
         }
 
         public unsafe Udev.OutputString get_sysname()
@@ -457,6 +473,7 @@ namespace HIDrogen.Imports.Linux
         public unsafe struct InputString : IDisposable
         {
             private byte* m_Ptr;
+            private bool m_Owned;
 
             public InputString(string str)
             {
@@ -468,15 +485,24 @@ namespace HIDrogen.Imports.Linux
                 {
                     m_Ptr = (byte*)Marshal.StringToHGlobalAnsi(str);
                 }
+
+                m_Owned = true;
+            }
+
+            public InputString(byte* ptr, bool owned)
+            {
+                m_Ptr = ptr;
+                m_Owned = owned;
             }
 
             public void Dispose()
             {
-                if (m_Ptr != null)
+                if (m_Ptr != null && m_Owned)
                 {
                     Marshal.FreeHGlobal((IntPtr)m_Ptr);
-                    m_Ptr = null;
                 }
+
+                m_Ptr = null;
             }
 
             public static implicit operator byte*(InputString str) => str.m_Ptr;
@@ -485,6 +511,8 @@ namespace HIDrogen.Imports.Linux
         public unsafe ref struct OutputString
         {
             private byte* m_Ptr;
+
+            public bool IsNull => m_Ptr == null;
 
             public OutputString(byte* ptr)
             {
@@ -500,6 +528,9 @@ namespace HIDrogen.Imports.Linux
 
                 return Marshal.PtrToStringAnsi((IntPtr)m_Ptr);
             }
+
+            public static implicit operator byte*(OutputString str) => str.m_Ptr;
+            public static implicit operator InputString(OutputString str) => new InputString(str.m_Ptr, owned: false);
         }
 
         // Because not all Linux distros seem to ship a consistently-named version of libudev
@@ -569,9 +600,9 @@ namespace HIDrogen.Imports.Linux
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public delegate IntPtr udev_device_new_from_syspath( // -> udev_device*
+        public unsafe delegate IntPtr udev_device_new_from_syspath( // -> udev_device*
             udev_context udev, // udev*
-            IntPtr syspath
+            byte* syspath // const char*
         );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
