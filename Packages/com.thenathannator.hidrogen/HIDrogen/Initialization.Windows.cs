@@ -8,11 +8,11 @@ namespace HIDrogen
     {
         static partial void PlatformInitialize()
         {
-            s_BackendManager.TryCreateService<USBService>();
+            BackendManager.TryCreateService<USBService>();
 #if UNITY_2022_2_OR_NEWER
-            s_BackendManager.TryCreateBackend<XInputBackend>();
+            BackendManager.TryCreateBackend<XInputBackend>();
 #endif
-            s_BackendManager.TryCreateBackend<GameInputBackend>();
+            BackendManager.TryCreateBackend<GameInputBackend>();
         }
 
         static partial void PlatformUninitialize()

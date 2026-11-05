@@ -7,8 +7,6 @@ namespace HIDrogen
     /// </summary>
     internal static partial class Initialization
     {
-        private static readonly BackendManager s_BackendManager = new BackendManager();
-
 // Ignore initialization if in editor and current build platform doesn't match editor runtime platform
 #if !UNITY_EDITOR || (UNITY_STANDALONE_WIN && UNITY_EDITOR_WIN) || (UNITY_STANDALONE_OSX && UNITY_EDITOR_OSX) || (UNITY_STANDALONE_LINUX && UNITY_EDITOR_LINUX)
         /// <summary>
@@ -33,7 +31,7 @@ namespace HIDrogen
                 Logging.Verbose("Initializing backends");
 
                 PlatformInitialize();
-                s_BackendManager.Start();
+                BackendManager.Start();
             }
             catch (Exception ex)
             {
@@ -54,10 +52,10 @@ namespace HIDrogen
             {
                 Logging.Verbose("Uninitializing backends");
 
-                s_BackendManager.Stop();
-                PlatformUninitialize();
+                BackendManager.Stop();
 
-                s_BackendManager.Dispose();
+                PlatformUninitialize();
+                BackendManager.Uninitialize();
             }
             catch (Exception ex)
             {
