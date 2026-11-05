@@ -264,10 +264,10 @@ namespace HIDrogen.Backend
 
                         // Get the first device found
                         udev_list_entry entry;
-                        IntPtr entryPath;
+                        Udev.OutputString entryPath;
                         udev_device inputDevice;
                         if ((entry = enumerate.get_list_entry()).IsInvalid ||
-                            (entryPath = entry.get_name()) != IntPtr.Zero ||
+                            !(entryPath = entry.get_name()).IsNull ||
                             (inputDevice = m_Udev.device_new_from_syspath(entryPath)) == null ||
                             inputDevice.IsInvalid)
                         {
