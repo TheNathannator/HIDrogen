@@ -111,7 +111,7 @@ namespace HIDrogen.Imports
     internal unsafe delegate void libusb_log_cb(
         IntPtr ctx, // libusb_context*
         libusb_log_level level, // enum libusb_log_level
-        byte* str // const char*
+        IntPtr str // const char*
     );
 
     [StructLayout(LayoutKind.Sequential)]
@@ -757,7 +757,7 @@ namespace HIDrogen.Imports
         public static string libusb_strerror(libusb_error errcode)
         {
             var ptr = _libusb_strerror(errcode);
-            return Marshal.PtrToStringAnsi(ptr);
+            return AnsiString.UnmarshalPtr(ptr);
         }
 
         public static bool libusb_checkerror(libusb_error errcode, string message)
