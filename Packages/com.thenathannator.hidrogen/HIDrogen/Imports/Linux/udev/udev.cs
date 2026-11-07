@@ -8,7 +8,7 @@ using HIDrogen.LowLevel;
 namespace HIDrogen.Imports.Linux
 {
     #region Handles
-    internal abstract class UdevHandle : SafeHandleZeroIsInvalid
+    internal abstract class UdevHandle : SafeHandleZeroIsInvalid, IEquatable<UdevHandle>
     {
         protected readonly Udev m_Udev;
 
@@ -16,6 +16,41 @@ namespace HIDrogen.Imports.Linux
             : base(handle, ownsHandle)
         {
             m_Udev = udev;
+        }
+
+        public static bool operator ==(UdevHandle left, UdevHandle right)
+        {
+            if (ReferenceEquals(left, right))
+            {
+                return true;
+            }
+
+            if (left is null || right is null)
+            {
+                return false;
+            }
+
+            return left.handle == right.handle;
+        }
+
+        public static bool operator !=(UdevHandle left, UdevHandle right)
+        {
+            return !(left == right);
+        }
+
+        public bool Equals(UdevHandle obj)
+        {
+            return this == obj;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is UdevHandle handle && Equals(handle);
+        }
+
+        public override int GetHashCode()
+        {
+            return handle.GetHashCode();
         }
     }
 
