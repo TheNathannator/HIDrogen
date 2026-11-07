@@ -263,13 +263,26 @@ namespace HIDrogen.Backend
                         }
 
                         // Get the first device found
-                        udev_list_entry entry;
-                        Udev.OutputString entryPath;
-                        udev_device inputDevice;
-                        if ((entry = enumerate.get_list_entry()).IsInvalid ||
-                            !(entryPath = entry.get_name()).IsNull ||
-                            (inputDevice = m_Udev.device_new_from_syspath(entryPath)) == null ||
-                            inputDevice.IsInvalid)
+                        udev_device inputDevice = null;
+                        var entry = enumerate.get_list_entry();
+                        if (!entry.IsInvalid)
+                        {
+                            var entryPath = entry.get_name();
+                            try
+                            {
+                                var pathPtr = entryPath.ToPtr();
+                                if (pathPtr != IntPtr.Zero)
+                                {
+                                    inputDevice = m_Udev.device_new_from_syspath(pathPtr);
+                                }
+                            }
+                            finally
+                            {
+                                entryPath.Dispose();
+                            }
+                        }
+
+                        if (inputDevice == null || inputDevice.IsInvalid)
                         {
                             Logging.LastError("Failed to get input device instance");
                             success = false;

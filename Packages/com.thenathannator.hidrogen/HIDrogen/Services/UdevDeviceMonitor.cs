@@ -134,19 +134,26 @@ namespace HIDrogen.Services
                 for (var entry = enumerate.get_list_entry(); !entry.IsInvalid; entry = entry.get_next())
                 {
                     var syspath = entry.get_name();
-                    using (var device = m_Context.device_new_from_syspath(syspath))
+                    try
                     {
-                        if (device == null || device.IsInvalid)
+                        using (var device = m_Context.device_new_from_syspath(syspath.ToPtr()))
                         {
-                            continue;
-                        }
+                            if (device == null || device.IsInvalid)
+                            {
+                                continue;
+                            }
 
-                        if (!device.get_is_initialized() || !DeviceAllowed(device))
-                        {
-                            continue;
-                        }
+                            if (!device.get_is_initialized() || !DeviceAllowed(device))
+                            {
+                                continue;
+                            }
 
-                        OnDeviceAdded(device);
+                            OnDeviceAdded(device);
+                        }
+                    }
+                    finally
+                    {
+                        syspath.Dispose();
                     }
                 }
             }
@@ -291,12 +298,19 @@ namespace HIDrogen.Services
                             for (var entry = enumerate.get_list_entry(); !entry.IsInvalid; entry = entry.get_next())
                             {
                                 var syspath = entry.get_name();
-                                using (var sibling = m_Context.device_new_from_syspath(syspath))
+                                try
                                 {
-                                    if (sibling != null && !sibling.IsInvalid && sibling.get_parent() == parent)
+                                    using (var sibling = m_Context.device_new_from_syspath(syspath.ToPtr()))
                                     {
-                                        Logging.Verbose("  - " + MakeDeviceInfo(sibling));
+                                        if (sibling != null && !sibling.IsInvalid && sibling.get_parent() == parent)
+                                        {
+                                            Logging.Verbose("  - " + MakeDeviceInfo(sibling));
+                                        }
                                     }
+                                }
+                                finally
+                                {
+                                    syspath.Dispose();
                                 }
                             }
                         }
@@ -316,12 +330,19 @@ namespace HIDrogen.Services
                     for (var entry = enumerate.get_list_entry(); !entry.IsInvalid; entry = entry.get_next())
                     {
                         var syspath = entry.get_name();
-                        using (var child = m_Context.device_new_from_syspath(syspath))
+                        try
                         {
-                            if (child != null && !child.IsInvalid && child != device)
+                            using (var child = m_Context.device_new_from_syspath(syspath.ToPtr()))
                             {
-                                Logging.Verbose("  - " + MakeDeviceInfo(child));
+                                if (child != null && !child.IsInvalid && child != device)
+                                {
+                                    Logging.Verbose("  - " + MakeDeviceInfo(child));
+                                }
                             }
+                        }
+                        finally
+                        {
+                            syspath.Dispose();
                         }
                     }
                 }
