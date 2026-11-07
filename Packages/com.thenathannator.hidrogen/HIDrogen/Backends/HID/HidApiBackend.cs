@@ -129,21 +129,31 @@ namespace HIDrogen.Backend
             }
         }
 
-        private void EnumerateDevices()
+        private unsafe void EnumerateDevices()
         {
-            foreach (var info in hid_enumerate())
+            var list = hid_enumerate();
+            try
             {
-                if (!m_DevicesByPath.ContainsKey(info.path) &&
-                    MakeDeviceDescription(info, out var description, out var descriptor, out int inputPrependCount))
+                for (var entry = list; entry != null; entry = entry->next)
                 {
-                    Logging.Verbose($"Found new device, VID/PID: {info.vendorId:X4}:{info.productId:X4}, path: {info.path}");
-                    QueueDeviceAdd(description, new HidApiAddContext()
+                    string path = entry->path.ToString(); // TODO: can this allocation be avoided?
+
+                    if (!m_DevicesByPath.ContainsKey(path) &&
+                        MakeDeviceDescription(path, *entry, out var description, out var descriptor, out int inputPrependCount))
                     {
-                        path = info.path,
-                        inputPrependCount = inputPrependCount,
-                        descriptor = descriptor,
-                    });
+                        // Logging.Verbose($"Found new device, VID/PID: {entry->vendorId:X4}:{entry->productId:X4}, path: {path}");
+                        QueueDeviceAdd(description, new HidApiAddContext()
+                        {
+                            path = path,
+                            inputPrependCount = inputPrependCount,
+                            descriptor = descriptor,
+                        });
+                    }
                 }
+            }
+            finally
+            {
+                hid_free_enumeration(list);
             }
         }
 
@@ -160,7 +170,8 @@ namespace HIDrogen.Backend
             device.Dispose();
         }
 
-        private unsafe bool MakeDeviceDescription(
+        private bool MakeDeviceDescription(
+            string path,
             in hid_device_info info,
             out InputDeviceDescription description,
             out HID.HIDDeviceDescriptor descriptor,
@@ -172,7 +183,7 @@ namespace HIDrogen.Backend
             descriptor = default;
 
             // Get descriptor
-            if (!PlatformGetDescriptor(info.path, out var descriptorBytes))
+            if (!PlatformGetDescriptor(path, out var descriptorBytes))
             {
                 Logging.LastError("Error getting descriptor");
                 return false;
@@ -223,16 +234,16 @@ namespace HIDrogen.Backend
 
             // Version may need to be fixed up as well
             ushort version = info.releaseBcd;
-            if (version == 0 && PlatformGetVersionNumber(info.path, out ushort fixedVersion))
+            if (version == 0 && PlatformGetVersionNumber(path, out ushort fixedVersion))
                 version = fixedVersion;
 
             // Create final description
             description = new InputDeviceDescription()
             {
                 interfaceName = InterfaceName,
-                manufacturer = info.manufacturerName,
-                product = info.productName,
-                serial = info.serialNumber,
+                manufacturer = info.manufacturerName.ToString(),
+                product = info.productName.ToString(),
+                serial = info.serialNumber.ToString(),
                 version = version.ToString(),
                 capabilities = JsonUtility.ToJson(descriptor)
             };

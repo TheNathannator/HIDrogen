@@ -67,16 +67,21 @@ namespace HIDrogen.Imports.Linux
             return true;
         }
 
-        public unsafe udev_device device_new_from_syspath(string syspath)
+        public udev_device device_new_from_syspath(string syspath)
         {
-            using (var syspath_ptr = Udev.MarshalString(syspath))
+            var syspath_ptr = new UTF8String(syspath);
+            try
             {
-                var handle = m_Udev.raw_device_new_from_syspath(this, syspath_ptr);
+                var handle = m_Udev.raw_device_new_from_syspath(this, syspath_ptr.ToPtr());
                 return new udev_device(m_Udev, handle, true);
+            }
+            finally
+            {
+                syspath_ptr.Dispose();
             }
         }
 
-        public unsafe udev_device device_new_from_syspath(Udev.OutputString syspath)
+        public udev_device device_new_from_syspath(IntPtr syspath)
         {
             var handle = m_Udev.raw_device_new_from_syspath(this, syspath);
             return new udev_device(m_Udev, handle, true);
@@ -88,13 +93,19 @@ namespace HIDrogen.Imports.Linux
             return new udev_device(m_Udev, handle, true);
         }
 
-        public unsafe udev_device device_new_from_subsystem_sysname(string subsystem, string sysname)
+        public udev_device device_new_from_subsystem_sysname(string subsystem, string sysname)
         {
-            using (var subsystem_ptr = Udev.MarshalString(subsystem))
-            using (var sysname_ptr = Udev.MarshalString(sysname))
+            var subsystem_ptr = new UTF8String(subsystem);
+            var sysname_ptr = new UTF8String(sysname);
+            try
             {
-                var handle = m_Udev.raw_device_new_from_subsystem_sysname(this, subsystem_ptr, sysname_ptr);
+                var handle = m_Udev.raw_device_new_from_subsystem_sysname(this, subsystem_ptr.ToPtr(), sysname_ptr.ToPtr());
                 return new udev_device(m_Udev, handle, true);
+            }
+            finally
+            {
+                subsystem_ptr.Dispose();
+                sysname_ptr.Dispose();
             }
         }
 
@@ -109,12 +120,17 @@ namespace HIDrogen.Imports.Linux
             return new udev_device(m_Udev, handle, true);
         }
 
-        public unsafe udev_monitor monitor_new_from_netlink(string name)
+        public udev_monitor monitor_new_from_netlink(string name)
         {
-            using (var name_ptr = Udev.MarshalString(name))
+            var name_ptr = new UTF8String(name);
+            try
             {
-                var handle = m_Udev.raw_monitor_new_from_netlink(this, name_ptr);
+                var handle = m_Udev.raw_monitor_new_from_netlink(this, name_ptr.ToPtr());
                 return new udev_monitor(m_Udev, handle, true);
+            }
+            finally
+            {
+                name_ptr.Dispose();
             }
         }
 
@@ -144,25 +160,30 @@ namespace HIDrogen.Imports.Linux
             return new udev_list_entry(m_Udev, next);
         }
 
-        public unsafe udev_list_entry get_by_name(string name)
+        public udev_list_entry get_by_name(string name)
         {
-            using (var name_ptr = Udev.MarshalString(name))
+            var name_ptr = new UTF8String(name);
+            try
             {
-                var next = m_Udev.raw_list_entry_get_by_name(m_Entry, name_ptr);
+                var next = m_Udev.raw_list_entry_get_by_name(m_Entry, name_ptr.ToPtr());
                 return new udev_list_entry(m_Udev, next);
+            }
+            finally
+            {
+                name_ptr.Dispose();
             }
         }
 
-        public unsafe Udev.OutputString get_name()
+        public UTF8String get_name()
         {
-            byte* ptr = m_Udev.raw_list_entry_get_name(m_Entry);
-            return Udev.UnmarshalString(ptr);
+            var ptr = m_Udev.raw_list_entry_get_name(m_Entry);
+            return new UTF8String(ptr, false);
         }
 
-        public unsafe Udev.OutputString get_value()
+        public UTF8String get_value()
         {
-            byte* ptr = m_Udev.raw_list_entry_get_value(m_Entry);
-            return Udev.UnmarshalString(ptr);
+            var ptr = m_Udev.raw_list_entry_get_value(m_Entry);
+            return new UTF8String(ptr, false);
         }
     }
 
@@ -185,56 +206,62 @@ namespace HIDrogen.Imports.Linux
             return new udev_device(m_Udev, handle, false); // The handle is *not* owned by us here
         }
 
-        public unsafe udev_device get_parent_with_subsystem_devtype(string subsystem, string devtype)
+        public udev_device get_parent_with_subsystem_devtype(string subsystem, string devtype)
         {
-            using (var subsystem_ptr = Udev.MarshalString(subsystem))
-            using (var devtype_ptr = Udev.MarshalString(devtype))
+            var subsystem_ptr = new UTF8String(subsystem);
+            var devtype_ptr = new UTF8String(devtype);
+            try
             {
-                var handle = m_Udev.raw_device_get_parent_with_subsystem_devtype(this, subsystem_ptr, devtype_ptr);
+                var handle = m_Udev.raw_device_get_parent_with_subsystem_devtype(this, subsystem_ptr.ToPtr(), devtype_ptr.ToPtr());
                 return new udev_device(m_Udev, handle, false); // The handle is *not* owned by us here
+            }
+            finally
+            {
+                subsystem_ptr.Dispose();
+                devtype_ptr.Dispose();
             }
         }
 
-        public unsafe Udev.OutputString get_devpath()
+        public UTF8String get_devpath()
         {
-            byte* ptr = m_Udev.raw_device_get_devpath(this);
-            return Udev.UnmarshalString(ptr);
+            var ptr = m_Udev.raw_device_get_devpath(this);
+            return new UTF8String(ptr, false);
         }
 
-        public unsafe Udev.OutputString get_subsystem()
+        public UTF8String get_subsystem()
         {
-            byte* ptr = m_Udev.raw_device_get_subsystem(this);
-            return Udev.UnmarshalString(ptr);
+            var ptr = m_Udev.raw_device_get_subsystem(this);
+            return new UTF8String(ptr, false);
         }
 
-        public unsafe Udev.OutputString get_devtype()
+        public UTF8String get_devtype()
         {
-            byte* ptr = m_Udev.raw_device_get_devtype(this);
-            return Udev.UnmarshalString(ptr);
+            var ptr = m_Udev.raw_device_get_devtype(this);
+            return new UTF8String(ptr, false);
         }
 
-        public unsafe Udev.OutputString get_syspath()
+        public UTF8String get_syspath()
         {
-            byte* ptr = m_Udev.raw_device_get_syspath(this);
-            return Udev.UnmarshalString(ptr);
+            var ptr = m_Udev.raw_device_get_syspath(this);
+            return new UTF8String(ptr, false);
         }
 
-        public unsafe Udev.OutputString get_sysname()
+        public UTF8String get_sysname()
         {
-            byte* ptr = m_Udev.raw_device_get_sysname(this);
-            return Udev.UnmarshalString(ptr);
+            var ptr = m_Udev.raw_device_get_sysname(this);
+            return new UTF8String(ptr, false);
         }
 
-        public unsafe Udev.OutputString get_sysnum()
+        public UTF8String get_sysnum()
         {
-            byte* ptr = m_Udev.raw_device_get_sysnum(this);
-            return Udev.UnmarshalString(ptr);
+            var ptr = m_Udev.raw_device_get_sysnum(this);
+            return new UTF8String(ptr, false);
         }
 
-        public unsafe Udev.OutputString get_devnode()
+        public UTF8String get_devnode()
         {
-            byte* ptr = m_Udev.raw_device_get_devnode(this);
-            return Udev.UnmarshalString(ptr);
+            var ptr = m_Udev.raw_device_get_devnode(this);
+            return new UTF8String(ptr, false);
         }
 
         public bool get_is_initialized()
@@ -271,19 +298,24 @@ namespace HIDrogen.Imports.Linux
             return new udev_list_entry(m_Udev, entry);
         }
 
-        public unsafe Udev.OutputString get_property_value(string key)
+        public UTF8String get_property_value(string key)
         {
-            using (var key_ptr = Udev.MarshalString(key))
+            var key_ptr = new UTF8String(key);
+            try
             {
-                byte* ptr = m_Udev.raw_device_get_property_value(this, key_ptr);
-                return Udev.UnmarshalString(ptr);
+                var ptr = m_Udev.raw_device_get_property_value(this, key_ptr.ToPtr());
+                return new UTF8String(ptr, false);
+            }
+            finally
+            {
+                key_ptr.Dispose();
             }
         }
 
-        public unsafe Udev.OutputString get_driver()
+        public UTF8String get_driver()
         {
-            byte* ptr = m_Udev.raw_device_get_driver(this);
-            return Udev.UnmarshalString(ptr);
+            var ptr = m_Udev.raw_device_get_driver(this);
+            return new UTF8String(ptr, false);
         }
 
         public ulong get_devnum()
@@ -291,10 +323,10 @@ namespace HIDrogen.Imports.Linux
             return m_Udev.raw_device_get_devnum(this);
         }
 
-        public unsafe Udev.OutputString get_action()
+        public UTF8String get_action()
         {
-            byte* ptr = m_Udev.raw_device_get_action(this);
-            return Udev.UnmarshalString(ptr);
+            var ptr = m_Udev.raw_device_get_action(this);
+            return new UTF8String(ptr, false);
         }
 
         public ulong get_seqnum()
@@ -307,12 +339,17 @@ namespace HIDrogen.Imports.Linux
             return m_Udev.raw_device_get_usec_since_initialized(this);
         }
 
-        public unsafe Udev.OutputString get_sysattr_value(string sysattr)
+        public UTF8String get_sysattr_value(string sysattr)
         {
-            using (var sysattr_ptr = Udev.MarshalString(sysattr))
+            var sysattr_ptr = new UTF8String(sysattr);
+            try
             {
-                byte* ptr = m_Udev.raw_device_get_sysattr_value(this, sysattr_ptr);
-                return Udev.UnmarshalString(ptr);
+                var ptr = m_Udev.raw_device_get_sysattr_value(this, sysattr_ptr.ToPtr());
+                return new UTF8String(ptr, false);
+            }
+            finally
+            {
+                sysattr_ptr.Dispose();
             }
         }
 
@@ -321,15 +358,20 @@ namespace HIDrogen.Imports.Linux
         //     ...
         // }
 
-        public unsafe bool has_tag(string tag)
+        public bool has_tag(string tag)
         {
-            using (var tag_ptr = Udev.MarshalString(tag))
+            var tag_ptr = new UTF8String(tag);
+            try
             {
-                return m_Udev.raw_device_has_tag(this, tag_ptr) > 0;
+                return m_Udev.raw_device_has_tag(this, tag_ptr.ToPtr()) > 0;
+            }
+            finally
+            {
+                tag_ptr.Dispose();
             }
         }
 
-        // public unsafe bool has_current_tag(string tag)
+        // public bool has_current_tag(string tag)
         // {
         //     ...
         // }
@@ -370,20 +412,31 @@ namespace HIDrogen.Imports.Linux
             return new udev_device(m_Udev, handle, true);
         }
 
-        public unsafe int filter_add_match_subsystem_devtype(string subsystem, string devtype)
+        public int filter_add_match_subsystem_devtype(string subsystem, string devtype)
         {
-            using (var subsystem_ptr = Udev.MarshalString(subsystem))
-            using (var devtype_ptr = Udev.MarshalString(devtype))
+            var subsystem_ptr = new UTF8String(subsystem);
+            var devtype_ptr = new UTF8String(devtype);
+            try
             {
-                return m_Udev.raw_monitor_filter_add_match_subsystem_devtype(this, subsystem_ptr, devtype_ptr);
+                return m_Udev.raw_monitor_filter_add_match_subsystem_devtype(this, subsystem_ptr.ToPtr(), devtype_ptr.ToPtr());
+            }
+            finally
+            {
+                subsystem_ptr.Dispose();
+                devtype_ptr.Dispose();
             }
         }
 
-        public unsafe int filter_add_match_tag(string tag)
+        public int filter_add_match_tag(string tag)
         {
-            using (var tag_ptr = Udev.MarshalString(tag))
+            var tag_ptr = new UTF8String(tag);
+            try
             {
-                return m_Udev.raw_monitor_filter_add_match_tag(this, tag_ptr);
+                return m_Udev.raw_monitor_filter_add_match_tag(this, tag_ptr.ToPtr());
+            }
+            finally
+            {
+                tag_ptr.Dispose();
             }
         }
 
@@ -411,62 +464,100 @@ namespace HIDrogen.Imports.Linux
             return true;
         }
 
-        public unsafe int add_match_subsystem(string subsystem)
+        public int add_match_subsystem(string subsystem)
         {
-            using (var subsystem_ptr = Udev.MarshalString(subsystem))
+            var subsystem_ptr = new UTF8String(subsystem);
+            try
             {
-                return m_Udev.raw_enumerate_add_match_subsystem(this, subsystem_ptr);
+                return m_Udev.raw_enumerate_add_match_subsystem(this, subsystem_ptr.ToPtr());
+            }
+            finally
+            {
+                subsystem_ptr.Dispose();
             }
         }
 
-        public unsafe int add_nomatch_subsystem(string subsystem)
+        public int add_nomatch_subsystem(string subsystem)
         {
-            using (var subsystem_ptr = Udev.MarshalString(subsystem))
+            var subsystem_ptr = new UTF8String(subsystem);
+            try
             {
-                return m_Udev.raw_enumerate_add_nomatch_subsystem(this, subsystem_ptr);
+                return m_Udev.raw_enumerate_add_nomatch_subsystem(this, subsystem_ptr.ToPtr());
+            }
+            finally
+            {
+                subsystem_ptr.Dispose();
             }
         }
 
-        public unsafe int add_match_sysattr(string sysattr, string value)
+        public int add_match_sysattr(string sysattr, string value)
         {
-            using (var sysattr_ptr = Udev.MarshalString(sysattr))
-            using (var value_ptr = Udev.MarshalString(value))
+            var sysattr_ptr = new UTF8String(sysattr);
+            var value_ptr = new UTF8String(value);
+            try
             {
-                return m_Udev.raw_enumerate_add_match_sysattr(this, sysattr_ptr, value_ptr);
+                return m_Udev.raw_enumerate_add_match_sysattr(this, sysattr_ptr.ToPtr(), value_ptr.ToPtr());
+            }
+            finally
+            {
+                sysattr_ptr.Dispose();
+                value_ptr.Dispose();
             }
         }
 
-        public unsafe int add_nomatch_sysattr(string sysattr, string value)
+        public int add_nomatch_sysattr(string sysattr, string value)
         {
-            using (var sysattr_ptr = Udev.MarshalString(sysattr))
-            using (var value_ptr = Udev.MarshalString(value))
+            var sysattr_ptr = new UTF8String(sysattr);
+            var value_ptr = new UTF8String(value);
+            try
             {
-                return m_Udev.raw_enumerate_add_nomatch_sysattr(this, sysattr_ptr, value_ptr);
+                return m_Udev.raw_enumerate_add_nomatch_sysattr(this, sysattr_ptr.ToPtr(), value_ptr.ToPtr());
+            }
+            finally
+            {
+                sysattr_ptr.Dispose();
+                value_ptr.Dispose();
             }
         }
 
-        public unsafe int add_match_property(string property, string value)
+        public int add_match_property(string property, string value)
         {
-            using (var property_ptr = Udev.MarshalString(property))
-            using (var value_ptr = Udev.MarshalString(value))
+            var property_ptr = new UTF8String(property);
+            var value_ptr = new UTF8String(value);
+            try
             {
-                return m_Udev.raw_enumerate_add_match_property(this, property_ptr, value_ptr);
+                return m_Udev.raw_enumerate_add_match_property(this, property_ptr.ToPtr(), value_ptr.ToPtr());
+            }
+            finally
+            {
+                property_ptr.Dispose();
+                value_ptr.Dispose();
             }
         }
 
-        public unsafe int add_match_sysname(string sysname)
+        public int add_match_sysname(string sysname)
         {
-            using (var sysname_ptr = Udev.MarshalString(sysname))
+            var sysname_ptr = new UTF8String(sysname);
+            try
             {
-                return m_Udev.raw_enumerate_add_match_sysname(this, sysname_ptr);
+                return m_Udev.raw_enumerate_add_match_sysname(this, sysname_ptr.ToPtr());
+            }
+            finally
+            {
+                sysname_ptr.Dispose();
             }
         }
 
-        public unsafe int add_match_tag(string tag)
+        public int add_match_tag(string tag)
         {
-            using (var tag_ptr = Udev.MarshalString(tag))
+            var tag_ptr = new UTF8String(tag);
+            try
             {
-                return m_Udev.raw_enumerate_add_match_tag(this, tag_ptr);
+                return m_Udev.raw_enumerate_add_match_tag(this, tag_ptr.ToPtr());
+            }
+            finally
+            {
+                tag_ptr.Dispose();
             }
         }
 
@@ -480,9 +571,9 @@ namespace HIDrogen.Imports.Linux
             return m_Udev.raw_enumerate_add_match_is_initialized(this);
         }
 
-        public unsafe int add_syspath(IntPtr syspath)
+        public int add_syspath(IntPtr syspath)
         {
-            return m_Udev.raw_enumerate_add_syspath(this, (byte*)syspath);
+            return m_Udev.raw_enumerate_add_syspath(this, syspath);
         }
 
         public int scan_devices()
@@ -505,69 +596,6 @@ namespace HIDrogen.Imports.Linux
 
     internal sealed class Udev : IDisposable
     {
-        public unsafe struct InputString : IDisposable
-        {
-            private byte* m_Ptr;
-            private bool m_Owned;
-
-            public InputString(string str)
-            {
-                if (str == null)
-                {
-                    m_Ptr = null;
-                }
-                else
-                {
-                    m_Ptr = (byte*)Marshal.StringToHGlobalAnsi(str);
-                }
-
-                m_Owned = true;
-            }
-
-            public InputString(byte* ptr, bool owned)
-            {
-                m_Ptr = ptr;
-                m_Owned = owned;
-            }
-
-            public void Dispose()
-            {
-                if (m_Ptr != null && m_Owned)
-                {
-                    Marshal.FreeHGlobal((IntPtr)m_Ptr);
-                }
-
-                m_Ptr = null;
-            }
-
-            public static implicit operator byte*(InputString str) => str.m_Ptr;
-        }
-
-        public unsafe ref struct OutputString
-        {
-            private byte* m_Ptr;
-
-            public bool IsNull => m_Ptr == null;
-
-            public OutputString(byte* ptr)
-            {
-                m_Ptr = ptr;
-            }
-
-            public override string ToString()
-            {
-                if (m_Ptr == null)
-                {
-                    return null;
-                }
-
-                return Marshal.PtrToStringAnsi((IntPtr)m_Ptr);
-            }
-
-            public static implicit operator byte*(OutputString str) => str.m_Ptr;
-            public static implicit operator InputString(OutputString str) => new InputString(str.m_Ptr, owned: false);
-        }
-
         // Because not all Linux distros seem to ship a consistently-named version of libudev
         // in their package managers (some have .so, others .so.0 and .so.1, others only .so.1),
         // we need to do this big mess of manual library and export loading so we can
@@ -602,20 +630,20 @@ namespace HIDrogen.Imports.Linux
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate IntPtr udev_list_entry_get_by_name( // -> udev_list_entry*
+        public delegate IntPtr udev_list_entry_get_by_name( // -> udev_list_entry*
             IntPtr entry, // udev_list_entry*
-            byte* name // const char*
+            IntPtr name // const char*
         );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate byte* udev_list_entry_get_name( // -> const char*
+        public delegate IntPtr udev_list_entry_get_name( // -> const char*
             IntPtr entry // udev_list_entry*
         );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate byte* udev_list_entry_get_value( // -> const char*
+        public delegate IntPtr udev_list_entry_get_value( // -> const char*
             IntPtr entry // udev_list_entry*
         );
         #endregion
@@ -635,9 +663,9 @@ namespace HIDrogen.Imports.Linux
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate IntPtr udev_device_new_from_syspath( // -> udev_device*
+        public delegate IntPtr udev_device_new_from_syspath( // -> udev_device*
             udev_context udev, // udev*
-            byte* syspath // const char*
+            IntPtr syspath // const char*
         );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
@@ -650,18 +678,18 @@ namespace HIDrogen.Imports.Linux
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate IntPtr udev_device_new_from_subsystem_sysname( // -> udev_device*
+        public delegate IntPtr udev_device_new_from_subsystem_sysname( // -> udev_device*
             udev_context udev,  // udev*
-            byte* subsystem, // const char*
-            byte* sysname // const char*
+            IntPtr subsystem, // const char*
+            IntPtr sysname // const char*
         );
 
         // Not guaranteed to be available; added in systemd 189
         // [EditorBrowsable(EditorBrowsableState.Advanced)]
         // [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        // public unsafe delegate IntPtr udev_device_new_from_device_id( // -> udev_device*
+        // public delegate IntPtr udev_device_new_from_device_id( // -> udev_device*
         //     udev_context udev, // udev*
-        //     byte* id // const char*
+        //     IntPtr id // const char*
         // );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
@@ -678,51 +706,51 @@ namespace HIDrogen.Imports.Linux
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate IntPtr udev_device_get_parent_with_subsystem_devtype( // -> udev_device*
+        public delegate IntPtr udev_device_get_parent_with_subsystem_devtype( // -> udev_device*
             udev_device device, // udev_device*
-            byte* subsystem, // const char*
-            byte* devtype // const char*
+            IntPtr subsystem, // const char*
+            IntPtr devtype // const char*
         );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate byte* udev_device_get_devpath( // -> const char*
+        public delegate IntPtr udev_device_get_devpath( // -> const char*
             udev_device device // udev_device*
         );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate byte* udev_device_get_subsystem( // -> const char*
+        public delegate IntPtr udev_device_get_subsystem( // -> const char*
             udev_device device // udev_device*
         );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate byte* udev_device_get_devtype( // -> const char*
+        public delegate IntPtr udev_device_get_devtype( // -> const char*
             udev_device device // udev_device*
         );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate byte* udev_device_get_syspath( // -> const char*
+        public delegate IntPtr udev_device_get_syspath( // -> const char*
             udev_device device // udev_device*
         );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate byte* udev_device_get_sysname( // -> const char*
+        public delegate IntPtr udev_device_get_sysname( // -> const char*
             udev_device device // udev_device*
         );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate byte* udev_device_get_sysnum( // -> const char*
+        public delegate IntPtr udev_device_get_sysnum( // -> const char*
             udev_device device // udev_device*
         );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate byte* udev_device_get_devnode( // -> const char*
+        public delegate IntPtr udev_device_get_devnode( // -> const char*
             udev_device device // udev_device*
         );
 
@@ -765,14 +793,14 @@ namespace HIDrogen.Imports.Linux
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate byte* udev_device_get_property_value( // -> const char*
+        public delegate IntPtr udev_device_get_property_value( // -> const char*
             udev_device device, // udev_device*
-            byte* key // const char*
+            IntPtr key // const char*
         );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate byte* udev_device_get_driver( // -> const char*
+        public delegate IntPtr udev_device_get_driver( // -> const char*
             udev_device device // udev_device*
         );
 
@@ -784,7 +812,7 @@ namespace HIDrogen.Imports.Linux
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate byte* udev_device_get_action( // -> const char*
+        public delegate IntPtr udev_device_get_action( // -> const char*
             udev_device device // udev_device*
         );
 
@@ -802,33 +830,33 @@ namespace HIDrogen.Imports.Linux
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate byte* udev_device_get_sysattr_value( // -> const char*
+        public delegate IntPtr udev_device_get_sysattr_value( // -> const char*
             udev_device device, // udev_device*
-            byte* sysattr // const char*
+            IntPtr sysattr // const char*
         );
 
         // Not guaranteed to be available; added in systemd 199
         // [EditorBrowsable(EditorBrowsableState.Advanced)]
         // [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        // public unsafe delegate int udev_device_set_sysattr_value( // -> int
+        // public delegate int udev_device_set_sysattr_value( // -> int
         //     udev_device device, // udev_device*
-        //     byte* sysattr, // const char*
-        //     byte* value // const char*
+        //     IntPtr sysattr, // const char*
+        //     IntPtr value // const char*
         // );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate int udev_device_has_tag( // -> int
+        public delegate int udev_device_has_tag( // -> int
             udev_device device, // udev_device*
-            byte* tag // const char*
+            IntPtr tag // const char*
         );
 
         // Not guaranteed to be available; added in systemd 247
         // [EditorBrowsable(EditorBrowsableState.Advanced)]
         // [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        // public unsafe delegate int udev_device_has_current_tag( // -> int
+        // public delegate int udev_device_has_current_tag( // -> int
         //     udev_device device, // udev_device*
-        //     byte* tag // const char*
+        //     IntPtr tag // const char*
         // );
         #endregion
 
@@ -847,9 +875,9 @@ namespace HIDrogen.Imports.Linux
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate IntPtr udev_monitor_new_from_netlink( // udev_monitor*
+        public delegate IntPtr udev_monitor_new_from_netlink( // udev_monitor*
             udev_context udev, // udev*
-            byte* name // const char*
+            IntPtr name // const char*
         );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
@@ -879,17 +907,17 @@ namespace HIDrogen.Imports.Linux
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate int udev_monitor_filter_add_match_subsystem_devtype( // -> int
+        public delegate int udev_monitor_filter_add_match_subsystem_devtype( // -> int
             udev_monitor monitor, // udev_monitor*
-            byte* subsystem, // const char*
-            byte* devtype // const char*
+            IntPtr subsystem, // const char*
+            IntPtr devtype // const char*
         );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate int udev_monitor_filter_add_match_tag( // -> int
+        public delegate int udev_monitor_filter_add_match_tag( // -> int
             udev_monitor monitor, // udev_monitor*
-            byte* tag // const char*
+            IntPtr tag // const char*
         );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
@@ -926,54 +954,54 @@ namespace HIDrogen.Imports.Linux
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate int udev_enumerate_add_match_subsystem( // -> int
+        public delegate int udev_enumerate_add_match_subsystem( // -> int
             udev_enumerate enumerate, // udev_enumerate*
-            byte* subsystem // const char*
+            IntPtr subsystem // const char*
         );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate int udev_enumerate_add_nomatch_subsystem( // -> int
+        public delegate int udev_enumerate_add_nomatch_subsystem( // -> int
             udev_enumerate enumerate, // udev_enumerate*
-            byte* subsystem // const char*
+            IntPtr subsystem // const char*
         );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate int udev_enumerate_add_match_sysattr( // -> int
+        public delegate int udev_enumerate_add_match_sysattr( // -> int
             udev_enumerate enumerate, // udev_enumerate*
-            byte* sysattr, // const char*
-            byte* value // const char*
+            IntPtr sysattr, // const char*
+            IntPtr value // const char*
         );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate int udev_enumerate_add_nomatch_sysattr( // -> int
+        public delegate int udev_enumerate_add_nomatch_sysattr( // -> int
             udev_enumerate enumerate, // udev_enumerate*
-            byte* sysattr, // const char*
-            byte* value // const char*
+            IntPtr sysattr, // const char*
+            IntPtr value // const char*
         );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate int udev_enumerate_add_match_property( // -> int
+        public delegate int udev_enumerate_add_match_property( // -> int
             udev_enumerate enumerate, // udev_enumerate*
-            byte* property, // const char*
-            byte* value // const char*
+            IntPtr property, // const char*
+            IntPtr value // const char*
         );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate int udev_enumerate_add_match_sysname( // -> int
+        public delegate int udev_enumerate_add_match_sysname( // -> int
             udev_enumerate enumerate, // udev_enumerate*
-            byte* sysname // const char*
+            IntPtr sysname // const char*
         );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate int udev_enumerate_add_match_tag( // -> int
+        public delegate int udev_enumerate_add_match_tag( // -> int
             udev_enumerate enumerate, // udev_enumerate*
-            byte* tag // const char*
+            IntPtr tag // const char*
         );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
@@ -991,9 +1019,9 @@ namespace HIDrogen.Imports.Linux
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate int udev_enumerate_add_syspath( // -> int
+        public delegate int udev_enumerate_add_syspath( // -> int
             udev_enumerate enumerate, // udev_enumerate*
-            byte* syspath // const char*
+            IntPtr syspath // const char*
         );
 
         [EditorBrowsable(EditorBrowsableState.Advanced)]
@@ -1018,9 +1046,9 @@ namespace HIDrogen.Imports.Linux
         #region udev_util
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        public unsafe delegate int udev_util_encode_string( // int
-            byte* str, // const char*
-            byte* str_enc, // char*
+        public delegate int udev_util_encode_string( // int
+            IntPtr str, // const char*
+            IntPtr str_enc, // char*
             UIntPtr len // size_t
         );
         #endregion
@@ -1363,17 +1391,6 @@ namespace HIDrogen.Imports.Linux
         {
             var handle = raw_context_new();
             return new udev_context(this, handle, true);
-        }
-
-        // convenience methods
-        public static InputString MarshalString(string str)
-        {
-            return new InputString(str);
-        }
-
-        public static unsafe OutputString UnmarshalString(byte* ptr)
-        {
-            return new OutputString(ptr);
         }
     }
 }

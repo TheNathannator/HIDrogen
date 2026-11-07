@@ -32,7 +32,7 @@ namespace HIDrogen.Services
 
     internal class USBService : ICustomInputService
     {
-        private static readonly unsafe IntPtr s_LogCallback = Marshal.GetFunctionPointerForDelegate<libusb_log_cb>(LogCallback);
+        private static readonly IntPtr s_LogCallback = Marshal.GetFunctionPointerForDelegate<libusb_log_cb>(LogCallback);
 
         private libusb_context m_Context;
 
@@ -254,22 +254,23 @@ namespace HIDrogen.Services
         }
 
         [AOT.MonoPInvokeCallback(typeof(libusb_log_cb))]
-        private static unsafe void LogCallback(
+        private static void LogCallback(
             IntPtr _ctx, // libusb_context*
             libusb_log_level level,
-            byte* str // const char*
+            IntPtr _str // const char*
         )
         {
+            var str = new AnsiString(_str, false);
             switch (level)
             {
                 case libusb_log_level.ERROR:
                 {
-                    Debug.LogError(MakeLogMessage(str));
+                    Debug.LogError($"[libusb] {str.ToString()}");
                     break;
                 }
                 case libusb_log_level.WARNING:
                 {
-                    Debug.LogWarning(MakeLogMessage(str));
+                    Debug.LogWarning($"[libusb] {str.ToString()}");
                     break;
                 }
 #if HIDROGEN_VERBOSE_LOGGING
@@ -278,15 +279,10 @@ namespace HIDrogen.Services
                 // case libusb_log_level.DEBUG:
 #endif
                 {
-                    Debug.Log(MakeLogMessage(str));
+                    Debug.Log($"[libusb] {str.ToString()}");
                     break;
                 }
             }
-        }
-
-        private static unsafe string MakeLogMessage(byte* str)
-        {
-            return "[libusb] " + StringMarshal.FromNullTerminatedAscii(str);
         }
     }
 }
