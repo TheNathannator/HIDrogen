@@ -67,6 +67,12 @@ namespace HIDrogen.Imports.Linux
             return true;
         }
 
+        public udev_context add_ref()
+        {
+            var newHandle = m_Udev.raw_context_ref.Invoke(handle);
+            return new udev_context(m_Udev, newHandle, ownsHandle: true);
+        }
+
         public udev_device device_new_from_syspath(string syspath)
         {
             var syspath_ptr = new UTF8String(syspath);
@@ -198,6 +204,12 @@ namespace HIDrogen.Imports.Linux
         {
             m_Udev.raw_device_unref?.Invoke(handle);
             return true;
+        }
+
+        public udev_device add_ref()
+        {
+            var newHandle = m_Udev.raw_device_ref.Invoke(handle);
+            return new udev_device(m_Udev, newHandle, ownsHandle: true);
         }
 
         public udev_device get_parent()
@@ -390,6 +402,12 @@ namespace HIDrogen.Imports.Linux
             return true;
         }
 
+        public udev_monitor add_ref()
+        {
+            var newHandle = m_Udev.raw_monitor_ref.Invoke(handle);
+            return new udev_monitor(m_Udev, newHandle, ownsHandle: true);
+        }
+
         public int enable_receiving()
         {
             return m_Udev.raw_monitor_enable_receiving(this);
@@ -462,6 +480,12 @@ namespace HIDrogen.Imports.Linux
         {
             m_Udev.raw_enumerate_unref?.Invoke(handle);
             return true;
+        }
+
+        public udev_enumerate add_ref()
+        {
+            var newHandle = m_Udev.raw_enumerate_ref.Invoke(handle);
+            return new udev_enumerate(m_Udev, newHandle, ownsHandle: true);
         }
 
         public int add_match_subsystem(string subsystem)
@@ -1053,6 +1077,16 @@ namespace HIDrogen.Imports.Linux
         );
         #endregion
 
+        #region String definitions
+        public const string SubsystemUsb = "usb";
+        public const string SubsystemHid = "hid";
+        public const string SubsystemHidRaw = "hidraw";
+        public const string SubsystemInput = "input";
+
+        public const string EventAdded = "add";
+        public const string EventRemoved = "remove";
+        #endregion
+
         private NativeLibrary m_Library;
         private string m_LibraryPath;
 
@@ -1392,6 +1426,133 @@ namespace HIDrogen.Imports.Linux
             var handle = raw_context_new();
             return new udev_context(this, handle, true);
         }
+
+#if HIDROGEN_VERBOSE_LOGGING
+        public static void PrintDeviceTree(udev_context context, udev_device device)
+        {
+            // Skip devices that are 
+            switch (device.get_subsystem().ToString())
+            {
+                case "bluetooth":
+                case "hid":
+                case "hidraw":
+                case "input":
+                case "usb":
+                case "usbmisc":
+                {
+                    break;
+                }
+                default:
+                {
+                    return;
+                }
+            }
+
+            Logging.Verbose("udev device added: " + MakeDeviceInfo(device));
+
+            var parents = new System.Collections.Generic.List<udev_device>();
+            for (var parent = device.get_parent(); parent != null && !parent.IsInvalid; parent = parent.get_parent())
+            {
+                parents.Add(parent);
+            }
+
+            Logging.Verbose("- parents:");
+
+            for (int i = parents.Count - 1; i >= 0; i--)
+            {
+                using (var parent = parents[i])
+                {
+                    Logging.Verbose("  - " + MakeDeviceInfo(parent));
+                }
+            }
+            parents.Clear();
+
+            using (var parent = device.get_parent())
+            {
+                if (parent != null && !parent.IsInvalid)
+                {
+                    Logging.Verbose("- siblings:");
+
+                    using (var enumerate = context.enumerate_new())
+                    {
+                        if (enumerate != null &&
+                            !enumerate.IsInvalid &&
+                            enumerate.add_match_parent(parent) >= 0 &&
+                            enumerate.scan_devices() >= 0)
+                        {
+                            for (var entry = enumerate.get_list_entry(); !entry.IsInvalid; entry = entry.get_next())
+                            {
+                                var syspath = entry.get_name();
+                                try
+                                {
+                                    using (var sibling = context.device_new_from_syspath(syspath.ToPtr()))
+                                    {
+                                        if (sibling != null && !sibling.IsInvalid)
+                                        {
+                                            using (var siblingParent = sibling.get_parent())
+                                            {
+                                                if (siblingParent == parent)
+                                                {
+                                                    Logging.Verbose("  - " + MakeDeviceInfo(sibling));
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                finally
+                                {
+                                    syspath.Dispose();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Logging.Verbose("- children:");
+
+            using (var enumerate = context.enumerate_new())
+            {
+                if (enumerate != null &&
+                    !enumerate.IsInvalid &&
+                    enumerate.add_match_parent(device) >= 0 &&
+                    enumerate.scan_devices() >= 0)
+                {
+                    for (var entry = enumerate.get_list_entry(); !entry.IsInvalid; entry = entry.get_next())
+                    {
+                        var syspath = entry.get_name();
+                        try
+                        {
+                            using (var child = context.device_new_from_syspath(syspath.ToPtr()))
+                            {
+                                if (child != null && !child.IsInvalid && child != device)
+                                {
+                                    Logging.Verbose("  - " + MakeDeviceInfo(child));
+                                }
+                            }
+                        }
+                        finally
+                        {
+                            syspath.Dispose();
+                        }
+                    }
+                }
+            }
+        }
+
+        public static string MakeDeviceInfo(udev_device device)
+        {
+            return
+                $"subsystem: {device.get_subsystem().ToString()}, " +
+                $"devtype: {device.get_devtype().ToString()}, " +
+                $"driver: {device.get_driver().ToString()}, " +
+                $"devnode: {device.get_devnode().ToString()}, " +
+                $"sysname: {device.get_sysname().ToString()}, " +
+                $"devpath: {device.get_devpath().ToString()}, " +
+                $"syspath: {device.get_syspath().ToString()}, " +
+                $"sysnum: {device.get_sysnum().ToString()}";
+        }
+#endif
     }
 }
 #endif

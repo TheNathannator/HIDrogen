@@ -1,6 +1,7 @@
 #if UNITY_STANDALONE_LINUX
 using System;
 using HIDrogen.Imports.Linux;
+using HIDrogen.Services;
 using UnityEngine.InputSystem;
 
 namespace HIDrogen.Backend
@@ -10,7 +11,8 @@ namespace HIDrogen.Backend
     /// <summary>
     /// Provides input through the hidapi library.
     /// </summary>
-    internal partial class EvdevBackend : CustomInputBackend<EvdevDevice, EvdevBackend.AddContext>
+    internal partial class EvdevBackend : CustomInputBackend<EvdevDevice, EvdevBackend.AddContext>,
+        IUdevBackend
     {
         internal struct AddContext : IDisposable
         {
@@ -31,6 +33,16 @@ namespace HIDrogen.Backend
         protected override void OnDeviceRemoved(EvdevDevice device)
         {
             device.Dispose();
+        }
+
+        public bool ProbeDeviceAdd(udev_context udev, udev_device device)
+        {
+            return false;
+        }
+
+        public bool ProbeDeviceRemove(udev_context udev, udev_device device)
+        {
+            return false;
         }
     }
 }

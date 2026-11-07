@@ -1,13 +1,15 @@
 #if UNITY_STANDALONE_LINUX
 using System;
 using HIDrogen.Imports.Linux;
+using HIDrogen.Services;
 using UnityEngine.InputSystem;
 
 namespace HIDrogen.Backend
 {
     using static HidRaw;
 
-    internal class HidRawBackend : CustomInputBackend<HidRawDevice, HidRawBackend.AddContext>
+    internal class HidRawBackend : CustomInputBackend<HidRawDevice, HidRawBackend.AddContext>,
+        IUdevBackend
     {
         internal struct AddContext : IDisposable
         {
@@ -28,6 +30,16 @@ namespace HIDrogen.Backend
         protected override void OnDeviceRemoved(HidRawDevice device)
         {
             device.Dispose();
+        }
+
+        public bool ProbeDeviceAdd(udev_context udev, udev_device device)
+        {
+            return false;
+        }
+
+        public bool ProbeDeviceRemove(udev_context udev, udev_device device)
+        {
+            return false;
         }
     }
 }
