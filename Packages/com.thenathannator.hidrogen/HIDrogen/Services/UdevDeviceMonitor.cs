@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using HIDrogen.Backend;
 using HIDrogen.Imports.Linux;
 using HIDrogen.Imports.Posix;
 
@@ -9,6 +10,12 @@ using HIDrogen.Imports.Posix;
 
 namespace HIDrogen.Services
 {
+    internal interface IUdevBackend
+    {
+        bool ProbeDeviceAdd(udev_context udev, udev_device device);
+        bool ProbeDeviceRemove(udev_context udev, udev_device device);
+    }
+
     internal class UdevDeviceMonitor : ICustomInputService
     {
         private Udev m_Udev;
@@ -16,8 +23,13 @@ namespace HIDrogen.Services
         private udev_monitor m_Monitor;
         private fd m_MonitorFd;
 
+        private HidRawBackend m_HidRaw;
+        private EvdevBackend m_Evdev;
+
         private Thread m_EnumerationThread;
         private EventWaitHandle m_ThreadStop = new EventWaitHandle(false, EventResetMode.ManualReset);
+
+        private readonly HashSet<string> m_TrackedDevpaths = new HashSet<string>();
 
         public UdevDeviceMonitor()
         {
@@ -54,6 +66,9 @@ namespace HIDrogen.Services
 
             StartMonitor();
             EnumerateDevices();
+
+            m_HidRaw = BackendManager.TryGetBackend<HidRawBackend>();
+            m_Evdev = BackendManager.TryGetBackend<EvdevBackend>();
         }
 
         public void Stop()
@@ -69,13 +84,12 @@ namespace HIDrogen.Services
                 throw new Exception(Logging.MakeLastErrorMessage("Failed to create device monitor"));
             }
 
-            // TODO: commented out for investigation
-            // if (m_Monitor.filter_add_match_subsystem_devtype("input", null) < 0 ||
-            //     m_Monitor.filter_add_match_subsystem_devtype("hidraw", null) < 0)
-            // {
-            //     m_Monitor.Dispose();
-            //     throw new Exception(Logging.MakeLastErrorMessage("Failed to add filters to device monitor"));
-            // }
+            if (m_Monitor.filter_add_match_subsystem_devtype(Udev.SubsystemInput, null) < 0 ||
+                m_Monitor.filter_add_match_subsystem_devtype(Udev.SubsystemHidRaw, null) < 0)
+            {
+                m_Monitor.Dispose();
+                throw new Exception(Logging.MakeLastErrorMessage("Failed to add filters to device monitor"));
+            }
 
             if (m_Monitor.enable_receiving() < 0)
             {
@@ -117,13 +131,12 @@ namespace HIDrogen.Services
                     return;
                 }
 
-                // TODO: commented out for investigation
-                // if (enumerate.add_match_subsystem("input") < 0 ||
-                //     enumerate.add_match_subsystem("hidraw") < 0)
-                // {
-                //     Logging.LastError("Failed to add filter to enumerator");
-                //     return;
-                // }
+                if (enumerate.add_match_subsystem(Udev.SubsystemInput) < 0 ||
+                    enumerate.add_match_subsystem(Udev.SubsystemHidRaw) < 0)
+                {
+                    Logging.LastError("Failed to add filter to enumerator");
+                    return;
+                }
 
                 if (enumerate.scan_devices() < 0)
                 {
@@ -143,7 +156,7 @@ namespace HIDrogen.Services
                                 continue;
                             }
 
-                            if (!device.get_is_initialized() || !DeviceAllowed(device))
+                            if (!device.get_is_initialized())
                             {
                                 continue;
                             }
@@ -190,19 +203,14 @@ namespace HIDrogen.Services
                             continue;
                         }
 
-                        if (!DeviceAllowed(device))
-                        {
-                            continue;
-                        }
-
                         switch (device.get_action().ToString())
                         {
-                            case "add":
+                            case Udev.EventAdded:
                             {
                                 OnDeviceAdded(device);
                                 break;
                             }
-                            case "remove":
+                            case Udev.EventRemoved:
                             {
                                 OnDeviceRemoved(device);
                                 break;
@@ -217,30 +225,85 @@ namespace HIDrogen.Services
             Logging.Verbose("Stopping udev monitor thread");
         }
 
-        private static bool DeviceAllowed(udev_device device)
+        private void OnDeviceAdded(udev_device _device)
         {
-            switch (device.get_subsystem().ToString())
+#if HIDROGEN_VERBOSE_LOGGING
+            Udev.PrintDeviceTree(m_Context, _device);
+#endif
+
+            // A general note:
+            // Because monitoring is started before the initial enumeration is, it's possible that
+            // the same device might come through via both sources if it is connected during enumeration.
+            // We also need to handle the same physical device having multiple devnodes under different subsystems,
+            // e.g. HID devices will be available under both `input` and `hidraw`.
+            // To handle both of these, we track the devpath of all added devices, and bail if it's already been added.
+
+            lock (m_TrackedDevpaths)
             {
-                // TODO: these are here for debugging
-                case "bluetooth":
-                case "hid":
-                case "usb":
-                case "usbmisc":
+                // Subsystems are prioritized in the following order:
+                // 1. hidraw
+                // 2. input (evdev)
+                // TODO: USB
+
+                // hidraw
+                using (var hidraw = FindHidRaw(_device))
                 {
-                    return true;
-                }
-                case "hidraw":
-                {
-                    return true;
-                }
-                case "input":
-                {
-                    // We only want evdev devices here, not joydev or any other kinds of input devices
-                    if (!device.get_sysname().ToString().StartsWith("event"))
+                    if (TryProbeAdd(hidraw, m_HidRaw))
                     {
-                        return false;
+                        return;
                     }
 
+                    // Probing may fail due to the device not being able to be opened,
+                    // fall through to evdev
+                }
+
+                // input
+                using (var evdev = FindEvdev(_device))
+                {
+                    if (TryProbeAdd(evdev, m_Evdev))
+                    {
+                        return;
+                    }
+                }
+            }
+        }
+
+        private void OnDeviceRemoved(udev_device _device)
+        {
+#if HIDROGEN_VERBOSE_LOGGING
+            Logging.Verbose($"udev device removed: " + Udev.MakeDeviceInfo(_device));
+#endif
+
+            // See comments in OnDeviceAdded for notes
+
+            lock (m_TrackedDevpaths)
+            {
+                using (var hidraw = FindHidRaw(_device))
+                {
+                    if (TryProbeRemove(hidraw, m_HidRaw))
+                    {
+                        return;
+                    }
+                }
+
+                using (var evdev = FindEvdev(_device))
+                {
+                    if (TryProbeRemove(evdev, m_Evdev))
+                    {
+                        return;
+                    }
+                }
+            }
+        }
+
+        private bool TryProbeAdd(udev_device device, IUdevBackend backend)
+        {
+            if (device != null && !device.IsInvalid)
+            {
+                string devpath = device.get_devpath().ToString();
+                if (!m_TrackedDevpaths.Contains(devpath) && backend != null && backend.ProbeDeviceAdd(m_Context, device))
+                {
+                    m_TrackedDevpaths.Add(devpath);
                     return true;
                 }
             }
@@ -248,115 +311,91 @@ namespace HIDrogen.Services
             return false;
         }
 
-        private static string MakeDeviceInfo(udev_device device)
+        private bool TryProbeRemove(udev_device device, IUdevBackend backend)
         {
-            return
-                $"subsystem: {device.get_subsystem().ToString()}, " +
-                $"devtype: {device.get_devtype().ToString()}, " +
-                $"driver: {device.get_driver().ToString()}, " +
-                $"devnode: {device.get_devnode().ToString()}, " +
-                $"sysname: {device.get_sysname().ToString()}, " +
-                $"devpath: {device.get_devpath().ToString()}, " +
-                $"syspath: {device.get_syspath().ToString()}, " +
-                $"sysnum: {device.get_sysnum().ToString()}";
+            if (device != null && !device.IsInvalid)
+            {
+                string devpath = device.get_devpath().ToString();
+                if (m_TrackedDevpaths.Contains(devpath) && backend != null && backend.ProbeDeviceRemove(m_Context, device))
+                {
+                    m_TrackedDevpaths.Remove(devpath);
+                    return true;
+                }
+            }
+
+            return false;
         }
 
-        private void PrintDeviceTree(udev_device device)
+        private udev_device FindHidRaw(udev_device device)
         {
-            Logging.Verbose("udev device added: " + MakeDeviceInfo(device));
-
-            var parents = new List<udev_device>();
-            for (var parent = device.get_parent(); parent != null && !parent.IsInvalid; parent = parent.get_parent())
+            if (device.get_subsystem().ToString() == Udev.SubsystemHidRaw)
             {
-                parents.Add(parent);
+                // Clone to simplify disposal handling
+                return device.add_ref();
             }
 
-            Logging.Verbose("- parents:");
-
-            for (int i = parents.Count - 1; i >= 0; i--)
+            // Search upwards for the root `hid` device
+            using (var hidRoot = device.get_parent_with_subsystem_devtype(Udev.SubsystemHid, null))
             {
-                using (var parent = parents[i])
+                if (hidRoot == null || hidRoot.IsInvalid)
                 {
-                    Logging.Verbose("  - " + MakeDeviceInfo(parent));
+                    return null;
                 }
-            }
-            parents.Clear();
 
-            using (var parent = device.get_parent())
-            {
-                if (parent != null && !parent.IsInvalid)
+                // Then from there, search children to find the corresponding `hidraw` device
+                using (var enumerate = m_Context.enumerate_new())
                 {
-                    Logging.Verbose("- siblings:");
-
-                    using (var enumerate = m_Context.enumerate_new())
+                    if (enumerate == null ||
+                        enumerate.IsInvalid ||
+                        enumerate.add_match_parent(hidRoot) < 0 ||
+                        enumerate.add_match_subsystem(Udev.SubsystemHidRaw) < 0 ||
+                        enumerate.scan_devices() < 0)
                     {
-                        if (enumerate != null &&
-                            !enumerate.IsInvalid &&
-                            enumerate.add_match_parent(parent) >= 0 &&
-                            enumerate.scan_devices() >= 0)
-                        {
-                            for (var entry = enumerate.get_list_entry(); !entry.IsInvalid; entry = entry.get_next())
-                            {
-                                var syspath = entry.get_name();
-                                try
-                                {
-                                    using (var sibling = m_Context.device_new_from_syspath(syspath.ToPtr()))
-                                    {
-                                        if (sibling != null && !sibling.IsInvalid && sibling.get_parent() == parent)
-                                        {
-                                            Logging.Verbose("  - " + MakeDeviceInfo(sibling));
-                                        }
-                                    }
-                                }
-                                finally
-                                {
-                                    syspath.Dispose();
-                                }
-                            }
-                        }
+                        return null;
                     }
-                }
-            }
 
-            Logging.Verbose("- children:");
-
-            using (var enumerate = m_Context.enumerate_new())
-            {
-                if (enumerate != null &&
-                    !enumerate.IsInvalid &&
-                    enumerate.add_match_parent(device) >= 0 &&
-                    enumerate.scan_devices() >= 0)
-                {
-                    for (var entry = enumerate.get_list_entry(); !entry.IsInvalid; entry = entry.get_next())
+                    var entry = enumerate.get_list_entry();
+                    if (entry.IsInvalid)
                     {
-                        var syspath = entry.get_name();
-                        try
+                        return null;
+                    }
+
+                    var entryPath = entry.get_name();
+                    try
+                    {
+                        var pathPtr = entryPath.ToPtr();
+                        if (pathPtr == IntPtr.Zero)
                         {
-                            using (var child = m_Context.device_new_from_syspath(syspath.ToPtr()))
-                            {
-                                if (child != null && !child.IsInvalid && child != device)
-                                {
-                                    Logging.Verbose("  - " + MakeDeviceInfo(child));
-                                }
-                            }
+                            return null;
                         }
-                        finally
-                        {
-                            syspath.Dispose();
-                        }
+
+                        // Found
+                        return m_Context.device_new_from_syspath(pathPtr);
+                    }
+                    finally
+                    {
+                        entryPath.Dispose();
                     }
                 }
             }
         }
 
-        private void OnDeviceAdded(udev_device device)
+        private udev_device FindEvdev(udev_device device)
         {
-            PrintDeviceTree(device);
-        }
+            if (device.get_subsystem().ToString() == Udev.SubsystemInput)
+            {
+                // We only want evdev devices here, not joydev or any other kinds of input devices
+                if (!device.get_sysname().ToString().StartsWith("event"))
+                {
+                    return null;
+                }
 
-        private void OnDeviceRemoved(udev_device device)
-        {
-            Logging.Verbose($"udev device removed: " + MakeDeviceInfo(device));
+                // Clone to simplify disposal handling
+                return device.add_ref();
+            }
+
+            // Don't try to search for the `input` node, let monitoring/enumeration give it to us instead
+            return null;
         }
     }
 }
