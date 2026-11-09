@@ -13,7 +13,7 @@ namespace HIDrogen.Backend
     internal static class LinuxShim
     {
         private const string kLinuxInterface = "Linux";
-        // private const string kSDLInterface = "SDL";
+        private const string kSDLInterface = "SDL";
 
         private static readonly InputDeviceFindControlLayoutDelegate s_SdlLayoutFinder =
             (InputDeviceFindControlLayoutDelegate) Assembly.GetAssembly(typeof(InputSystem))
@@ -70,7 +70,8 @@ namespace HIDrogen.Backend
             if (device == null)
                 return;
 
-            if (device.description.interfaceName == kLinuxInterface) // || interfaceName != kSDLInterface) // Not ignored as Xbox devices are not handled by hidraw
+            string interfaceName = device.description.interfaceName;
+            if (interfaceName == kLinuxInterface || interfaceName == kSDLInterface)
             {
                 Logging.Verbose($"Removing device {device}");
                 InputSystem.RemoveDevice(device);
