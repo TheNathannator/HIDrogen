@@ -8,11 +8,12 @@ namespace HIDrogen
     {
         static partial void PlatformInitialize()
         {
+            LinuxShim.Initialize();
+
+            BackendManager.TryCreateBackend<EvdevBackend>();
+            BackendManager.TryCreateBackend<HidRawBackend>();
             BackendManager.TryCreateService<USBService>();
-            if (BackendManager.TryCreateBackend<HidApiBackend>())
-            {
-                LinuxShim.Initialize();
-            }
+            BackendManager.TryCreateService<UdevDeviceMonitor>();
         }
 
         static partial void PlatformUninitialize()
