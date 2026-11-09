@@ -107,6 +107,10 @@ namespace HIDrogen.Services
             }
         }
 
+        public void Update()
+        {
+        }
+
         private void DeviceThread()
         {
             while (!m_ThreadStop.WaitOne(1000))
