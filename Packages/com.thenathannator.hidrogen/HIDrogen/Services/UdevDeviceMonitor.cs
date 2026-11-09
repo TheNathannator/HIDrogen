@@ -23,9 +23,6 @@ namespace HIDrogen.Services
         private udev_monitor m_Monitor;
         private fd m_MonitorFd;
 
-        private HidRawBackend m_HidRaw;
-        private EvdevBackend m_Evdev;
-
         private Thread m_EnumerationThread;
         private EventWaitHandle m_ThreadStop = new EventWaitHandle(false, EventResetMode.ManualReset);
 
@@ -66,9 +63,6 @@ namespace HIDrogen.Services
 
             StartMonitor();
             EnumerateDevices();
-
-            m_HidRaw = BackendManager.TryGetBackend<HidRawBackend>();
-            m_Evdev = BackendManager.TryGetBackend<EvdevBackend>();
         }
 
         public void Stop()
@@ -252,7 +246,8 @@ namespace HIDrogen.Services
                 // hidraw
                 using (var hidraw = FindHidRaw(_device))
                 {
-                    if (TryProbeAdd(hidraw, m_HidRaw))
+                    var backend = BackendManager.TryGetBackend<HidRawBackend>();
+                    if (TryProbeAdd(hidraw, backend))
                     {
                         return;
                     }
@@ -264,7 +259,8 @@ namespace HIDrogen.Services
                 // input
                 using (var evdev = FindEvdev(_device))
                 {
-                    if (TryProbeAdd(evdev, m_Evdev))
+                    var backend = BackendManager.TryGetBackend<EvdevBackend>();
+                    if (TryProbeAdd(evdev, backend))
                     {
                         return;
                     }
@@ -284,7 +280,8 @@ namespace HIDrogen.Services
             {
                 using (var hidraw = FindHidRaw(_device))
                 {
-                    if (TryProbeRemove(hidraw, m_HidRaw))
+                    var backend = BackendManager.TryGetBackend<HidRawBackend>();
+                    if (TryProbeRemove(hidraw, backend))
                     {
                         return;
                     }
@@ -292,7 +289,8 @@ namespace HIDrogen.Services
 
                 using (var evdev = FindEvdev(_device))
                 {
-                    if (TryProbeRemove(evdev, m_Evdev))
+                    var backend = BackendManager.TryGetBackend<EvdevBackend>();
+                    if (TryProbeRemove(evdev, backend))
                     {
                         return;
                     }
