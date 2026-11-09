@@ -165,6 +165,11 @@ namespace HIDrogen
             {
                 backend.Update();
             }
+
+            foreach (var service in s_Services)
+            {
+                service.Update();
+            }
         }
 
         private static void OnDeviceChange(InputDevice device, InputDeviceChange change)

@@ -76,6 +76,10 @@ namespace HIDrogen.Services
             StopMonitor();
         }
 
+        public void Update()
+        {
+        }
+
         private void StartMonitor()
         {
             m_Monitor = m_Context.monitor_new_from_netlink("udev");

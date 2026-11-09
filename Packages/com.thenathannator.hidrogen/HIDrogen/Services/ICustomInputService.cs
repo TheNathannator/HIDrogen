@@ -6,5 +6,6 @@ namespace HIDrogen
     {
         void Start();
         void Stop();
+        void Update();
     }
 }
