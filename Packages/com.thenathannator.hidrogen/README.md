@@ -11,7 +11,6 @@ An add-on for the [Unity InputSystem](https://github.com/Unity-Technologies/Inpu
 - [Available Backends](#available-backends)
   - [Raw HID Support on Linux](#raw-hid-support-on-linux)
     - [Dependencies](#dependencies)
-    - [Configuration](#configuration-1)
   - [Xbox One Controllers on Windows via GameInput](#xbox-one-controllers-on-windows-via-gameinput)
     - [Dependencies](#dependencies-1)
     - [Notes](#notes)
@@ -58,12 +57,6 @@ KERNEL=="hidraw*", ATTRS{idVendor}=="04d8", ATTRS{idProduct}=="003f", TAG+="uacc
 ```
 
 This rules file will need to be installed on the end-user's system alongside your application. It should be placed in `/etc/udev/rules.d`, and it must come before `73-seat-late.rules` lexicographically for `TAG+="uaccess"` to work.
-
-#### Configuration
-
-Some configuration is available through compile-defines:
-
-- `HIDROGEN_FORCE_REPORT_IDS`: By default, report IDs are not provided if a device doesn't use them. This define will make state events always include the report ID byte as the first byte. This behavior is disabled by default, since that's how hidraw provides inputs.
 
 ### Xbox One Controllers on Windows via GameInput
 
