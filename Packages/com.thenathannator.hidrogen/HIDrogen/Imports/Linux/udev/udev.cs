@@ -1427,6 +1427,43 @@ namespace HIDrogen.Imports.Linux
             return new udev_context(this, handle, true);
         }
 
+        public static udev_device FindChildBySubsystem(udev_context udev, udev_device device, string subsystem)
+        {
+            using (var enumerate = udev.enumerate_new())
+            {
+                if (enumerate == null ||
+                    enumerate.IsInvalid ||
+                    enumerate.add_match_parent(device) < 0 ||
+                    enumerate.add_match_subsystem(subsystem) < 0 ||
+                    enumerate.scan_devices() < 0)
+                {
+                    return null;
+                }
+
+                var entry = enumerate.get_list_entry();
+                if (entry.IsInvalid)
+                {
+                    return null;
+                }
+
+                var entryPath = entry.get_name();
+                try
+                {
+                    var pathPtr = entryPath.ToPtr();
+                    if (pathPtr == IntPtr.Zero)
+                    {
+                        return null;
+                    }
+
+                    return udev.device_new_from_syspath(pathPtr);
+                }
+                finally
+                {
+                    entryPath.Dispose();
+                }
+            }
+        }
+
 #if HIDROGEN_VERBOSE_LOGGING
         public static void PrintDeviceTree(udev_context context, udev_device device)
         {

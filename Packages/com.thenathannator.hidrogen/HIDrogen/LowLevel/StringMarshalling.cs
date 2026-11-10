@@ -22,6 +22,8 @@ namespace HIDrogen.LowLevel
         private IntPtr m_Ptr;
         private bool m_Owned;
 
+        public bool IsInvalid => m_Str == null && m_Ptr == null;
+
         public AnsiString(string str)
         {
             m_Str = str;
@@ -158,6 +160,8 @@ namespace HIDrogen.LowLevel
         private IntPtr m_Ptr;
         private bool m_Owned;
 
+        public bool IsInvalid => m_Str == null && m_Ptr == null;
+
         public UnicodeString(string str)
         {
             m_Str = str;
@@ -293,6 +297,8 @@ namespace HIDrogen.LowLevel
     {
         private UnicodeString<byte> m_Base;
 
+        public bool IsInvalid => m_Base.IsInvalid;
+
         public UTF8String(string str)
         {
             m_Base = new UnicodeString<byte>(str);
@@ -323,6 +329,8 @@ namespace HIDrogen.LowLevel
     {
         private UnicodeString<short> m_Base;
 
+        public bool IsInvalid => m_Base.IsInvalid;
+
         public UTF16String(string str)
         {
             m_Base = new UnicodeString<short>(str);
@@ -352,6 +360,8 @@ namespace HIDrogen.LowLevel
     internal ref struct UTF32String
     {
         private UnicodeString<int> m_Base;
+
+        public bool IsInvalid => m_Base.IsInvalid;
 
         public UTF32String(string str)
         {
@@ -387,6 +397,8 @@ namespace HIDrogen.LowLevel
 #else
         private UTF16String m_Base;
 #endif
+
+        public bool IsInvalid => m_Base.IsInvalid;
 
         public GnuWideString(string str)
         {

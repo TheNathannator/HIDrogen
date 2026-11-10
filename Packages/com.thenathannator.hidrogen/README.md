@@ -37,32 +37,33 @@ This backend provides raw HID support on Linux through the `hidraw` kernel drive
 
 #### Dependencies
 
-This backend relies on the hidraw version of `hidapi` for input, along with `libudev` for device connection/disconnection monitoring. By installing this package, your project will become dependent on them as well on Linux. On distributions that use `apt`, the following command should do the trick:
+This backend relies on `libudev` for device connection/disconnection monitoring. By installing this package, your project will become dependent on it as well. On distributions that use `apt`, the following command should do the trick:
 
 ```
-sudo apt install libhidapi-hidraw0 libudev1
+sudo apt install libudev1
 ```
 
-The user will also need to install some udev rules in order to allow accessing hidraw devices without elevated priveleges:
+You will also need to create a udev rules file to allow access to the hidraw devices you wish to handle:
 
 ```
-# If you just want specific devices, you can specify them by vendor/product ID with the following.
+# Match against vendor and product ID
 KERNEL=="hidraw*", ATTRS{idVendor}=="04d8", ATTRS{idProduct}=="003f", TAG+="uaccess"
+# Other attributes are available, but VID/PID are the easiest to work with.
 
-# If you want *all* hidraw devices, you can omit the attributes and just set the access tag.
-KERNEL=="hidraw*", TAG+="uaccess"
+# Note that filtering by usage/usage page through ATTRS alone is not possible, as hidraw operates on a device level
+# and not a collection level. You *must* match every set of hardware IDs you wish to handle.
 
-# There does not appear to be any way to filter by usage/usage page through ATTRS alone.
-# If it is possible, it requires udev rule knowledge I do not possess at the time of writing.
+# For investigative purposes, it is also possible to omit the attributes and allow all hidraw devices to be accessed.
+# !This is *not* recommended for production, as it unnecessarily opens up every HID device to raw access!
 ```
 
-The rules file should be placed in `/etc/udev/rules.d` or `/usr/lib/udev/rules.d/`, and it must come before `73-seat-late.rules`.
+This rules file will need to be installed on the end-user's system alongside your application. It should be placed in `/etc/udev/rules.d`, and it must come before `73-seat-late.rules` lexicographically for `TAG+="uaccess"` to work.
 
 #### Configuration
 
 Some configuration is available through compile-defines:
 
-- `HIDROGEN_FORCE_REPORT_IDS`: By default, report IDs are not provided if a device doesn't use them. This define will make state events always include the report ID byte as the first byte. This behavior is disabled by default, since that's how hidapi/hidraw provides inputs.
+- `HIDROGEN_FORCE_REPORT_IDS`: By default, report IDs are not provided if a device doesn't use them. This define will make state events always include the report ID byte as the first byte. This behavior is disabled by default, since that's how hidraw provides inputs.
 
 ### Xbox One Controllers on Windows via GameInput
 
@@ -101,7 +102,7 @@ This backend depends on `libusb-1.0`.
   sudo apt install libusb-1.0-0
   ```
 
-  - Additionally, for Xbox 360 receiver support, the [Resources/69-hidrogen-x360-receiver.rules](Resources/69-hidrogen-x360-receiver.rules) rules file must be placed in `/etc/udev/rules.d` or `/usr/lib/udev/rules.d/`. 
+  - Additionally, for Xbox 360 receiver support, the [Resources/69-hidrogen-x360-receiver.rules](Resources/69-hidrogen-x360-receiver.rules) rules file must be installed in `/etc/udev/rules.d`.
 
 ## License
 
