@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
@@ -33,6 +34,8 @@ namespace HIDrogen
             = new ConcurrentBag<(InputDeviceDescription, TAddContext)>();
         internal readonly ConcurrentBag<InputDevice> m_RemovalQueue = new ConcurrentBag<InputDevice>();
 
+        private int m_MainThreadId;
+
         private bool m_Started = false;
 
         ~CustomInputBackend()
@@ -64,6 +67,7 @@ namespace HIDrogen
             if (!m_Started)
             {
                 m_Started = true;
+                m_MainThreadId = Thread.CurrentThread.ManagedThreadId;
                 OnStart();
             }
         }
@@ -81,11 +85,11 @@ namespace HIDrogen
 
                 foreach (var pair in m_DeviceLookup)
                 {
-                    OnDeviceRemoved(pair.Value);
-                    InputSystem.RemoveDevice(pair.Key);
+                    RemoveDeviceNow(pair.Key);
                 }
                 m_DeviceLookup.Clear();
 
+                m_MainThreadId = 0;
                 OnStop();
             }
         }
@@ -105,11 +109,7 @@ namespace HIDrogen
 
             if (change == InputDeviceChange.Removed)
             {
-                if (!m_DeviceLookup.TryGetValue(device, out var backendDevice))
-                    return;
-
-                OnDeviceRemoved(backendDevice);
-                m_DeviceLookup.Remove(device);
+                RemoveBackendDevice(device);
             }
         }
 
@@ -130,52 +130,13 @@ namespace HIDrogen
             // Process device removals first, for backends that may remove and re-add a device in the same update
             while (m_RemovalQueue.TryTake(out var device))
             {
-                InputSystem.RemoveDevice(device);
+                RemoveDeviceNow(device);
             }
 
             while (m_AdditionQueue.TryTake(out var _context))
             {
                 var (description, context) = _context;
-                using (context)
-                {
-                    // The input system will throw if a device layout can't be found
-                    InputDevice device;
-                    try
-                    {
-                        device = InputSystem.AddDevice(description);
-                    }
-                    catch (Exception ex)
-                    {
-                        // Exception filters not used here, as they ended up being more surprising
-                        // than helpful with how non-matching ArgumentExceptions were allowed to go
-                        // uncaught, and addressing that with a second ArgumentException block with
-                        // no filter just resulted in duplication of the log message
-
-                        if (ex is ArgumentException argEx && argEx.ParamName == "description")
-                        {
-                            // Silence layout-not-found exception
-                            Logging.Verbose(ex);
-                        }
-                        else
-                        {
-                            Logging.Exception($"Failed to add device to the input system! (Description '{description}')", ex);
-                        }
-
-                        continue;
-                    }
-
-                    try
-                    {
-                        var backendDevice = OnDeviceAdded(device, context);
-                        m_DeviceLookup.Add(device, backendDevice);
-                    }
-                    catch (Exception ex)
-                    {
-                        InputSystem.RemoveDevice(device);
-                        Logging.Exception("Error in device added callback!", ex);
-                        continue;
-                    }
-                }
+                AddDeviceNow(description, context);
             }
         }
 
@@ -207,6 +168,85 @@ namespace HIDrogen
         protected abstract void OnDeviceRemoved(TBackendDevice device);
 
         protected virtual unsafe long? OnDeviceCommand(TBackendDevice device, InputDeviceCommand* command) => null;
+
+        public bool AddDeviceNow(InputDeviceDescription description, TAddContext context)
+        {
+            if (Thread.CurrentThread.ManagedThreadId != m_MainThreadId)
+            {
+                throw new InvalidOperationException("Devices must be added on the main thread");
+            }
+
+            using (context)
+            {
+                // The input system will throw if a device layout can't be found
+                InputDevice device;
+                try
+                {
+                    device = InputSystem.AddDevice(description);
+                }
+                catch (Exception ex)
+                {
+                    // Exception filters not used here, as they ended up being more surprising
+                    // than helpful with how non-matching ArgumentExceptions were allowed to go
+                    // uncaught, and addressing that with a second ArgumentException block with
+                    // no filter just resulted in duplication of the log message
+
+                    if (ex is ArgumentException argEx && argEx.ParamName == "description")
+                    {
+                        // Silence layout-not-found exception
+                        Logging.Verbose(ex);
+                    }
+                    else
+                    {
+                        Logging.Exception($"Failed to add device to the input system! (Description '{description}')", ex);
+                    }
+
+                    return false;
+                }
+
+                try
+                {
+                    var backendDevice = OnDeviceAdded(device, context);
+                    m_DeviceLookup.Add(device, backendDevice);
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    InputSystem.RemoveDevice(device);
+                    Logging.Exception("Error in device added callback!", ex);
+                    return false;
+                }
+            }
+        }
+
+        public bool RemoveDeviceNow(InputDevice device)
+        {
+            if (Thread.CurrentThread.ManagedThreadId != m_MainThreadId)
+            {
+                throw new InvalidOperationException("Devices must be removed on the main thread");
+            }
+
+            try
+            {
+                RemoveBackendDevice(device);
+                InputSystem.RemoveDevice(device);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logging.Exception("Failed to remove device from backend!", ex);
+                return false;
+            }
+        }
+        
+        private void RemoveBackendDevice(InputDevice device)
+        {
+            if (m_DeviceLookup.TryGetValue(device, out var backendDevice))
+            {
+                OnDeviceRemoved(backendDevice);
+                m_DeviceLookup.Remove(device);
+            }
+        }
 
         public void QueueDeviceAdd(InputDeviceDescription description, TAddContext context)
         {
