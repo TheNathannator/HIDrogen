@@ -852,7 +852,7 @@ namespace HIDrogen.Imports.Linux
         SND_CNT = SND_MAX + 1,
     }
 
-    internal enum input_repeat
+    internal enum input_repeat_code
     {
         REP_DELAY = 0x00,
         REP_PERIOD = 0x01,

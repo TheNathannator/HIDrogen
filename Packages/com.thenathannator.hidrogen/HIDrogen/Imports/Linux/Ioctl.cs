@@ -1,144 +1,194 @@
 #if UNITY_STANDALONE_LINUX
 using System;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using HIDrogen.Imports.Posix;
 
 namespace HIDrogen.Imports.Linux
 {
-    internal static partial class Ioctl
+    internal readonly struct IoCode
     {
-        public const int IOC_NRBITS = 8;
-        public const int IOC_TYPEBITS = 8;
-        public const int IOC_SIZEBITS = 14;
-        public const int IOC_DIRBITS = 2;
+        public const int NRBITS = 8;
+        public const int TYPEBITS = 8;
+#if UNITY_64 // these constants are technically architecture-specific
+        public const int SIZEBITS = 14;
+        public const int DIRBITS = 2;
+#else
+        #error "IOC_(SIZEBITS|DIRBITS) need to be defined for the current architecture"
+        public const int SIZEBITS = 0;
+        public const int DIRBITS = 0;
+#endif
 
-        public const int IOC_NRMASK = (1 << IOC_NRBITS) - 1;
-        public const int IOC_TYPEMASK = (1 << IOC_TYPEBITS) - 1;
-        public const int IOC_SIZEMASK = (1 << IOC_SIZEBITS) - 1;
-        public const int IOC_DIRMASK = (1 << IOC_DIRBITS) - 1;
+        public const int NRMASK = (1 << NRBITS) - 1;
+        public const int TYPEMASK = (1 << TYPEBITS) - 1;
+        public const int SIZEMASK = (1 << SIZEBITS) - 1;
+        public const int DIRMASK = (1 << DIRBITS) - 1;
 
-        public const int IOC_NRSHIFT = 0;
-        public const int IOC_TYPESHIFT = IOC_NRSHIFT + IOC_NRBITS;
-        public const int IOC_SIZESHIFT = IOC_TYPESHIFT + IOC_TYPEBITS;
-        public const int IOC_DIRSHIFT = IOC_SIZESHIFT + IOC_SIZEBITS;
+        public const int NRSHIFT = 0;
+        public const int TYPESHIFT = NRSHIFT + NRBITS;
+        public const int SIZESHIFT = TYPESHIFT + TYPEBITS;
+        public const int DIRSHIFT = SIZESHIFT + SIZEBITS;
 
+#if UNITY_64 // these constants are technically architecture-specific
         public const int IOC_NONE = 0;
         public const int IOC_WRITE = 1;
         public const int IOC_READ = 2;
+#else
+        #error "IOC_(NONE|WRITE|READ) need to be defined for the current architecture"
+        public const int IOC_NONE = 0;
+        public const int IOC_WRITE = 0;
+        public const int IOC_READ = 0;
+#endif
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int IOC(int dir, int type, int nr, int size)
-            => ((dir & IOC_DIRMASK) << IOC_DIRSHIFT) |
-               ((type & IOC_TYPEMASK) << IOC_TYPESHIFT) |
-               ((nr & IOC_NRMASK) << IOC_NRSHIFT) |
-               ((size & IOC_SIZEMASK) << IOC_SIZESHIFT);
+        public const int IOC_IN = IOC_WRITE << DIRSHIFT;
+        public const int IOC_OUT = IOC_READ << DIRSHIFT;
+        public const int IOC_INOUT = (IOC_WRITE | IOC_READ) << DIRSHIFT;
+        public const int IOCSIZE_MASK = SIZEMASK << SIZESHIFT;
+        public const int IOCSIZE_SHIFT = SIZESHIFT;
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe int IOC<T>(int dir, int type, int nr)
-            where T : unmanaged
-            => IOC(dir, type, nr, sizeof(T));
+        public readonly int value;
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int IO(int type, int nr)
-            => IOC(IOC_NONE, type, nr, 0);
+        public int direction => (value >> DIRSHIFT) & DIRMASK;
+        public int type => (value >> TYPESHIFT) & TYPEMASK;
+        public int number => (value >> NRSHIFT) & NRMASK;
+        public int size => (value >> SIZESHIFT) & SIZEMASK;
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int IOR(int type, int nr, int size)
-            => IOC(IOC_READ, type, nr, size);
+        public IoCode(int direction, int type, int number, int size)
+        {
+            if ((uint)number > NRMASK)
+                throw new ArgumentOutOfRangeException(nameof(number));
+            if ((uint)type > TYPEMASK)
+                throw new ArgumentOutOfRangeException(nameof(type));
+            if ((uint)size > SIZEMASK)
+                throw new ArgumentOutOfRangeException(nameof(size));
+            if ((uint)direction > DIRMASK)
+                throw new ArgumentOutOfRangeException(nameof(direction));
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int IOR<T>(int type, int nr)
-            where T : unmanaged
-            => IOC<T>(IOC_READ, type, nr);
+            value =
+                ((direction & DIRMASK) << DIRSHIFT) |
+                ((type & TYPEMASK) << TYPESHIFT) |
+                ((number & NRMASK) << NRSHIFT) |
+                ((size & SIZEMASK) << SIZESHIFT);
+        }
+    }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int IOW(int type, int nr, int size)
-            => IOC(IOC_WRITE, type, nr, size);
+    internal readonly struct IoCode<T>
+        where T : unmanaged
+    {
+        public readonly IoCode @base;
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int IOW<T>(int type, int nr)
-            where T : unmanaged
-            => IOC<T>(IOC_WRITE, type, nr);
+        public int value => @base.value;
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int IOWR(int type, int nr, int size)
-            => IOC(IOC_READ | IOC_WRITE, type, nr, size);
+        public int direction => @base.direction;
+        public int type => @base.type;
+        public int number => @base.number;
+        public int size => @base.size;
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int IOWR<T>(int type, int nr)
-            where T : unmanaged
-            => IOC<T>(IOC_READ | IOC_WRITE, type, nr);
+        public IoCode(int direction, int type, int number, int size)
+        {
+            @base = new IoCode(direction, type, number, size);
+        }
+    }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int IOC_DIR(int ioc)
-            => (ioc >> IOC_DIRSHIFT) & IOC_DIRMASK;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int IOC_TYPE(int ioc)
-            => (ioc >> IOC_TYPESHIFT) & IOC_TYPEMASK;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int IOC_NR(int ioc)
-            => (ioc >> IOC_NRSHIFT) & IOC_NRMASK;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int IOC_SIZE(int ioc)
-            => (ioc >> IOC_SIZESHIFT) & IOC_SIZEMASK;
-
-        public const int IOC_IN = IOC_WRITE << IOC_DIRSHIFT;
-        public const int IOC_OUT = IOC_READ << IOC_DIRSHIFT;
-        public const int IOC_INOUT = (IOC_WRITE | IOC_READ) << IOC_DIRSHIFT;
-        public const int IOCSIZE_MASK = IOC_SIZEMASK << IOC_SIZESHIFT;
-        public const int IOCSIZE_SHIFT = IOC_SIZESHIFT;
-
+    internal static partial class Ioctl
+    {
         private const string kLibName = Libc.LibName;
+
+        public static IoCode IO(int type, int number)
+            => new IoCode(IoCode.IOC_NONE, type, number, 0);
+
+        public static IoCode IOR(int type, int number, int size)
+            => new IoCode(IoCode.IOC_READ, type, number, size);
+
+        public static IoCode IOW(int type, int number, int size)
+            => new IoCode(IoCode.IOC_WRITE, type, number, size);
+
+        public static IoCode IOWR(int type, int number, int size)
+            => new IoCode(IoCode.IOC_READ | IoCode.IOC_WRITE, type, number, size);
+
+        public static unsafe IoCode<T> IOR<T>(int type, int number)
+            where T : unmanaged
+            => new IoCode<T>(IoCode.IOC_READ, type, number, sizeof(T));
+
+        public static unsafe IoCode<T> IOW<T>(int type, int number)
+            where T : unmanaged
+            => new IoCode<T>(IoCode.IOC_WRITE, type, number, sizeof(T));
+
+        public static unsafe IoCode<T> IOWR<T>(int type, int number)
+            where T : unmanaged
+            => new IoCode<T>(IoCode.IOC_READ | IoCode.IOC_WRITE, type, number, sizeof(T));
 
         [DllImport(kLibName, EntryPoint = "ioctl", SetLastError = true)]
         private static extern int _ioctl(
-            int fd,
-            UIntPtr request
+            int fd, // int
+            UIntPtr request // unsigned long int
         );
 
         [DllImport(kLibName, EntryPoint = "ioctl", SetLastError = true)]
         private static extern unsafe int _ioctl(
-            int fd,
-            UIntPtr request,
-            void* arg
+            int fd, // int
+            UIntPtr request, // unsigned long int
+            void* arg // ...
         );
 
-        [DllImport(kLibName, EntryPoint = "ioctl", SetLastError = true)]
-        private static extern int _ioctl(
-            int fd,
-            UIntPtr request,
-            byte[] arg
-        );
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int ioctl(fd fd, int request)
-            => _ioctl(fd.DangerousGetFileDescriptor(), (UIntPtr)request);
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe int ioctl(fd fd, int request, void* arg)
-            => _ioctl(fd.DangerousGetFileDescriptor(), (UIntPtr)request, arg);
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int ioctl(fd fd, int request, byte[] arg)
+        private static int ioctl(fd fd, int request)
         {
-            int size = IOC_SIZE(request);
-            if (arg != null && arg.Length != size)
-                throw new ArgumentException($"Buffer does not match request size! Expected {size}, got {arg.Length}");
+            return _ioctl(fd.DangerousGetFileDescriptor(), (UIntPtr)request);
+        }
 
+        private static unsafe int ioctl(fd fd, int request, void* arg)
+        {
             return _ioctl(fd.DangerousGetFileDescriptor(), (UIntPtr)request, arg);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe int ioctl<T>(fd fd, int request, ref T arg)
+        public static int ioctl(fd fd, IoCode request)
+        {
+            if (request.size > 0)
+            {
+                throw new ArgumentException($"An argument must be provided for an ioc with non-zero size.");
+            }
+
+            return ioctl(fd, request.value);
+        }
+
+        public static unsafe int ioctl(fd fd, IoCode request, void* arg, int argSize)
+        {
+            if (arg == null)
+            {
+                throw new ArgumentNullException(nameof(arg));
+            }
+
+            if ((uint)argSize < (uint)request.size)
+            {
+                throw new ArgumentException($"Argument is too small for the specified request (expected {request.size}, got {argSize})");
+            }
+
+            return ioctl(fd, request.value, arg);
+        }
+
+        public static unsafe int ioctl(fd fd, IoCode request, byte[] arg)
+        {
+            if (arg == null)
+            {
+                throw new ArgumentNullException(nameof(arg));
+            }
+
+            fixed (byte* ptr = arg)
+            {
+                return ioctl(fd, request, ptr, arg.Length);
+            }
+        }
+
+        public static unsafe int ioctl<T>(fd fd, IoCode<T> request, ref T arg)
             where T : unmanaged
         {
+            if (request.size != sizeof(T))
+            {
+                throw new ArgumentException($"Malformed request code (expected {sizeof(T)}, got {request.size})");
+            }
+
             fixed (T* ptr = &arg)
             {
-                return ioctl(fd, request, ptr);
+                return ioctl(fd, request.@base, ptr, sizeof(T));
             }
         }
     }

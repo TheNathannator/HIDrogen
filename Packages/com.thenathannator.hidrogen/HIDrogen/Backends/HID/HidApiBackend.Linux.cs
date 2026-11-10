@@ -186,7 +186,7 @@ namespace HIDrogen.Backend
             if (!PlatformGetDescriptorSize(fd, out descBuffer.size) || bufferLength < descBuffer.size)
                 return false;
 
-            if (Ioctl.ioctl(fd, HidRaw.HIDIOCGRDESC, &descBuffer) < 0)
+            if (Ioctl.ioctl(fd, HidRaw.HIDIOCGRDESC, ref descBuffer) < 0)
                 return false;
 
             UnsafeUtility.MemCpy(buffer, descBuffer.value, descBuffer.size);
@@ -194,10 +194,10 @@ namespace HIDrogen.Backend
             return true;
         }
 
-        private static unsafe bool PlatformGetDescriptorSize(fd fd, out int size)
+        private static bool PlatformGetDescriptorSize(fd fd, out int size)
         {
             int tempSize = default;
-            if (Ioctl.ioctl(fd, HidRaw.HIDIOCGRDESCSIZE, &tempSize) < 0)
+            if (Ioctl.ioctl(fd, HidRaw.HIDIOCGRDESCSIZE, ref tempSize) < 0)
             {
                 size = default;
                 return false;
