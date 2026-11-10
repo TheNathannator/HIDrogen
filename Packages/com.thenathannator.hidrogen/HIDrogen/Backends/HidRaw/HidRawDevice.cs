@@ -24,7 +24,6 @@ namespace HIDrogen.Backend
         private EventWaitHandle m_ThreadStop = new EventWaitHandle(false, EventResetMode.ManualReset);
 
         private HID.HIDDeviceDescriptor m_Descriptor;
-        private int m_InputPrepend;
 
         public string devPath { get; set; }
 
@@ -32,15 +31,13 @@ namespace HIDrogen.Backend
             HidRawBackend backend,
             InputDevice device,
             fd fd,
-            HID.HIDDeviceDescriptor descriptor,
-            int inputPrependCount
+            HID.HIDDeviceDescriptor descriptor
         )
         {
             m_Backend = backend;
             m_Device = device;
             m_Fd = fd;
             m_Descriptor = descriptor;
-            m_InputPrepend = inputPrependCount;
 
             m_ReadThread = new Thread(ReadThread) { IsBackground = true };
             m_ReadThread.Start();
@@ -73,9 +70,6 @@ namespace HIDrogen.Backend
             // Stack-allocated data is not initialized
             UnsafeUtility.MemClear(readBuffer, readBufferSize);
 
-            int readSize = readBufferSize - m_InputPrepend;
-            int readOffset = m_InputPrepend;
-
             // Max allowed number of consecutive errors
             const int retryThreshold = 3;
             int errorCount = 0;
@@ -83,7 +77,7 @@ namespace HIDrogen.Backend
             while (!m_ThreadStop.WaitOne(1))
             {
                 // Get current state
-                int result = Fcntl.read(m_Fd, readBuffer + readOffset, readSize);
+                int result = Fcntl.read(m_Fd, readBuffer, readBufferSize);
                 if (result < 0)
                 {
                     if (Posix.errno == Errno.ENOENT) // Device has been disconnected
@@ -109,7 +103,7 @@ namespace HIDrogen.Backend
 
                 if (result > 0)
                 {
-                    m_Backend.QueueStateEvent(m_Device, HidRawBackend.InputFormat, readBuffer, readSize);
+                    m_Backend.QueueStateEvent(m_Device, HidRawBackend.InputFormat, readBuffer, readBufferSize);
                 }
             }
 

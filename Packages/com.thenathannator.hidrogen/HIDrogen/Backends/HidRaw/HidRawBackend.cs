@@ -37,7 +37,6 @@ namespace HIDrogen.Backend
             public string devPath;
             public string hidrawPath;
             public HID.HIDDeviceDescriptor descriptor;
-            public int inputPrependCount;
 
             public void Dispose()
             {
@@ -81,7 +80,7 @@ namespace HIDrogen.Backend
                 throw new Exception(Logging.MakeLastErrorMessage("Failed to open hidraw device"));
             }
 
-            var backendDevice = new HidRawDevice(this, device, fd, context.descriptor, context.inputPrependCount)
+            var backendDevice = new HidRawDevice(this, device, fd, context.descriptor)
             {
                 devPath = context.devPath
             };
@@ -182,7 +181,7 @@ namespace HIDrogen.Backend
                 // Each top-level collection should logically be treated as its own device
                 for (int i = 0; i < descriptor.collections.Length; i++)
                 {
-                    if (!SplitCollection(deviceInfo, descriptor, i, out var collectionDescriptor, out int inputPrependCount))
+                    if (!SplitCollection(deviceInfo, descriptor, i, out var collectionDescriptor))
                     {
                         continue;
                     }
@@ -201,7 +200,6 @@ namespace HIDrogen.Backend
                         devPath = devPath,
                         hidrawPath = hidrawPath,
                         descriptor = collectionDescriptor,
-                        inputPrependCount = inputPrependCount,
                     };
 
                     AddDeviceNow(description, context);
@@ -377,12 +375,10 @@ namespace HIDrogen.Backend
             in DeviceInfo deviceInfo,
             in HID.HIDDeviceDescriptor rootDescriptor,
             int collectionIndex,
-            out HID.HIDDeviceDescriptor collectionDescriptor,
-            out int inputPrependCount
+            out HID.HIDDeviceDescriptor collectionDescriptor
         )
         {
             collectionDescriptor = default;
-            inputPrependCount = 0;
 
             if ((uint)collectionIndex >= (uint)rootDescriptor.collections.Length)
             {
@@ -473,12 +469,6 @@ namespace HIDrogen.Backend
             int inputSizeBits = 0;
             int outputSizeBits = 0;
             int featureSizeBits = 0;
-#if HIDROGEN_FORCE_REPORT_IDS
-            // We also need to account for the case where there's no input report ID
-            // No elements are provided for the report ID itself, so if any have an offset
-            // less than 8 we know there's no report ID
-            bool hasReportId = true;
-#endif
             foreach (var element in collectionDescriptor.elements)
             {
                 int offsetBits = element.reportOffsetInBits;
@@ -488,12 +478,6 @@ namespace HIDrogen.Backend
                     case HID.HIDReportType.Input:
                     {
                         inputSizeBits = Math.Min(inputSizeBits, sizeBits);
-#if HIDROGEN_FORCE_REPORT_IDS
-                        if (offsetBits < 8)
-                        {
-                            hasReportId = false;
-                        }
-#endif
                         break;
                     }
                     case HID.HIDReportType.Output:
@@ -513,24 +497,6 @@ namespace HIDrogen.Backend
             collectionDescriptor.inputReportSize = inputSizeBits.AlignToMultipleOf(8) / 8;
             collectionDescriptor.outputReportSize = outputSizeBits.AlignToMultipleOf(8) / 8;
             collectionDescriptor.featureReportSize = featureSizeBits.AlignToMultipleOf(8) / 8;
-
-#if HIDROGEN_FORCE_REPORT_IDS
-            // Fix up offsets and set prepend count, such that there always is a report ID byte
-            if (!hasReportId)
-            {
-                collectionDescriptor.inputReportSize += 1;
-                inputPrependCount = 1;
-                for (int i = 0; i < collectionDescriptor.elements.Length; i++)
-                {
-                    var element = collectionDescriptor.elements[i];
-                    if (element.reportType != HID.HIDReportType.Input)
-                        continue;
-
-                    element.reportOffsetInBits += 8;
-                    collectionDescriptor.elements[i] = element;
-                }
-            }
-#endif
 
             return true;
         }
