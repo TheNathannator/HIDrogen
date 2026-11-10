@@ -2,7 +2,7 @@
 
 An add-on for the [Unity InputSystem](https://github.com/Unity-Technologies/InputSystem) package that provides additional input backends, including proper HID support on Linux, and raw Xbox One controller support via GameInput on Windows.
 
-(pronounced "hydrogen" or "hid-rogen")
+<small>(pronounced "hih-droh-gin"; "hydrogen" but with a soft "i" instead of a "y")</small>
 
 ## Table of Contents
 
