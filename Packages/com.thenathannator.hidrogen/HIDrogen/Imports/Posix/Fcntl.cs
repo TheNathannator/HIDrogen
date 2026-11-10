@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using HIDrogen.LowLevel;
 
 namespace HIDrogen.Imports.Posix
 {
@@ -52,7 +53,7 @@ namespace HIDrogen.Imports.Posix
 
         [DllImport(kLibName, EntryPoint = "open", SetLastError = true)]
         private static extern int _open(
-            [MarshalAs(UnmanagedType.LPStr)] string file,
+            IntPtr file,
             int flags
         );
 
@@ -68,24 +69,10 @@ namespace HIDrogen.Imports.Posix
             UIntPtr bufferSize
         );
 
-        [DllImport(kLibName, EntryPoint = "read", SetLastError = true)]
-        private static extern UIntPtr _read(
-            int fd,
-            byte[] buffer,
-            UIntPtr bufferSize
-        );
-
         [DllImport(kLibName, EntryPoint = "write", SetLastError = true)]
         private static extern unsafe UIntPtr _write(
             int fd,
             void* buffer,
-            UIntPtr bufferSize
-        );
-
-        [DllImport(kLibName, EntryPoint = "write", SetLastError = true)]
-        private static extern UIntPtr _write(
-            int fd,
-            byte[] buffer,
             UIntPtr bufferSize
         );
 
@@ -99,25 +86,112 @@ namespace HIDrogen.Imports.Posix
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static fd open(string file, int flags)
         {
+            var file_ptr = new UTF8String(file);
+            try
+            {
+                int fd = _open(file_ptr.ToPtr(), flags);
+                return new fd(fd, true);
+            }
+            finally
+            {
+                file_ptr.Dispose();
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static fd open(IntPtr file, int flags)
+        {
             int fd = _open(file, flags);
             return new fd(fd, true);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe int read(fd fd, void* buffer, int bufferSize)
-            => (int)_read(fd.DangerousGetFileDescriptor(), buffer, (UIntPtr)bufferSize);
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int read(fd fd, byte[] buffer)
-            => (int)_read(fd.DangerousGetFileDescriptor(), buffer, (UIntPtr)buffer?.Length);
+        {
+            return (int)_read(fd.DangerousGetFileDescriptor(), buffer, (UIntPtr)bufferSize);
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe int write(fd fd, void* buffer, int bufferSize)
-            => (int)_write(fd.DangerousGetFileDescriptor(), buffer, (UIntPtr)bufferSize);
+        {
+            return (int)_write(fd.DangerousGetFileDescriptor(), buffer, (UIntPtr)bufferSize);
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int write(fd fd, byte[] buffer)
-            => (int)_write(fd.DangerousGetFileDescriptor(), buffer, (UIntPtr)buffer?.Length);
+        public static unsafe int read(fd fd, byte[] buffer)
+        {
+            if (buffer == null)
+            {
+                return 0;
+            }
+
+            fixed (byte* ptr = buffer)
+            {
+                return (int)_read(fd.DangerousGetFileDescriptor(), ptr, (UIntPtr)buffer?.Length);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe int write(fd fd, byte[] buffer)
+        {
+            if (buffer == null)
+            {
+                return 0;
+            }
+
+            fixed (byte* ptr = buffer)
+            {
+                return (int)_write(fd.DangerousGetFileDescriptor(), ptr, (UIntPtr)buffer?.Length);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe int read(fd fd, byte[] buffer, int offset, int count)
+        {
+            if (buffer == null)
+            {
+                return 0;
+            }
+
+            if ((uint)offset >= (uint)buffer.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(offset));
+            }
+
+            if ((uint)(offset + count) >= (uint)buffer.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(count));
+            }
+
+            fixed (byte* ptr = buffer)
+            {
+                return (int)_read(fd.DangerousGetFileDescriptor(), ptr + offset, (UIntPtr)count);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe int write(fd fd, byte[] buffer, int offset, int count)
+        {
+            if (buffer == null)
+            {
+                return 0;
+            }
+
+            if ((uint)offset >= (uint)buffer.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(offset));
+            }
+
+            if ((uint)(offset + count) >= (uint)buffer.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(count));
+            }
+
+            fixed (byte* ptr = buffer)
+            {
+                return (int)_write(fd.DangerousGetFileDescriptor(), ptr + offset, (UIntPtr)count);
+            }
+        }
 
         public static unsafe int poll(pollfd* fd, int fdCount, int timeout)
         {
