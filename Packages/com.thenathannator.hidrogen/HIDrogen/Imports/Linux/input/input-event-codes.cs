@@ -1,40 +1,39 @@
 #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
 namespace HIDrogen.Imports.Linux
 {
-    internal enum EvdevProperties
+    internal enum input_device_prop
     {
-        Pointer = 0x00, // needs a pointer
-        Direct = 0x01, // direct input devices
-        Buttonpad = 0x02, // has button(s) under pad
-        SemiMt = 0x03, // touch rectangle only
-        TopButtonPad = 0x04, // softbuttons at top of pad
-        PointingStick = 0x05, // is a pointing stick
-        Accelerometer = 0x06, // has accelerometer
+        POINTER = 0x00,
+        DIRECT = 0x01,
+        BUTTONPAD = 0x02,
+        SEMI_MT = 0x03,
+        TOPBUTTONPAD = 0x04,
+        POINTING_STICK = 0x05,
+        ACCELEROMETER = 0x06,
 
-        Maximum = 0x1f,
-        Count = Maximum + 1,
+        MAX = 0x1f,
+        COUNT = MAX + 1,
     }
 
-    internal enum EvdevEventType
+    internal enum input_event_type
     {
-        Sync = 0x00,
-        Keystroke = 0x01,
-        RelativeAxis = 0x02,
-        AbsoluteAxis = 0x03,
-        Miscellaneous = 0x04,
-        Switch = 0x05,
-        Leds = 0x11,
-        Sound = 0x12,
-        Repeat = 0x14,
-        ForceFeedback = 0x15,
-        Power = 0x16,
-        ForceFeedbackStatus = 0x17,
-
-        Maximum = 0x1f,
-        Count = Maximum + 1,
+        EV_SYN = 0x00,
+        EV_KEY = 0x01,
+        EV_REL = 0x02,
+        EV_ABS = 0x03,
+        EV_MSC = 0x04,
+        EV_SW = 0x05,
+        EV_LED = 0x11,
+        EV_SND = 0x12,
+        EV_REP = 0x14,
+        EV_FF = 0x15,
+        EV_PWR = 0x16,
+        EV_FF_STATUS = 0x17,
+        EV_MAX = 0x1f,
+        EV_CNT = EV_MAX + 1,
     }
 
-    internal enum EvdevSync
+    internal enum input_sync_code
     {
         SYN_REPORT = 0,
         SYN_CONFIG = 1,
@@ -45,7 +44,7 @@ namespace HIDrogen.Imports.Linux
         SYN_CNT = SYN_MAX + 1,
     }
 
-    internal enum EvdevKeystroke
+    internal enum input_key_code
     {
         KEY_RESERVED = 0,
         KEY_ESC = 1,
@@ -711,7 +710,7 @@ namespace HIDrogen.Imports.Linux
         KEY_CNT = KEY_MAX + 1,
     }
 
-    internal enum EvdevRelativeAxis
+    internal enum input_relaxis_code
     {
         REL_X = 0x00,
         REL_Y = 0x01,
@@ -731,7 +730,7 @@ namespace HIDrogen.Imports.Linux
         REL_CNT = REL_MAX + 1,
     }
 
-    internal enum EvdevAbsoluteAxis
+    internal enum input_absaxis_code
     {
         ABS_X = 0x00,
         ABS_Y = 0x01,
@@ -788,7 +787,7 @@ namespace HIDrogen.Imports.Linux
         ABS_CNT = ABS_MAX + 1,
     }
 
-    internal enum EvdevSwitch
+    internal enum input_switch_code
     {
         SW_LID = 0x00,
         SW_TABLET_MODE = 0x01,
@@ -812,7 +811,7 @@ namespace HIDrogen.Imports.Linux
         SW_CNT = SW_MAX + 1,
     }
 
-    internal enum EvdevMiscellaneous
+    internal enum input_misc_code
     {
         MSC_SERIAL = 0x00,
         MSC_PULSELED = 0x01,
@@ -825,7 +824,7 @@ namespace HIDrogen.Imports.Linux
         MSC_CNT = MSC_MAX + 1,
     }
 
-    internal enum EvdevLeds
+    internal enum input_led_code
     {
         LED_NUML = 0x00,
         LED_CAPSL = 0x01,
@@ -843,7 +842,7 @@ namespace HIDrogen.Imports.Linux
         LED_CNT = LED_MAX + 1,
     }
 
-    internal enum EvdevSound
+    internal enum input_sound_code
     {
         SND_CLICK = 0x00,
         SND_BELL = 0x01,
@@ -853,7 +852,7 @@ namespace HIDrogen.Imports.Linux
         SND_CNT = SND_MAX + 1,
     }
 
-    internal enum EvdevRepeat
+    internal enum input_repeat
     {
         REP_DELAY = 0x00,
         REP_PERIOD = 0x01,
