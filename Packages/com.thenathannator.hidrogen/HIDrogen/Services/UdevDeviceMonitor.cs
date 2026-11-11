@@ -227,13 +227,13 @@ namespace HIDrogen.Services
             // }
 
             var hidraw = BackendManager.TryGetBackend<HidRawBackend>();
-            if (hidraw.ProbeDeviceAdd(m_Context, device))
+            if (hidraw != null && hidraw.ProbeDeviceAdd(m_Context, device))
             {
                 return;
             }
 
             var evdev = BackendManager.TryGetBackend<EvdevBackend>();
-            if (evdev.ProbeDeviceAdd(m_Context, device))
+            if (evdev != null && evdev.ProbeDeviceAdd(m_Context, device))
             {
                 return;
             }
