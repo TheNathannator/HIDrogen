@@ -229,13 +229,13 @@ namespace HIDrogen.Backend
             }
         }
 
-        public bool ProbeDeviceRemove(udev_context udev, udev_device device)
+        public void ProbeDeviceRemove(udev_context udev, udev_device device)
         {
             using (var hidraw = FindSibling(udev, device, Udev.SubsystemHidRaw))
             {
                 if (hidraw == null || hidraw.IsInvalid)
                 {
-                    return false;
+                    return;
                 }
 
                 string devpath = hidraw.get_devpath().ToString();
@@ -243,9 +243,6 @@ namespace HIDrogen.Backend
                 {
                     Logging.Verbose($"hidraw device {devpath} removed");
                 }
-
-                // Always signal claimage for hidraw devices
-                return true;
             }
         }
 

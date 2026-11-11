@@ -40,9 +40,8 @@ namespace HIDrogen.Backend
             return false;
         }
 
-        public bool ProbeDeviceRemove(udev_context udev, udev_device device)
+        public void ProbeDeviceRemove(udev_context udev, udev_device device)
         {
-            return false;
         }
     }
 }

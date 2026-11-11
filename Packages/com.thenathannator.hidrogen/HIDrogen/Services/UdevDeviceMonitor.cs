@@ -11,7 +11,7 @@ namespace HIDrogen.Services
     internal interface IUdevBackend
     {
         bool ProbeDeviceAdd(udev_context udev, udev_device device);
-        bool ProbeDeviceRemove(udev_context udev, udev_device device);
+        void ProbeDeviceRemove(udev_context udev, udev_device device);
     }
 
     internal class UdevDeviceMonitor : ICustomInputService
@@ -245,24 +245,9 @@ namespace HIDrogen.Services
             Logging.Verbose($"udev device removed: " + Udev.MakeDeviceInfo(device));
 #endif
 
-            // TODO
-            // var usb = BackendManager.TryGetBackend<UsbManager>();
-            // if (usb.ProbeDeviceRemove(m_Context, device))
-            // {
-            //     return;
-            // }
-
-            var hidraw = BackendManager.TryGetBackend<HidRawBackend>();
-            if (hidraw.ProbeDeviceRemove(m_Context, device))
-            {
-                return;
-            }
-
-            var evdev = BackendManager.TryGetBackend<EvdevBackend>();
-            if (evdev.ProbeDeviceRemove(m_Context, device))
-            {
-                return;
-            }
+            // BackendManager.TryGetBackend<UsbManager>()?.ProbeDeviceRemove(m_Context, device); // TODO
+            BackendManager.TryGetBackend<HidRawBackend>()?.ProbeDeviceRemove(m_Context, device);
+            BackendManager.TryGetBackend<EvdevBackend>()?.ProbeDeviceRemove(m_Context, device);
         }
 
         private udev_device FindEvdev(udev_device device)
