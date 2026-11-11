@@ -1,5 +1,6 @@
 using System;
 using HIDrogen.LowLevel;
+using HIDrogen.Utilities;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
@@ -99,29 +100,32 @@ namespace HIDrogen
             }
         }
 
-        public unsafe void QueueStateEvent(InputDevice device, FourCC format, byte[] stateBuffer, int offset, int length)
+        public unsafe void QueueStateEvent(InputDevice device, FourCC format, byte[] buffer, int offset, int count)
         {
-            if (stateBuffer.Length < offset)
-            {
-                throw new ArgumentOutOfRangeException(nameof(offset));
-            }
+            BufferUtils.ValidateBufferArguments(buffer, offset, count);
 
-            if ((stateBuffer.Length - offset) < length)
+            fixed (byte* ptr = buffer)
             {
-                throw new ArgumentOutOfRangeException(nameof(length));
-            }
-
-            fixed (byte* ptr = stateBuffer)
-            {
-                QueueStateEvent(device, format, ptr + offset, length);
+                QueueStateEvent(device, format, ptr + offset, count);
             }
         }
 
         // Based on InputSystem.QueueStateEvent<T>
         public unsafe void QueueStateEvent(InputDevice device, FourCC format, void* stateBuffer, int stateLength)
         {
-            if (stateBuffer == null || stateLength < 1 || stateLength > MaxStateSize)
+            if (stateBuffer == null)
             {
+                throw new ArgumentNullException(nameof(stateBuffer));
+            }
+
+            if (stateLength < 1)
+            {
+                return;
+            }
+
+            if (stateLength > MaxStateSize)
+            {
+                Logging.Warning($"State length {stateLength} is rather excessive, no? Ignoring for safety.");
                 return;
             }
 
@@ -174,8 +178,19 @@ namespace HIDrogen
         // Based on InputSystem.QueueDeltaStateEvent<T>
         public unsafe void QueueDeltaStateEvent(InputDevice device, uint offset, void* stateBuffer, int stateLength)
         {
-            if (stateBuffer == null || stateLength < 1 || stateLength > MaxStateSize)
+            if (stateBuffer == null)
             {
+                throw new ArgumentNullException(nameof(stateBuffer));
+            }
+
+            if (stateLength < 1)
+            {
+                return;
+            }
+
+            if (stateLength > MaxStateSize)
+            {
+                Logging.Warning($"State length {stateLength} is rather excessive, no? Ignoring for safety.");
                 return;
             }
 
