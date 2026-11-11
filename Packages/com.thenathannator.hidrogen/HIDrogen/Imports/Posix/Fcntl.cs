@@ -2,6 +2,7 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using HIDrogen.LowLevel;
+using HIDrogen.Utilities;
 
 namespace HIDrogen.Imports.Posix
 {
@@ -108,12 +109,22 @@ namespace HIDrogen.Imports.Posix
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe int read(fd fd, void* buffer, int bufferSize)
         {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
             return (int)_read(fd.DangerousGetFileDescriptor(), buffer, (UIntPtr)bufferSize);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe int write(fd fd, void* buffer, int bufferSize)
         {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
             return (int)_write(fd.DangerousGetFileDescriptor(), buffer, (UIntPtr)bufferSize);
         }
 
@@ -122,7 +133,7 @@ namespace HIDrogen.Imports.Posix
         {
             if (buffer == null)
             {
-                return 0;
+                throw new ArgumentNullException(nameof(buffer));
             }
 
             fixed (byte* ptr = buffer)
@@ -136,7 +147,7 @@ namespace HIDrogen.Imports.Posix
         {
             if (buffer == null)
             {
-                return 0;
+                throw new ArgumentNullException(nameof(buffer));
             }
 
             fixed (byte* ptr = buffer)
@@ -148,20 +159,7 @@ namespace HIDrogen.Imports.Posix
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe int read(fd fd, byte[] buffer, int offset, int count)
         {
-            if (buffer == null)
-            {
-                return 0;
-            }
-
-            if ((uint)offset >= (uint)buffer.Length)
-            {
-                throw new ArgumentOutOfRangeException(nameof(offset));
-            }
-
-            if ((uint)(offset + count) >= (uint)buffer.Length)
-            {
-                throw new ArgumentOutOfRangeException(nameof(count));
-            }
+            BufferUtils.ValidateBufferArguments(buffer, offset, count);
 
             fixed (byte* ptr = buffer)
             {
@@ -172,20 +170,7 @@ namespace HIDrogen.Imports.Posix
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe int write(fd fd, byte[] buffer, int offset, int count)
         {
-            if (buffer == null)
-            {
-                return 0;
-            }
-
-            if ((uint)offset >= (uint)buffer.Length)
-            {
-                throw new ArgumentOutOfRangeException(nameof(offset));
-            }
-
-            if ((uint)(offset + count) >= (uint)buffer.Length)
-            {
-                throw new ArgumentOutOfRangeException(nameof(count));
-            }
+            BufferUtils.ValidateBufferArguments(buffer, offset, count);
 
             fixed (byte* ptr = buffer)
             {
@@ -195,11 +180,21 @@ namespace HIDrogen.Imports.Posix
 
         public static unsafe int poll(pollfd* fd, int fdCount, int timeout)
         {
+            if (fd == null)
+            {
+                throw new ArgumentNullException(nameof(fd));
+            }
+
             return _poll(fd, (UIntPtr)fdCount, timeout);
         }
 
         public static unsafe int poll(pollfd* fd, int timeout)
         {
+            if (fd == null)
+            {
+                throw new ArgumentNullException(nameof(fd));
+            }
+
             return poll(fd, 1, timeout);
         }
 
