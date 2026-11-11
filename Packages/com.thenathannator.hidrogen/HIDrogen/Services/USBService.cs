@@ -264,7 +264,7 @@ namespace HIDrogen.Services
             IntPtr _str // const char*
         )
         {
-            var str = new AnsiString(_str, false);
+            var str = new UTF8String(_str, false);
             switch (level)
             {
                 case libusb_log_level.ERROR:

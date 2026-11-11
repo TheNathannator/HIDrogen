@@ -7,121 +7,12 @@
 #endif
 
 using System;
-using System.Runtime.InteropServices;
 using System.Text;
+using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
 namespace HIDrogen.LowLevel
 {
-    /// <summary>
-    /// An unmanaged string with ASCII/ANSI C <c>char*</c> encoding.
-    /// </summary>
-    internal ref struct AnsiString
-    {
-        private string m_Str;
-        private IntPtr m_Ptr;
-        private bool m_Owned;
-
-        public bool IsInvalid => m_Str == null && m_Ptr == null;
-
-        public AnsiString(string str)
-        {
-            m_Str = str;
-            m_Ptr = IntPtr.Zero;
-            m_Owned = false;
-        }
-
-        public AnsiString(IntPtr ptr, bool owned)
-        {
-            m_Str = null;
-            m_Ptr = ptr;
-            m_Owned = owned;
-        }
-
-        public void Dispose()
-        {
-            if (m_Ptr != null && m_Owned)
-            {
-                FreePtr(m_Ptr);
-            }
-
-            m_Ptr = IntPtr.Zero;
-        }
-
-        public AnsiString Copy()
-        {
-            var copied = CopyPtr(m_Ptr);
-            return new AnsiString(copied, owned: true);
-        }
-
-        public IntPtr ToPtr()
-        {
-            if (m_Ptr == null && m_Str != null)
-            {
-                m_Ptr = AllocPtr(m_Str);
-                m_Owned = true;
-            }
-
-            return m_Ptr;
-        }
-
-        public override string ToString()
-        {
-            if (m_Str == null && m_Ptr != null)
-            {
-                m_Str = UnmarshalPtr(m_Ptr);
-            }
-
-            return m_Str;
-        }
-
-        public static IntPtr AllocPtr(string str)
-        {
-            if (str == null)
-            {
-                return IntPtr.Zero;
-            }
-
-            return Marshal.StringToHGlobalAnsi(str);
-        }
-
-        public static void FreePtr(IntPtr ptr)
-        {
-            if (ptr != IntPtr.Zero)
-            {
-                Marshal.FreeHGlobal(ptr);
-            }
-        }
-
-        public static string UnmarshalPtr(IntPtr ptr)
-        {
-            if (ptr == IntPtr.Zero)
-            {
-                return null;
-            }
-
-            return Marshal.PtrToStringAnsi(ptr);
-        }
-
-        public static IntPtr CopyPtr(IntPtr ptr)
-        {
-            if (ptr == IntPtr.Zero)
-            {
-                return IntPtr.Zero;
-            }
-
-            int byteLength = StringMarshal.StrLenByte(ptr) + 1;
-            var newPtr = Marshal.AllocHGlobal(byteLength);
-
-            unsafe
-            {
-                UnsafeUtility.MemCpy((void*)newPtr, (void*)ptr, byteLength);
-            }
-
-            return newPtr;
-        }
-    }
-
     /// <summary>
     /// An unmanaged string with Unicode encoding, with character size specified via <typeparamref name="TChar"/>.
     /// </summary>
@@ -213,80 +104,24 @@ namespace HIDrogen.LowLevel
             return m_Str;
         }
 
-        public static unsafe IntPtr AllocPtr(string str)
+        public static IntPtr AllocPtr(string str)
         {
-            if (str == null)
-            {
-                return IntPtr.Zero;
-            }
-
-            // + char size for null terminator
-            int byteLength = s_Encoding.GetByteCount(str) + sizeof(TChar);
-            var ptr = Marshal.AllocHGlobal(byteLength);
-
-            byte* bytePtr = (byte*)ptr;
-            fixed (char* strPtr = str)
-            {
-                s_Encoding.GetBytes(strPtr, str.Length, bytePtr, byteLength);
-            }
-
-            // Apply null terminator
-            for (int i = sizeof(TChar); i > 0; i++)
-            {
-                bytePtr[byteLength - i] = 0;
-            }
-
-            return ptr;
+            return StringMarshal.AllocPtr<TChar>(s_Encoding, str);
         }
 
         public static void FreePtr(IntPtr ptr)
         {
-            if (ptr != IntPtr.Zero)
-            {
-                Marshal.FreeHGlobal(ptr);
-            }
+            StringMarshal.FreePtr(ptr);
         }
 
-        public static unsafe string UnmarshalPtr(IntPtr ptr)
+        public static string UnmarshalPtr(IntPtr ptr)
         {
-            if (ptr == null)
-            {
-                return null;
-            }
-
-            int charLength;
-            switch (sizeof(TChar))
-            {
-                case 1: charLength = StringMarshal.StrLenByte(ptr); break;
-                case 2: charLength = StringMarshal.StrLenInt16(ptr); break;
-                case 4: charLength = StringMarshal.StrLenInt32(ptr); break;
-                default: throw new ArgumentOutOfRangeException(typeof(TChar).Name);
-            }
-
-            if (charLength < 1)
-            {
-                return string.Empty;
-            }
-
-            return s_Encoding.GetString((byte*)ptr, charLength * sizeof(TChar));
+            return StringMarshal.UnmarshalPtr<TChar>(s_Encoding, ptr);
         }
 
         public static IntPtr CopyPtr(IntPtr ptr)
         {
-            if (ptr == IntPtr.Zero)
-            {
-                return IntPtr.Zero;
-            }
-
-            int byteLength = StringMarshal.StrLenByte(ptr) + 1;
-            var newPtr = Marshal.AllocHGlobal(byteLength);
-
-            unsafe
-            {
-                UnsafeUtility.MemCpy((void*)newPtr, (void*)ptr, byteLength);
-            }
-
-            return newPtr;
+            return StringMarshal.CopyPtr<TChar>(ptr);
         }
     }
 
@@ -493,6 +328,96 @@ namespace HIDrogen.LowLevel
             }
 
             return checked((int)(end - start));
+        }
+
+        public static int StrLen<TChar>(IntPtr ptr)
+            where TChar : unmanaged
+        {
+            switch (sizeof(TChar))
+            {
+                case 1: return StrLenByte(ptr);
+                case 2: return StrLenInt16(ptr);
+                case 4: return StrLenInt32(ptr);
+                default: throw new ArgumentOutOfRangeException(typeof(TChar).Name);
+            }
+        }
+
+        public static IntPtr AllocPtr<TChar>(Encoding encoding, string str)
+            where TChar : unmanaged
+        {
+            if (encoding == null)
+            {
+                throw new ArgumentNullException(nameof(encoding));
+            }
+
+            if (str == null)
+            {
+                return IntPtr.Zero;
+            }
+
+            int byteLength = encoding.GetByteCount(str) + sizeof(TChar); // null-terminated
+            var ptr = UnsafeUtility.Malloc(byteLength, 8, Allocator.Persistent);
+            if (ptr == null)
+            {
+                throw new OutOfMemoryException();
+            }
+
+            byte* bytePtr = (byte*)ptr;
+            fixed (char* strPtr = str)
+            {
+                encoding.GetBytes(strPtr, str.Length, bytePtr, byteLength);
+            }
+
+            // Apply null terminator
+            for (int i = sizeof(TChar); i > 0; i++)
+            {
+                bytePtr[byteLength - i] = 0;
+            }
+
+            return (IntPtr)ptr;
+        }
+
+        public static void FreePtr(IntPtr ptr)
+        {
+            if (ptr != IntPtr.Zero)
+            {
+                UnsafeUtility.Free((void*)ptr, Allocator.Persistent);
+            }
+        }
+
+        public static string UnmarshalPtr<TChar>(Encoding encoding, IntPtr ptr)
+            where TChar : unmanaged
+        {
+            if (ptr == null)
+            {
+                return null;
+            }
+
+            int charLength = StrLen<TChar>(ptr);
+            if (charLength < 1)
+            {
+                return string.Empty;
+            }
+
+            int byteLength = charLength * sizeof(TChar);
+            return encoding.GetString((byte*)ptr, byteLength);
+        }
+
+        public static IntPtr CopyPtr<TChar>(IntPtr ptr)
+            where TChar : unmanaged
+        {
+            if (ptr == IntPtr.Zero)
+            {
+                return IntPtr.Zero;
+            }
+
+            int charLength = StrLen<TChar>(ptr) + 1; // null-terminated
+            int byteLength = charLength * sizeof(TChar);
+
+            var newPtr = UnsafeUtility.Malloc(byteLength, 8, Allocator.Persistent);
+            UnsafeUtility.MemCpy(newPtr, (void*)ptr, byteLength);
+
+            return (IntPtr)newPtr;
         }
     }
 }
