@@ -1,23 +1,13 @@
-﻿using System;
-#if UNITY_STANDALONE_WIN
+﻿#if UNITY_STANDALONE_WIN
+using System;
 using HIDrogen.Imports.Windows;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
-#endif
-using UnityEngine.InputSystem.Utilities;
 
 namespace HIDrogen.Backend
 {
-    // Constants always provided for other places to use
-    internal partial class XInputBackend
-    {
-        public const string InterfaceName = "XInput";
-        public static readonly FourCC InputFormat = new FourCC('X', 'I', 'N', 'P');
-    }
-
-#if UNITY_STANDALONE_WIN
     internal partial class XInputBackend : CustomInputBackend<XInputBackendDevice, XInputBackend.AddContext>
     {
         internal struct AddContext : IDisposable
@@ -53,11 +43,6 @@ namespace HIDrogen.Backend
 
         protected override void OnDispose()
         {
-            foreach (var device in m_Devices)
-            {
-                device?.Dispose();
-            }
-
             m_XInput.Dispose();
         }
 
@@ -66,6 +51,15 @@ namespace HIDrogen.Backend
             base.OnStart();
 
             CheckForNewDevices();
+        }
+
+        protected override void OnStop()
+        {
+            for (int i = 0; i < m_Devices.Length; i++)
+            {
+                m_Devices[i]?.Dispose();
+                m_Devices[i] = null;
+            }
         }
 
         protected override void OnUpdate()
@@ -117,7 +111,7 @@ namespace HIDrogen.Backend
 
                 var description = new InputDeviceDescription()
                 {
-                    interfaceName = InterfaceName,
+                    interfaceName = XInputDefinitions.InterfaceName,
                     capabilities = JsonUtility.ToJson(new XInputDescriptionCapabilities()
                     {
                         userIndex = i,
@@ -178,5 +172,5 @@ namespace HIDrogen.Backend
             return null;
         }
     }
-#endif
 }
+#endif

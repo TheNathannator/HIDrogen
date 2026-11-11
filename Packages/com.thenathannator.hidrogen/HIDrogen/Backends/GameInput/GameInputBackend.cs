@@ -56,10 +56,16 @@ namespace HIDrogen.Backend
 
         protected override void OnStop()
         {
+            base.OnStop();
+
             m_DeviceCallbackToken?.Unregister(1_000_000);
             m_DeviceCallbackToken = null;
 
-            base.OnStop();
+            foreach (var p in m_DevicesByInstance)
+            {
+                p.Value?.Dispose();
+            }
+            m_DevicesByInstance.Clear();
         }
 
         private void OnGameInputDeviceStatusChange(
