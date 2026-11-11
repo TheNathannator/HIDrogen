@@ -34,24 +34,16 @@ namespace HIDrogen.Backend
         };
 
         private libusb_device_handle m_Handle;
-        private X360WirelessController[] m_Controllers;
+        private readonly X360WirelessController[] m_Controllers = new X360WirelessController[kControllerCount];
 
         private X360Receiver(libusb_device_handle handle)
         {
             m_Handle = handle;
-            // Elements initialized in Probe()
-            m_Controllers = new X360WirelessController[kControllerCount];
+            // m_Controllers is initialized in Probe()
         }
 
         protected override void OnDispose()
         {
-            for (uint i = 0; i < m_Controllers.Length; i++)
-            {
-                m_Controllers[i]?.Dispose();
-                m_Controllers[i] = null;
-            }
-            m_Controllers = null;
-
             m_Handle?.Dispose();
             m_Handle = null;
         }
@@ -68,11 +60,17 @@ namespace HIDrogen.Backend
 
         protected override void OnStop()
         {
+            base.OnStop();
+
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.playModeStateChanged -= PlayModeStateChanged;
 #endif
 
-            base.OnStop();
+            for (uint i = 0; i < m_Controllers.Length; i++)
+            {
+                m_Controllers[i]?.Dispose();
+                m_Controllers[i] = null;
+            }
         }
 
 #if UNITY_EDITOR

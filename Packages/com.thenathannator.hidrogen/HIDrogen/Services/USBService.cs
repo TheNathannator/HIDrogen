@@ -73,12 +73,6 @@ namespace HIDrogen.Services
             m_ThreadStop?.Dispose();
             m_ThreadStop = null;
 
-            foreach (var device in m_Devices.Values)
-            {
-                device?.Dispose();
-            }
-            m_Devices.Clear();
-
             m_Context?.Dispose();
             m_Context = null;
         }
@@ -104,6 +98,12 @@ namespace HIDrogen.Services
 
                 m_DeviceThread?.Join();
                 m_DeviceThread = null;
+
+                foreach (var device in m_Devices.Values)
+                {
+                    device?.Dispose();
+                }
+                m_Devices.Clear();
             }
         }
 

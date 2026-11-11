@@ -31,8 +31,7 @@ namespace HIDrogen.Imports.Windows
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     internal struct XInputGamepad : IInputStateTypeInfo
     {
-        public static readonly FourCC Format = new FourCC('X', 'I', 'N', 'P');
-        public FourCC format => Format;
+        public FourCC format => XInputDefinitions.InputFormat;
 
         public XInputButton buttons;
         public byte leftTrigger;
@@ -117,6 +116,13 @@ namespace HIDrogen.Imports.Windows
     internal enum XInputCapabilityRequest : uint
     {
         Gamepad = 1,
+    }
+
+    // Constants always provided for other places to use
+    internal static class XInputDefinitions
+    {
+        public const string InterfaceName = "XInput";
+        public static readonly FourCC InputFormat = new FourCC('X', 'I', 'N', 'P');
     }
 
 #if UNITY_STANDALONE_WIN

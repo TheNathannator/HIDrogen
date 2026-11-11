@@ -209,7 +209,7 @@ namespace HIDrogen.Backend
         {
             var description = new InputDeviceDescription()
             {
-                interfaceName = XInputBackend.InterfaceName,
+                interfaceName = XInputDefinitions.InterfaceName,
                 // User index is not included since this backend will not match up with XInput
                 capabilities = JsonUtility.ToJson(m_Capabilities),
             };
@@ -462,7 +462,7 @@ namespace HIDrogen.Backend
                 {
                     if (m_Device != null)
                     {
-                        m_Receiver.QueueStateEvent(m_Device, XInputGamepad.Format, payload, 6, 18);
+                        m_Receiver.QueueStateEvent(m_Device, XInputDefinitions.InputFormat, payload, 6, 18);
                     }
                     break;
                 }

@@ -72,6 +72,20 @@ namespace HIDrogen.Backend
         {
         }
 
+        protected override void OnStop()
+        {
+            base.OnStop();
+
+            foreach (var p in m_DevicesByDevPath)
+            {
+                foreach (var device in p.Value)
+                {
+                    device?.Dispose();
+                }
+            }
+            m_DevicesByDevPath.Clear();
+        }
+
         protected override HidRawDevice OnDeviceAdded(InputDevice device, AddContext context)
         {
             var fd = Fcntl.open(context.hidrawPath, Fcntl.O_RDWR | Fcntl.O_CLOEXEC);
