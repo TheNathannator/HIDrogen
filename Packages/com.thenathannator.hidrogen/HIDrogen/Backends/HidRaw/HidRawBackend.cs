@@ -227,10 +227,10 @@ namespace HIDrogen.Backend
                 string devpath = hidraw.get_devpath().ToString();
                 if (m_DevicesByDevPath.Remove(devpath))
                 {
-                    
+                    Logging.Verbose($"hidraw device {devpath} removed");
                 }
 
-                Logging.Verbose($"hidraw device {devpath} removed");
+                // Always signal claimage for hidraw devices
                 return true;
             }
         }
