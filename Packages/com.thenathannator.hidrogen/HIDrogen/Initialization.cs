@@ -31,26 +31,13 @@ namespace HIDrogen
             try
             {
                 Logging.Verbose("Initializing backends");
-                PlatformInitialize();
-            }
-            catch (Exception ex)
-            {
-                Logging.Exception("Failed to initialize backends", ex);
-            }
-        }
 
-        // Defer start of backends to later to give device layouts time to be registered
-        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.BeforeSceneLoad)]
-        private static void DeferredStart()
-        {
-            try
-            {
-                Logging.Verbose("Starting backends");
+                PlatformInitialize();
                 s_BackendManager.Start();
             }
             catch (Exception ex)
             {
-                Logging.Exception("Failed to start backends", ex);
+                Logging.Exception("Failed to initialize backends", ex);
             }
         }
 
