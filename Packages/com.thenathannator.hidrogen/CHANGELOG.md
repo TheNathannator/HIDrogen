@@ -10,6 +10,7 @@ Dates are relative to UTC.
 
 ### Changed
 
+- The minimum version of the Input System package has been bumped to v1.5.0, to avoid future compile issues related to unit tests in v1.4.4 and earlier caused by [a misconfiguration](https://github.com/Unity-Technologies/InputSystem/commit/c8f99d515296ac502705725fc3f60a0f94aba4ea) on the Input System package's end.
 - A device that gets removed and re-added in the same update (from e.g. refreshing devices from scratch) is now ensured to have its removal event fired before its addition event.
 - File paths and line numbers are no longer included in error messages.
 - The libusb backend is no longer added regardless of platform; it will now only be added on PC standalone platforms by default.

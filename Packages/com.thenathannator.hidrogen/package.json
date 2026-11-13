@@ -7,7 +7,7 @@
   "license": "MIT",
   "licensesUrl": "https://github.com/TheNathannator/HIDrogen/blob/main/LICENSE.md",
   "dependencies": {
-    "com.unity.inputsystem": "1.4.4"
+    "com.unity.inputsystem": "1.5.0"
   },
   "keywords": [
     "InputSystem",
