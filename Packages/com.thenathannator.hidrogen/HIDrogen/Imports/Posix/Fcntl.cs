@@ -87,7 +87,7 @@ namespace HIDrogen.Imports.Posix
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static fd open(string file, int flags)
         {
-            var file_ptr = new UTF8String(file);
+            var file_ptr = UTF8String.FromStr(file);
             try
             {
                 int fd = _open(file_ptr.ToPtr(), flags);

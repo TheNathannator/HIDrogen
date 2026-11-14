@@ -75,7 +75,7 @@ namespace HIDrogen.Imports.Linux
 
         public udev_device device_new_from_syspath(string syspath)
         {
-            var syspath_ptr = new UTF8String(syspath);
+            var syspath_ptr = UTF8String.FromStr(syspath);
             try
             {
                 var handle = m_Udev.raw_device_new_from_syspath(this, syspath_ptr.ToPtr());
@@ -101,8 +101,8 @@ namespace HIDrogen.Imports.Linux
 
         public udev_device device_new_from_subsystem_sysname(string subsystem, string sysname)
         {
-            var subsystem_ptr = new UTF8String(subsystem);
-            var sysname_ptr = new UTF8String(sysname);
+            var subsystem_ptr = UTF8String.FromStr(subsystem);
+            var sysname_ptr = UTF8String.FromStr(sysname);
             try
             {
                 var handle = m_Udev.raw_device_new_from_subsystem_sysname(this, subsystem_ptr.ToPtr(), sysname_ptr.ToPtr());
@@ -128,7 +128,7 @@ namespace HIDrogen.Imports.Linux
 
         public udev_monitor monitor_new_from_netlink(string name)
         {
-            var name_ptr = new UTF8String(name);
+            var name_ptr = UTF8String.FromStr(name);
             try
             {
                 var handle = m_Udev.raw_monitor_new_from_netlink(this, name_ptr.ToPtr());
@@ -168,7 +168,7 @@ namespace HIDrogen.Imports.Linux
 
         public udev_list_entry get_by_name(string name)
         {
-            var name_ptr = new UTF8String(name);
+            var name_ptr = UTF8String.FromStr(name);
             try
             {
                 var next = m_Udev.raw_list_entry_get_by_name(m_Entry, name_ptr.ToPtr());
@@ -183,13 +183,13 @@ namespace HIDrogen.Imports.Linux
         public UTF8String get_name()
         {
             var ptr = m_Udev.raw_list_entry_get_name(m_Entry);
-            return new UTF8String(ptr, false);
+            return UTF8String.FromPtr(ptr, false);
         }
 
         public UTF8String get_value()
         {
             var ptr = m_Udev.raw_list_entry_get_value(m_Entry);
-            return new UTF8String(ptr, false);
+            return UTF8String.FromPtr(ptr, false);
         }
     }
 
@@ -220,8 +220,8 @@ namespace HIDrogen.Imports.Linux
 
         public udev_device get_parent_with_subsystem_devtype(string subsystem, string devtype)
         {
-            var subsystem_ptr = new UTF8String(subsystem);
-            var devtype_ptr = new UTF8String(devtype);
+            var subsystem_ptr = UTF8String.FromStr(subsystem);
+            var devtype_ptr = UTF8String.FromStr(devtype);
             try
             {
                 var handle = m_Udev.raw_device_get_parent_with_subsystem_devtype(this, subsystem_ptr.ToPtr(), devtype_ptr.ToPtr());
@@ -237,43 +237,43 @@ namespace HIDrogen.Imports.Linux
         public UTF8String get_devpath()
         {
             var ptr = m_Udev.raw_device_get_devpath(this);
-            return new UTF8String(ptr, false);
+            return UTF8String.FromPtr(ptr, false);
         }
 
         public UTF8String get_subsystem()
         {
             var ptr = m_Udev.raw_device_get_subsystem(this);
-            return new UTF8String(ptr, false);
+            return UTF8String.FromPtr(ptr, false);
         }
 
         public UTF8String get_devtype()
         {
             var ptr = m_Udev.raw_device_get_devtype(this);
-            return new UTF8String(ptr, false);
+            return UTF8String.FromPtr(ptr, false);
         }
 
         public UTF8String get_syspath()
         {
             var ptr = m_Udev.raw_device_get_syspath(this);
-            return new UTF8String(ptr, false);
+            return UTF8String.FromPtr(ptr, false);
         }
 
         public UTF8String get_sysname()
         {
             var ptr = m_Udev.raw_device_get_sysname(this);
-            return new UTF8String(ptr, false);
+            return UTF8String.FromPtr(ptr, false);
         }
 
         public UTF8String get_sysnum()
         {
             var ptr = m_Udev.raw_device_get_sysnum(this);
-            return new UTF8String(ptr, false);
+            return UTF8String.FromPtr(ptr, false);
         }
 
         public UTF8String get_devnode()
         {
             var ptr = m_Udev.raw_device_get_devnode(this);
-            return new UTF8String(ptr, false);
+            return UTF8String.FromPtr(ptr, false);
         }
 
         public bool get_is_initialized()
@@ -312,11 +312,11 @@ namespace HIDrogen.Imports.Linux
 
         public UTF8String get_property_value(string key)
         {
-            var key_ptr = new UTF8String(key);
+            var key_ptr = UTF8String.FromStr(key);
             try
             {
                 var ptr = m_Udev.raw_device_get_property_value(this, key_ptr.ToPtr());
-                return new UTF8String(ptr, false);
+                return UTF8String.FromPtr(ptr, false);
             }
             finally
             {
@@ -327,7 +327,7 @@ namespace HIDrogen.Imports.Linux
         public UTF8String get_driver()
         {
             var ptr = m_Udev.raw_device_get_driver(this);
-            return new UTF8String(ptr, false);
+            return UTF8String.FromPtr(ptr, false);
         }
 
         public ulong get_devnum()
@@ -338,7 +338,7 @@ namespace HIDrogen.Imports.Linux
         public UTF8String get_action()
         {
             var ptr = m_Udev.raw_device_get_action(this);
-            return new UTF8String(ptr, false);
+            return UTF8String.FromPtr(ptr, false);
         }
 
         public ulong get_seqnum()
@@ -353,11 +353,11 @@ namespace HIDrogen.Imports.Linux
 
         public UTF8String get_sysattr_value(string sysattr)
         {
-            var sysattr_ptr = new UTF8String(sysattr);
+            var sysattr_ptr = UTF8String.FromStr(sysattr);
             try
             {
                 var ptr = m_Udev.raw_device_get_sysattr_value(this, sysattr_ptr.ToPtr());
-                return new UTF8String(ptr, false);
+                return UTF8String.FromPtr(ptr, false);
             }
             finally
             {
@@ -372,7 +372,7 @@ namespace HIDrogen.Imports.Linux
 
         public bool has_tag(string tag)
         {
-            var tag_ptr = new UTF8String(tag);
+            var tag_ptr = UTF8String.FromStr(tag);
             try
             {
                 return m_Udev.raw_device_has_tag(this, tag_ptr.ToPtr()) > 0;
@@ -432,8 +432,8 @@ namespace HIDrogen.Imports.Linux
 
         public int filter_add_match_subsystem_devtype(string subsystem, string devtype)
         {
-            var subsystem_ptr = new UTF8String(subsystem);
-            var devtype_ptr = new UTF8String(devtype);
+            var subsystem_ptr = UTF8String.FromStr(subsystem);
+            var devtype_ptr = UTF8String.FromStr(devtype);
             try
             {
                 return m_Udev.raw_monitor_filter_add_match_subsystem_devtype(this, subsystem_ptr.ToPtr(), devtype_ptr.ToPtr());
@@ -447,7 +447,7 @@ namespace HIDrogen.Imports.Linux
 
         public int filter_add_match_tag(string tag)
         {
-            var tag_ptr = new UTF8String(tag);
+            var tag_ptr = UTF8String.FromStr(tag);
             try
             {
                 return m_Udev.raw_monitor_filter_add_match_tag(this, tag_ptr.ToPtr());
@@ -490,7 +490,7 @@ namespace HIDrogen.Imports.Linux
 
         public int add_match_subsystem(string subsystem)
         {
-            var subsystem_ptr = new UTF8String(subsystem);
+            var subsystem_ptr = UTF8String.FromStr(subsystem);
             try
             {
                 return m_Udev.raw_enumerate_add_match_subsystem(this, subsystem_ptr.ToPtr());
@@ -503,7 +503,7 @@ namespace HIDrogen.Imports.Linux
 
         public int add_nomatch_subsystem(string subsystem)
         {
-            var subsystem_ptr = new UTF8String(subsystem);
+            var subsystem_ptr = UTF8String.FromStr(subsystem);
             try
             {
                 return m_Udev.raw_enumerate_add_nomatch_subsystem(this, subsystem_ptr.ToPtr());
@@ -516,8 +516,8 @@ namespace HIDrogen.Imports.Linux
 
         public int add_match_sysattr(string sysattr, string value)
         {
-            var sysattr_ptr = new UTF8String(sysattr);
-            var value_ptr = new UTF8String(value);
+            var sysattr_ptr = UTF8String.FromStr(sysattr);
+            var value_ptr = UTF8String.FromStr(value);
             try
             {
                 return m_Udev.raw_enumerate_add_match_sysattr(this, sysattr_ptr.ToPtr(), value_ptr.ToPtr());
@@ -531,8 +531,8 @@ namespace HIDrogen.Imports.Linux
 
         public int add_nomatch_sysattr(string sysattr, string value)
         {
-            var sysattr_ptr = new UTF8String(sysattr);
-            var value_ptr = new UTF8String(value);
+            var sysattr_ptr = UTF8String.FromStr(sysattr);
+            var value_ptr = UTF8String.FromStr(value);
             try
             {
                 return m_Udev.raw_enumerate_add_nomatch_sysattr(this, sysattr_ptr.ToPtr(), value_ptr.ToPtr());
@@ -546,8 +546,8 @@ namespace HIDrogen.Imports.Linux
 
         public int add_match_property(string property, string value)
         {
-            var property_ptr = new UTF8String(property);
-            var value_ptr = new UTF8String(value);
+            var property_ptr = UTF8String.FromStr(property);
+            var value_ptr = UTF8String.FromStr(value);
             try
             {
                 return m_Udev.raw_enumerate_add_match_property(this, property_ptr.ToPtr(), value_ptr.ToPtr());
@@ -561,7 +561,7 @@ namespace HIDrogen.Imports.Linux
 
         public int add_match_sysname(string sysname)
         {
-            var sysname_ptr = new UTF8String(sysname);
+            var sysname_ptr = UTF8String.FromStr(sysname);
             try
             {
                 return m_Udev.raw_enumerate_add_match_sysname(this, sysname_ptr.ToPtr());
@@ -574,7 +574,7 @@ namespace HIDrogen.Imports.Linux
 
         public int add_match_tag(string tag)
         {
-            var tag_ptr = new UTF8String(tag);
+            var tag_ptr = UTF8String.FromStr(tag);
             try
             {
                 return m_Udev.raw_enumerate_add_match_tag(this, tag_ptr.ToPtr());

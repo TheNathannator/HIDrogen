@@ -53,25 +53,51 @@ namespace HIDrogen.LowLevel
 
         public bool IsInvalid => m_Str == null && m_Ptr == null;
 
-        public UnicodeString(string str)
+        public static UnicodeString<TChar> WithCharLength(int length)
         {
-            m_Str = str;
-            m_Ptr = IntPtr.Zero;
-            m_Owned = false;
+            return new UnicodeString<TChar>()
+            {
+                m_Str = null,
+                m_Ptr = AllocCharLength(length),
+                m_Owned = true,
+            };
         }
 
-        public UnicodeString(IntPtr ptr, bool owned)
+        public static UnicodeString<TChar> WithByteLength(int length)
         {
-            m_Str = null;
-            m_Ptr = ptr;
-            m_Owned = owned;
+            return new UnicodeString<TChar>()
+            {
+                m_Str = null,
+                m_Ptr = AllocByteLength(length),
+                m_Owned = true,
+            };
+        }
+
+        public static UnicodeString<TChar> FromStr(string str)
+        {
+            return new UnicodeString<TChar>()
+            {
+                m_Str = str,
+                m_Ptr = IntPtr.Zero,
+                m_Owned = false,
+            };
+        }
+
+        public static UnicodeString<TChar> FromPtr(IntPtr ptr, bool owned)
+        {
+            return new UnicodeString<TChar>()
+            {
+                m_Str = null,
+                m_Ptr = ptr,
+                m_Owned = owned,
+            };
         }
 
         public void Dispose()
         {
             if (m_Ptr != null && m_Owned)
             {
-                FreePtr(m_Ptr);
+                Free(m_Ptr);
             }
 
             m_Ptr = IntPtr.Zero;
@@ -79,15 +105,15 @@ namespace HIDrogen.LowLevel
 
         public UnicodeString<TChar> Copy()
         {
-            var copied = CopyPtr(m_Ptr);
-            return new UnicodeString<TChar>(copied, owned: true);
+            var copied = Copy(m_Ptr);
+            return FromPtr(copied, owned: true);
         }
 
         public IntPtr ToPtr()
         {
             if (m_Ptr == null && m_Str != null)
             {
-                m_Ptr = AllocPtr(m_Str);
+                m_Ptr = Marshal(m_Str);
                 m_Owned = true;
             }
 
@@ -98,30 +124,40 @@ namespace HIDrogen.LowLevel
         {
             if (m_Str == null && m_Ptr != null)
             {
-                m_Str = UnmarshalPtr(m_Ptr);
+                m_Str = Unmarshal(m_Ptr);
             }
 
             return m_Str;
         }
 
-        public static IntPtr AllocPtr(string str)
+        public static IntPtr AllocCharLength(int count)
         {
-            return StringMarshal.AllocPtr<TChar>(s_Encoding, str);
+            return StringMarshal.AllocCharLength<TChar>(count);
         }
 
-        public static void FreePtr(IntPtr ptr)
+        public static IntPtr AllocByteLength(int count)
         {
-            StringMarshal.FreePtr(ptr);
+            return StringMarshal.AllocByteLength<TChar>(count);
         }
 
-        public static string UnmarshalPtr(IntPtr ptr)
+        public static void Free(IntPtr ptr)
         {
-            return StringMarshal.UnmarshalPtr<TChar>(s_Encoding, ptr);
+            StringMarshal.Free(ptr);
         }
 
-        public static IntPtr CopyPtr(IntPtr ptr)
+        public static IntPtr Marshal(string str)
         {
-            return StringMarshal.CopyPtr<TChar>(ptr);
+            return StringMarshal.Marshal<TChar>(s_Encoding, str);
+        }
+
+        public static string Unmarshal(IntPtr ptr)
+        {
+            return StringMarshal.Unmarshal<TChar>(s_Encoding, ptr);
+        }
+
+        public static IntPtr Copy(IntPtr ptr)
+        {
+            return StringMarshal.Copy<TChar>(ptr);
         }
     }
 
@@ -134,14 +170,36 @@ namespace HIDrogen.LowLevel
 
         public bool IsInvalid => m_Base.IsInvalid;
 
-        public UTF8String(string str)
+        public static UTF8String WithCharLength(int length)
         {
-            m_Base = new UnicodeString<byte>(str);
+            return new UTF8String()
+            {
+                m_Base = UnicodeString<byte>.WithCharLength(length),
+            };
         }
 
-        public UTF8String(IntPtr ptr, bool owned)
+        public static UTF8String WithByteLength(int length)
         {
-            m_Base = new UnicodeString<byte>(ptr, owned);
+            return new UTF8String()
+            {
+                m_Base = UnicodeString<byte>.WithByteLength(length),
+            };
+        }
+
+        public static UTF8String FromStr(string str)
+        {
+            return new UTF8String()
+            {
+                m_Base = UnicodeString<byte>.FromStr(str),
+            };
+        }
+
+        public static UTF8String FromPtr(IntPtr ptr, bool owned)
+        {
+            return new UTF8String()
+            {
+                m_Base = UnicodeString<byte>.FromPtr(ptr, owned),
+            };
         }
 
         public void Dispose() => m_Base.Dispose();
@@ -151,10 +209,12 @@ namespace HIDrogen.LowLevel
         public IntPtr ToPtr() => m_Base.ToPtr();
         public override string ToString() => m_Base.ToString();
 
-        public static IntPtr AllocPtr(string str) => UnicodeString<byte>.AllocPtr(str);
-        public static void FreePtr(IntPtr ptr) => UnicodeString<byte>.FreePtr(ptr);
-        public static string UnmarshalPtr(IntPtr ptr) => UnicodeString<byte>.UnmarshalPtr(ptr);
-        public static IntPtr CopyPtr(IntPtr ptr) => UnicodeString<byte>.CopyPtr(ptr);
+        public static IntPtr AllocCharLength(int count) => UnicodeString<byte>.AllocCharLength(count);
+        public static IntPtr AllocByteLength(int count) => UnicodeString<byte>.AllocByteLength(count);
+        public static void Free(IntPtr ptr) => UnicodeString<byte>.Free(ptr);
+        public static IntPtr Marshal(string str) => UnicodeString<byte>.Marshal(str);
+        public static string Unmarshal(IntPtr ptr) => UnicodeString<byte>.Unmarshal(ptr);
+        public static IntPtr Copy(IntPtr ptr) => UnicodeString<byte>.Copy(ptr);
     }
 
     /// <summary>
@@ -166,14 +226,36 @@ namespace HIDrogen.LowLevel
 
         public bool IsInvalid => m_Base.IsInvalid;
 
-        public UTF16String(string str)
+        public static UTF16String WithCharLength(int length)
         {
-            m_Base = new UnicodeString<short>(str);
+            return new UTF16String()
+            {
+                m_Base = UnicodeString<short>.WithCharLength(length),
+            };
         }
 
-        public UTF16String(IntPtr ptr, bool owned)
+        public static UTF16String WithByteLength(int length)
         {
-            m_Base = new UnicodeString<short>(ptr, owned);
+            return new UTF16String()
+            {
+                m_Base = UnicodeString<short>.WithByteLength(length),
+            };
+        }
+
+        public static UTF16String FromStr(string str)
+        {
+            return new UTF16String()
+            {
+                m_Base = UnicodeString<short>.FromStr(str),
+            };
+        }
+
+        public static UTF16String FromPtr(IntPtr ptr, bool owned)
+        {
+            return new UTF16String()
+            {
+                m_Base = UnicodeString<short>.FromPtr(ptr, owned),
+            };
         }
 
         public void Dispose() => m_Base.Dispose();
@@ -183,10 +265,12 @@ namespace HIDrogen.LowLevel
         public IntPtr ToPtr() => m_Base.ToPtr();
         public override string ToString() => m_Base.ToString();
 
-        public static IntPtr AllocPtr(string str) => UnicodeString<short>.AllocPtr(str);
-        public static void FreePtr(IntPtr ptr) => UnicodeString<short>.FreePtr(ptr);
-        public static string UnmarshalPtr(IntPtr ptr) => UnicodeString<short>.UnmarshalPtr(ptr);
-        public static IntPtr CopyPtr(IntPtr ptr) => UnicodeString<short>.CopyPtr(ptr);
+        public static IntPtr AllocCharLength(int count) => UnicodeString<short>.AllocCharLength(count);
+        public static IntPtr AllocByteLength(int count) => UnicodeString<short>.AllocByteLength(count);
+        public static void Free(IntPtr ptr) => UnicodeString<short>.Free(ptr);
+        public static IntPtr Marshal(string str) => UnicodeString<short>.Marshal(str);
+        public static string Unmarshal(IntPtr ptr) => UnicodeString<short>.Unmarshal(ptr);
+        public static IntPtr Copy(IntPtr ptr) => UnicodeString<short>.Copy(ptr);
     }
 
     /// <summary>
@@ -198,14 +282,36 @@ namespace HIDrogen.LowLevel
 
         public bool IsInvalid => m_Base.IsInvalid;
 
-        public UTF32String(string str)
+        public static UTF32String WithCharLength(int length)
         {
-            m_Base = new UnicodeString<int>(str);
+            return new UTF32String()
+            {
+                m_Base = UnicodeString<int>.WithCharLength(length),
+            };
         }
 
-        public UTF32String(IntPtr ptr, bool owned)
+        public static UTF32String WithByteLength(int length)
         {
-            m_Base = new UnicodeString<int>(ptr, owned);
+            return new UTF32String()
+            {
+                m_Base = UnicodeString<int>.WithByteLength(length),
+            };
+        }
+
+        public static UTF32String FromStr(string str)
+        {
+            return new UTF32String()
+            {
+                m_Base = UnicodeString<int>.FromStr(str),
+            };
+        }
+
+        public static UTF32String FromPtr(IntPtr ptr, bool owned)
+        {
+            return new UTF32String()
+            {
+                m_Base = UnicodeString<int>.FromPtr(ptr, owned),
+            };
         }
 
         public void Dispose() => m_Base.Dispose();
@@ -215,10 +321,12 @@ namespace HIDrogen.LowLevel
         public IntPtr ToPtr() => m_Base.ToPtr();
         public override string ToString() => m_Base.ToString();
 
-        public static IntPtr AllocPtr(string str) => UnicodeString<int>.AllocPtr(str);
-        public static void FreePtr(IntPtr ptr) => UnicodeString<int>.FreePtr(ptr);
-        public static string UnmarshalPtr(IntPtr ptr) => UnicodeString<int>.UnmarshalPtr(ptr);
-        public static IntPtr CopyPtr(IntPtr ptr) => UnicodeString<int>.CopyPtr(ptr);
+        public static IntPtr AllocCharLength(int count) => UnicodeString<int>.AllocCharLength(count);
+        public static IntPtr AllocByteLength(int count) => UnicodeString<int>.AllocByteLength(count);
+        public static void Free(IntPtr ptr) => UnicodeString<int>.Free(ptr);
+        public static IntPtr Marshal(string str) => UnicodeString<int>.Marshal(str);
+        public static string Unmarshal(IntPtr ptr) => UnicodeString<int>.Unmarshal(ptr);
+        public static IntPtr Copy(IntPtr ptr) => UnicodeString<int>.Copy(ptr);
     }
 
 #if GNU_WCHAR_32 || GNU_WCHAR_16
@@ -235,22 +343,52 @@ namespace HIDrogen.LowLevel
 
         public bool IsInvalid => m_Base.IsInvalid;
 
-        public GnuWideString(string str)
+        public static GnuWideString WithCharLength(int length)
         {
+            return new GnuWideString()
+            {
 #if GNU_WCHAR_32
-            m_Base = new UTF32String(str);
+                m_Base = UTF32String.WithCharLength(length),
 #else
-            m_Base = new UTF16String(str);
+                m_Base = UTF16String.WithCharLength(length),
 #endif
+            };
         }
 
-        public GnuWideString(IntPtr ptr, bool owned)
+        public static GnuWideString WithByteLength(int length)
         {
+            return new GnuWideString()
+            {
 #if GNU_WCHAR_32
-            m_Base = new UTF32String(ptr, owned);
+                m_Base = UTF32String.WithByteLength(length),
 #else
-            m_Base = new UTF16String(ptr, owned);
+                m_Base = UTF16String.WithByteLength(length),
 #endif
+            };
+        }
+
+        public static GnuWideString FromStr(string str)
+        {
+            return new GnuWideString()
+            {
+#if GNU_WCHAR_32
+                m_Base = UTF32String.FromStr(str),
+#else
+                m_Base = UTF16String.FromStr(str),
+#endif
+            };
+        }
+
+        public static GnuWideString FromPtr(IntPtr ptr, bool owned)
+        {
+            return new GnuWideString()
+            {
+#if GNU_WCHAR_32
+                m_Base = UTF32String.FromPtr(ptr, owned),
+#else
+                m_Base = UTF16String.FromPtr(ptr, owned),
+#endif
+            };
         }
 
         public void Dispose() => m_Base.Dispose();
@@ -261,15 +399,19 @@ namespace HIDrogen.LowLevel
         public override string ToString() => m_Base.ToString();
 
 #if GNU_WCHAR_32
-        public static IntPtr AllocPtr(string str) => UTF32String.AllocPtr(str);
-        public static void FreePtr(IntPtr ptr) => UTF32String.FreePtr(ptr);
-        public static string UnmarshalPtr(IntPtr ptr) => UTF32String.UnmarshalPtr(ptr);
-        public static IntPtr CopyPtr(IntPtr ptr) => UTF32String.CopyPtr(ptr);
+        public static IntPtr AllocCharLength(int count) => UTF32String.AllocCharLength(count);
+        public static IntPtr AllocByteLength(int count) => UTF32String.AllocByteLength(count);
+        public static void Free(IntPtr ptr) => UTF32String.Free(ptr);
+        public static IntPtr Marshal(string str) => UTF32String.Marshal(str);
+        public static string Unmarshal(IntPtr ptr) => UTF32String.Unmarshal(ptr);
+        public static IntPtr Copy(IntPtr ptr) => UTF32String.Copy(ptr);
 #else
-        public static IntPtr AllocPtr(string str) => UTF16String.AllocPtr(str);
-        public static void FreePtr(IntPtr ptr) => UTF16String.FreePtr(ptr);
-        public static string UnmarshalPtr(IntPtr ptr) => UTF16String.UnmarshalPtr(ptr);
-        public static IntPtr CopyPtr(IntPtr ptr) => UTF16String.CopyPtr(ptr);
+        public static IntPtr AllocCharLength(int count) => UTF16String.AllocCharLength(count);
+        public static IntPtr AllocByteLength(int count) => UTF16String.AllocByteLength(count);
+        public static void Free(IntPtr ptr) => UTF16String.Free(ptr);
+        public static IntPtr Marshal(string str) => UTF16String.Marshal(str);
+        public static string Unmarshal(IntPtr ptr) => UTF16String.Unmarshal(ptr);
+        public static IntPtr Copy(IntPtr ptr) => UTF16String.Copy(ptr);
 #endif
     }
 #endif
@@ -342,7 +484,50 @@ namespace HIDrogen.LowLevel
             }
         }
 
-        public static IntPtr AllocPtr<TChar>(Encoding encoding, string str)
+        public static IntPtr AllocCharLength<TChar>(int length)
+            where TChar : unmanaged
+        {
+            if (length < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(length));
+            }
+
+            return AllocByteLength<TChar>(length * sizeof(TChar));
+        }
+
+        public static IntPtr AllocByteLength<TChar>(int length)
+            where TChar : unmanaged
+        {
+            if (length < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(length));
+            }
+
+            if (length % sizeof(TChar) != 0)
+            {
+                throw new ArgumentException("Length is not aligned to charcter size.", nameof(length));
+            }
+
+            length += sizeof(TChar); // null-terminated
+            var ptr = UnsafeUtility.Malloc(length, 8, Allocator.Persistent);
+            if (ptr == null)
+            {
+                throw new OutOfMemoryException();
+            }
+
+            UnsafeUtility.MemClear(ptr, length);
+            return (IntPtr)ptr;
+        }
+
+        public static void Free(IntPtr ptr)
+        {
+            if (ptr != IntPtr.Zero)
+            {
+                UnsafeUtility.Free((void*)ptr, Allocator.Persistent);
+            }
+        }
+
+        public static IntPtr Marshal<TChar>(Encoding encoding, string str)
             where TChar : unmanaged
         {
             if (encoding == null)
@@ -377,15 +562,7 @@ namespace HIDrogen.LowLevel
             return (IntPtr)ptr;
         }
 
-        public static void FreePtr(IntPtr ptr)
-        {
-            if (ptr != IntPtr.Zero)
-            {
-                UnsafeUtility.Free((void*)ptr, Allocator.Persistent);
-            }
-        }
-
-        public static string UnmarshalPtr<TChar>(Encoding encoding, IntPtr ptr)
+        public static string Unmarshal<TChar>(Encoding encoding, IntPtr ptr)
             where TChar : unmanaged
         {
             if (ptr == null)
@@ -403,7 +580,7 @@ namespace HIDrogen.LowLevel
             return encoding.GetString((byte*)ptr, byteLength);
         }
 
-        public static IntPtr CopyPtr<TChar>(IntPtr ptr)
+        public static IntPtr Copy<TChar>(IntPtr ptr)
             where TChar : unmanaged
         {
             if (ptr == IntPtr.Zero)

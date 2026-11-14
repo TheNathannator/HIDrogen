@@ -757,7 +757,7 @@ namespace HIDrogen.Imports
         public static string libusb_strerror(libusb_error errcode)
         {
             var ptr = _libusb_strerror(errcode);
-            return UTF8String.UnmarshalPtr(ptr);
+            return UTF8String.Unmarshal(ptr);
         }
 
         public static bool libusb_checkerror(libusb_error errcode, string message)
