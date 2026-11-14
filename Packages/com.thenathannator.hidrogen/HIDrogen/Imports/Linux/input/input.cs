@@ -1,6 +1,8 @@
 #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using HIDrogen.Imports.Posix;
 
 namespace HIDrogen.Imports.Linux
 {
@@ -358,8 +360,11 @@ namespace HIDrogen.Imports.Linux
         /// <summary>
         /// Get device properties.
         /// </summary>
+        /// <remarks>
+        /// May fail with <see cref="Errno.EINVAL"/> on older systems, as this iocode was added later.
+        /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static IoCode EVIOCGPROP(int len) => IOR('E', 0x09, len);
+        public static IoCode<UIntPtr> EVIOCGPROP(int count) => IOR<UIntPtr>('E', 0x09, count);
 
         /// <summary>
         /// Get multi-touch slot values.
@@ -370,47 +375,43 @@ namespace HIDrogen.Imports.Linux
         /// Get global key state.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static IoCode EVIOCGKEY(int len) => IOR('E', 0x18, len);
+        public static IoCode<UIntPtr> EVIOCGKEY(int count) => IOR<UIntPtr>('E', 0x18, count);
 
         /// <summary>
         /// Get all LEDs.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static IoCode EVIOCGLED(int len) => IOR('E', 0x19, len);
+        public static IoCode<UIntPtr> EVIOCGLED(int count) => IOR<UIntPtr>('E', 0x19, count);
 
         /// <summary>
         /// Get sound control statuses.
         /// </summary>
-        /// <param name="len"></param>
-        /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static IoCode EVIOCGSND(int len) => IOR('E', 0x1a, len);
+        public static IoCode<UIntPtr> EVIOCGSND(int count) => IOR<UIntPtr>('E', 0x1a, count);
 
         /// <summary>
         /// Get switch states.
         /// </summary>
-        /// <param name="len"></param>
-        /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static IoCode EVIOCGSW(int len) => IOR('E', 0x1b, len);
+        public static IoCode<UIntPtr> EVIOCGSW(int count) => IOR<UIntPtr>('E', 0x1b, count);
 
         /// <summary>
         /// Get event bits.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static IoCode EVIOCGBIT(int ev, int len) => IOR('E', 0x20 + ev, len);
+        public static IoCode<UIntPtr> EVIOCGBIT(input_event_type ev, int count) => IOR<UIntPtr>('E', 0x20 + (int)ev, count);
 
         /// <summary>
         /// Get abs value/limits.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static IoCode<input_absinfo> EVIOCGABS(int abs) => IOR<input_absinfo>('E', 0x40 + abs);
+        public static IoCode<input_absinfo> EVIOCGABS(input_absaxis_code abs) => IOR<input_absinfo>('E', 0x40 + (int)abs);
 
         /// <summary>
         /// Set abs value/limits.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static IoCode<input_absinfo> EVIOCSABS(int abs) => IOW<input_absinfo>('E', 0xc0 + abs);
+        public static IoCode<input_absinfo> EVIOCSABS(input_absaxis_code abs) => IOW<input_absinfo>('E', 0xc0 + (int)abs);
 
         /// <summary>
         /// Set force-feedback.
