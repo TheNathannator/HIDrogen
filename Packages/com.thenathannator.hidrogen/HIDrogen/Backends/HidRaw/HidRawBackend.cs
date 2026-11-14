@@ -303,12 +303,12 @@ namespace HIDrogen.Backend
             var splits = hid_id.ToString().Split(':');
             if (splits == null ||
                 splits.Length < 3 ||
-                !uint.TryParse(splits[0], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint _busType) ||
-                !uint.TryParse(splits[1], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint vendorId) ||
-                !uint.TryParse(splits[2], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint productId)
+                NumberUtils.TryParseHexUInt32(splits[0], out uint _busType) || 
+                NumberUtils.TryParseHexUInt32(splits[0], out uint vendorId) || 
+                NumberUtils.TryParseHexUInt32(splits[0], out uint productId)
             )
             {
-                Logging.Verbose("Encountered malformed HID_ID");
+                Logging.Verbose($"Encountered malformed HID_ID {hid_id.ToString()}");
                 return false;
             }
 
@@ -334,7 +334,7 @@ namespace HIDrogen.Backend
                         deviceInfo.product = usb_device.get_sysattr_value("product").ToString();
 
                         string bcdDevice = usb_device.get_sysattr_value("bcdDevice").ToString();
-                        if (uint.TryParse(bcdDevice, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint revision))
+                        if (NumberUtils.TryParseHexUInt32(bcdDevice, out uint revision))
                         {
                             deviceInfo.revision = (ushort)revision;
                         }
@@ -353,7 +353,7 @@ namespace HIDrogen.Backend
                         }
 
                         string id_version = input.get_sysattr_value("id/version").ToString();
-                        if (uint.TryParse(id_version, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint revision))
+                        if (NumberUtils.TryParseHexUInt32(id_version, out uint revision))
                         {
                             deviceInfo.revision = (ushort)revision;
                         }
