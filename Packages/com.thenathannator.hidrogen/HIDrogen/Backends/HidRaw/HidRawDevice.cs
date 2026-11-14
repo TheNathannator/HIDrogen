@@ -18,26 +18,29 @@ namespace HIDrogen.Backend
     {
         private HidRawBackend m_Backend;
         private InputDevice m_Device;
+        private HID.HIDDeviceDescriptor m_Descriptor;
+        private string m_Path;
         private fd m_Fd;
 
         private Thread m_ReadThread;
         private EventWaitHandle m_ThreadStop = new EventWaitHandle(false, EventResetMode.ManualReset);
 
-        private HID.HIDDeviceDescriptor m_Descriptor;
-
-        public string devPath { get; set; }
+        public string path => m_Path;
+        public InputDevice device => m_Device;
 
         public HidRawDevice(
             HidRawBackend backend,
             InputDevice device,
-            fd fd,
-            HID.HIDDeviceDescriptor descriptor
+            HID.HIDDeviceDescriptor descriptor,
+            string path,
+            fd fd
         )
         {
             m_Backend = backend;
             m_Device = device;
-            m_Fd = fd;
             m_Descriptor = descriptor;
+            m_Path = path;
+            m_Fd = fd;
 
             m_ReadThread = new Thread(ReadThread) { IsBackground = true };
             m_ReadThread.Start();
@@ -61,6 +64,7 @@ namespace HIDrogen.Backend
 
             m_Backend = null;
             m_Device = null;
+            m_Path = null;
         }
 
         private unsafe void ReadThread()

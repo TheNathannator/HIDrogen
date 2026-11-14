@@ -34,8 +34,7 @@ namespace HIDrogen.Backend
 
         internal struct AddContext : IDisposable
         {
-            public string devPath;
-            public string hidrawPath;
+            public string path;
             public HID.HIDDeviceDescriptor descriptor;
 
             public void Dispose()
@@ -66,7 +65,7 @@ namespace HIDrogen.Backend
             )
             .CreateDelegate(typeof(HIDParser_ParseReportDescriptor));
 
-        private readonly Dictionary<string, List<HidRawDevice>> m_DevicesByDevPath = new Dictionary<string, List<HidRawDevice>>();
+        private readonly Dictionary<string, List<HidRawDevice>> m_DevicesByPath = new Dictionary<string, List<HidRawDevice>>();
 
         protected override void OnDispose()
         {
@@ -76,47 +75,43 @@ namespace HIDrogen.Backend
         {
             base.OnStop();
 
-            foreach (var p in m_DevicesByDevPath)
+            foreach (var p in m_DevicesByPath)
             {
                 foreach (var device in p.Value)
                 {
                     device?.Dispose();
                 }
             }
-            m_DevicesByDevPath.Clear();
+            m_DevicesByPath.Clear();
         }
 
         protected override HidRawDevice OnDeviceAdded(InputDevice device, AddContext context)
         {
-            var fd = Fcntl.open(context.hidrawPath, Fcntl.O_RDWR | Fcntl.O_CLOEXEC);
+            var fd = Fcntl.open(context.path, Fcntl.O_RDWR | Fcntl.O_CLOEXEC);
             if (fd == null || fd.IsInvalid)
             {
                 throw new Exception(Logging.MakeLastErrorMessage("Failed to open hidraw device"));
             }
 
-            var backendDevice = new HidRawDevice(this, device, fd, context.descriptor)
-            {
-                devPath = context.devPath
-            };
-
-            if (!m_DevicesByDevPath.TryGetValue(context.devPath, out var devices))
+            if (!m_DevicesByPath.TryGetValue(context.path, out var devices))
             {
                 devices = new List<HidRawDevice>();
-                m_DevicesByDevPath.Add(context.devPath, devices);
+                m_DevicesByPath.Add(context.path, devices);
             }
 
+            var backendDevice = new HidRawDevice(this, device, context.descriptor, context.path, fd);
             devices.Add(backendDevice);
             return backendDevice;
         }
 
         protected override void OnDeviceRemoved(HidRawDevice device)
         {
-            if (m_DevicesByDevPath.TryGetValue(device.devPath, out var devices))
+            if (m_DevicesByPath.TryGetValue(device.path, out var devices))
             {
                 devices.Remove(device);
                 if (devices.Count < 1)
                 {
-                    m_DevicesByDevPath.Remove(device.devPath);
+                    m_DevicesByPath.Remove(device.path);
                 }
             }
 
@@ -169,15 +164,15 @@ namespace HIDrogen.Backend
                     return false;
                 }
 
-                string devPath = hidraw.get_devpath().ToString();
-                if (m_DevicesByDevPath.ContainsKey(devPath))
+                string hidrawPath = hidraw.get_devnode().ToString();
+                if (m_DevicesByPath.ContainsKey(hidrawPath))
                 {
                     // Signal claimage so that this device is not considered by other backends
                     return true;
                 }
 
-                // First test whether the device can even be opened
-                string hidrawPath = hidraw.get_devnode().ToString();
+                // Test whether the device can even be opened, as hidraw requires either special permissions
+                // or for udev rules to be set to allow unpriveleged access
                 using (var fd = Fcntl.open(hidrawPath, Fcntl.O_RDWR | Fcntl.O_CLOEXEC))
                 {
                     if (fd == null || fd.IsInvalid)
@@ -211,20 +206,20 @@ namespace HIDrogen.Backend
                     };
                     var context = new AddContext()
                     {
-                        devPath = devPath,
-                        hidrawPath = hidrawPath,
+                        path = hidrawPath,
                         descriptor = collectionDescriptor,
                     };
 
                     AddDeviceNow(description, context);
                 }
 
-                if (!m_DevicesByDevPath.ContainsKey(devPath))
+                if (!m_DevicesByPath.ContainsKey(hidrawPath))
                 {
+                    // Device addition failed
                     return false;
                 }
 
-                Logging.Verbose($"hidraw device {devPath} added");
+                Logging.Verbose($"hidraw device {hidrawPath} added");
                 return true;
             }
         }
@@ -238,10 +233,20 @@ namespace HIDrogen.Backend
                     return;
                 }
 
-                string devpath = hidraw.get_devpath().ToString();
-                if (m_DevicesByDevPath.Remove(devpath))
+                string hidrawPath = hidraw.get_devnode().ToString();
+                if (m_DevicesByPath.TryGetValue(hidrawPath, out var backendDevices))
                 {
-                    Logging.Verbose($"hidraw device {devpath} removed");
+                    foreach (var dev in backendDevices)
+                    {
+                        if (dev != null)
+                        {
+                            RemoveDeviceNow(dev.device);
+                            dev.Dispose();
+                        }
+                    }
+                    backendDevices.Clear();
+                    m_DevicesByPath.Remove(hidrawPath);
+                    Logging.Verbose($"hidraw device {hidrawPath} removed");
                 }
             }
         }
