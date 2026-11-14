@@ -72,13 +72,14 @@ namespace HIDrogen.Imports.Linux
         public unsafe fixed byte scancode[32];
     }
 
-    [StructLayout(LayoutKind.Sequential)]
-    internal struct input_mask
-    {
-        public uint type;
-        public uint codes_size;
-        public ulong codes_ptr;
-    }
+    // omitting this for now because *why the heck is codes_ptr a pointer as a raw integer????*
+    // [StructLayout(LayoutKind.Sequential)]
+    // internal struct input_mask
+    // {
+    //     public uint type;
+    //     public uint codes_size;
+    //     public ulong codes_ptr;
+    // }
 
     [StructLayout(LayoutKind.Sequential)]
     internal struct input_repeat_settings
@@ -442,15 +443,15 @@ namespace HIDrogen.Imports.Linux
         /// </summary>
         public static readonly IoCode<int> EVIOCREVOKE = IOW<int>('E', 0x91);
 
-        /// <summary>
-        /// Get current event mask.
-        /// </summary>
-        public static readonly IoCode<input_mask> EVIOCGMASK = IOR<input_mask>('E', 0x92);
+        // /// <summary>
+        // /// Get current event mask.
+        // /// </summary>
+        // public static readonly IoCode<input_mask> EVIOCGMASK = IOR<input_mask>('E', 0x92);
 
-        /// <summary>
-        /// Set current event mask.
-        /// </summary>
-        public static readonly IoCode<input_mask> EVIOCSMASK = IOW<input_mask>('E', 0x93);
+        // /// <summary>
+        // /// Set current event mask.
+        // /// </summary>
+        // public static readonly IoCode<input_mask> EVIOCSMASK = IOW<input_mask>('E', 0x93);
 
         /// <summary>
         /// Set timestamp clock ID.
