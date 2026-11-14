@@ -197,6 +197,7 @@ namespace HIDrogen.Backend
 
                     var description = new InputDeviceDescription()
                     {
+                        interfaceName = InterfaceName,
                         manufacturer = deviceInfo.manufacturer,
                         product = deviceInfo.product,
                         serial = deviceInfo.serial,
