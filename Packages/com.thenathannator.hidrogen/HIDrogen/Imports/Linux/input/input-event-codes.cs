@@ -3,16 +3,16 @@ namespace HIDrogen.Imports.Linux
 {
     internal enum input_device_prop
     {
-        POINTER = 0x00,
-        DIRECT = 0x01,
-        BUTTONPAD = 0x02,
-        SEMI_MT = 0x03,
-        TOPBUTTONPAD = 0x04,
-        POINTING_STICK = 0x05,
-        ACCELEROMETER = 0x06,
+        PROP_POINTER = 0x00,
+        PROP_DIRECT = 0x01,
+        PROP_BUTTONPAD = 0x02,
+        PROP_SEMI_MT = 0x03,
+        PROP_TOPBUTTONPAD = 0x04,
+        PROP_POINTING_STICK = 0x05,
+        PROP_ACCELEROMETER = 0x06,
 
-        MAX = 0x1f,
-        COUNT = MAX + 1,
+        PROP_MAX = 0x1f,
+        PROP_COUNT = PROP_MAX + 1,
     }
 
     internal enum input_event_type
@@ -710,7 +710,7 @@ namespace HIDrogen.Imports.Linux
         KEY_CNT = KEY_MAX + 1,
     }
 
-    internal enum input_relaxis_code
+    internal enum input_rel_code
     {
         REL_X = 0x00,
         REL_Y = 0x01,
@@ -730,7 +730,7 @@ namespace HIDrogen.Imports.Linux
         REL_CNT = REL_MAX + 1,
     }
 
-    internal enum input_absaxis_code
+    internal enum input_abs_code
     {
         ABS_X = 0x00,
         ABS_Y = 0x01,

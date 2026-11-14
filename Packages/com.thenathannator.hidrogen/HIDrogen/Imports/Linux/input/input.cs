@@ -405,13 +405,13 @@ namespace HIDrogen.Imports.Linux
         /// Get abs value/limits.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static IoCode<input_absinfo> EVIOCGABS(input_absaxis_code abs) => IOR<input_absinfo>('E', 0x40 + (int)abs);
+        public static IoCode<input_absinfo> EVIOCGABS(input_abs_code abs) => IOR<input_absinfo>('E', 0x40 + (int)abs);
 
         /// <summary>
         /// Set abs value/limits.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static IoCode<input_absinfo> EVIOCSABS(input_absaxis_code abs) => IOW<input_absinfo>('E', 0xc0 + (int)abs);
+        public static IoCode<input_absinfo> EVIOCSABS(input_abs_code abs) => IOW<input_absinfo>('E', 0xc0 + (int)abs);
 
         /// <summary>
         /// Set force-feedback.
