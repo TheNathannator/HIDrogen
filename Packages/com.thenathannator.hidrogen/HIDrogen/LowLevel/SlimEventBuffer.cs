@@ -51,14 +51,14 @@ namespace HIDrogen.LowLevel
                 throw new ArgumentException(
                     $"sizeInBytes must be >= sizeof(InputEvent) == {s_BaseEventSize} (was {sizeInBytes})", nameof(sizeInBytes));
 
-            var alignedSizeInBytes = sizeInBytes.AlignToMultipleOf(kEventAlignment);
+            var alignedSizeInBytes = NumberUtils.AlignToMultiple(sizeInBytes, kEventAlignment);
 
             // Re-allocate the buffer if necessary
             var necessaryCapacity = m_UsedLength + alignedSizeInBytes;
             var currentCapacity = m_Buffer?.length ?? 0;
             if (currentCapacity < necessaryCapacity)
             {
-                var newCapacity = necessaryCapacity.AlignToMultipleOf(capacityIncrementInBytes);
+                var newCapacity = NumberUtils.AlignToMultiple(necessaryCapacity, capacityIncrementInBytes);
                 if (newCapacity > int.MaxValue)
                     throw new NotImplementedException("RawBuffer long support");
 
@@ -142,7 +142,7 @@ namespace HIDrogen.LowLevel
             private static InputEventPtr GetNextInMemory(InputEventPtr currentPtr)
             {
                 Debug.Assert(currentPtr != null, "Event pointer must not be null!");
-                var alignedSizeInBytes = currentPtr.sizeInBytes.AlignToMultipleOf(kEventAlignment);
+                var alignedSizeInBytes = NumberUtils.AlignToMultiple(currentPtr.sizeInBytes, kEventAlignment);
                 return (InputEvent*)((byte*)currentPtr.data + alignedSizeInBytes);
             }
 

@@ -510,9 +510,9 @@ namespace HIDrogen.Backend
             }
 
             // Turn bit size into byte size, ensuring sizes are normalized to byte boundaries
-            collectionDescriptor.inputReportSize = inputSizeBits.AlignToMultipleOf(8) / 8;
-            collectionDescriptor.outputReportSize = outputSizeBits.AlignToMultipleOf(8) / 8;
-            collectionDescriptor.featureReportSize = featureSizeBits.AlignToMultipleOf(8) / 8;
+            collectionDescriptor.inputReportSize = NumberUtils.AlignToMultiple(inputSizeBits, 8) / 8;
+            collectionDescriptor.outputReportSize = NumberUtils.AlignToMultiple(outputSizeBits, 8) / 8;
+            collectionDescriptor.featureReportSize = NumberUtils.AlignToMultiple(featureSizeBits, 8) / 8;
 
             return true;
         }
