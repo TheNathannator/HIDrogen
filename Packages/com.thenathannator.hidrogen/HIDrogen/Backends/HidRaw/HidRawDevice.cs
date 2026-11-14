@@ -153,7 +153,7 @@ namespace HIDrogen.Backend
                 return InputDeviceCommand.GenericFailure;
             }
 
-            int result = Ioctl.ioctl(m_Fd, HIDIOCGFEATURE(bufferSize), buffer, bufferSize);
+            int result = Ioctl.ioctl(m_Fd, HIDIOCGFEATURE(bufferSize), (byte*)buffer, bufferSize);
             return result >= 0 ? InputDeviceCommand.GenericSuccess : InputDeviceCommand.GenericFailure;
         }
 
@@ -164,7 +164,7 @@ namespace HIDrogen.Backend
                 return InputDeviceCommand.GenericFailure;
             }
 
-            int result = Ioctl.ioctl(m_Fd, HIDIOCSFEATURE(bufferSize), buffer, bufferSize);
+            int result = Ioctl.ioctl(m_Fd, HIDIOCSFEATURE(bufferSize), (byte*)buffer, bufferSize);
             return result >= 0 ? InputDeviceCommand.GenericSuccess : InputDeviceCommand.GenericFailure;
         }
 

@@ -151,16 +151,16 @@ namespace HIDrogen.Imports.Linux
             return ioctl(fd, request.value);
         }
 
-        public static unsafe int ioctl(fd fd, IoCode request, void* arg, int argSize)
+        public static unsafe int ioctl(fd fd, IoCode request, byte* arg, int argLength)
         {
             if (arg == null)
             {
                 throw new ArgumentNullException(nameof(arg));
             }
 
-            if ((uint)argSize < (uint)request.size)
+            if ((uint)argLength < (uint)request.size)
             {
-                throw new ArgumentException($"Argument is too small for the specified request (expected {request.size}, got {argSize})");
+                throw new ArgumentException($"Argument is too small for the specified request (expected {request.size}, got {argLength})");
             }
 
             return ioctl(fd, request.value, arg);
@@ -187,7 +187,7 @@ namespace HIDrogen.Imports.Linux
                 throw new ArgumentException($"Malformed request code (expected a multiple of {sizeof(T)}; {request.size} % {sizeof(T)} -> {request.size % sizeof(T)})");
             }
 
-            return ioctl(fd, request.@base, arg, argCount * sizeof(T));
+            return ioctl(fd, request.@base, (byte*)arg, argCount * sizeof(T));
         }
 
         public static unsafe int ioctl<T>(fd fd, IoCode<T> request, ref T arg)
