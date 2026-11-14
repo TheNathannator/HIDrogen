@@ -82,10 +82,11 @@ namespace HIDrogen.Imports.Linux
         public int type => @base.type;
         public int number => @base.number;
         public int size => @base.size;
+        public unsafe int count => @base.size / sizeof(T);
 
-        public IoCode(int direction, int type, int number, int size)
+        public unsafe IoCode(int direction, int type, int number, int count)
         {
-            @base = new IoCode(direction, type, number, size);
+            @base = new IoCode(direction, type, number, count * sizeof(T));
         }
     }
 
@@ -105,17 +106,17 @@ namespace HIDrogen.Imports.Linux
         public static IoCode IOWR(int type, int number, int size)
             => new IoCode(IoCode.IOC_READ | IoCode.IOC_WRITE, type, number, size);
 
-        public static unsafe IoCode<T> IOR<T>(int type, int number)
+        public static IoCode<T> IOR<T>(int type, int number, int count = 1)
             where T : unmanaged
-            => new IoCode<T>(IoCode.IOC_READ, type, number, sizeof(T));
+            => new IoCode<T>(IoCode.IOC_READ, type, number, count);
 
-        public static unsafe IoCode<T> IOW<T>(int type, int number)
+        public static IoCode<T> IOW<T>(int type, int number, int count = 1)
             where T : unmanaged
-            => new IoCode<T>(IoCode.IOC_WRITE, type, number, sizeof(T));
+            => new IoCode<T>(IoCode.IOC_WRITE, type, number, count);
 
-        public static unsafe IoCode<T> IOWR<T>(int type, int number)
+        public static IoCode<T> IOWR<T>(int type, int number, int count = 1)
             where T : unmanaged
-            => new IoCode<T>(IoCode.IOC_READ | IoCode.IOC_WRITE, type, number, sizeof(T));
+            => new IoCode<T>(IoCode.IOC_READ | IoCode.IOC_WRITE, type, number, count);
 
         [DllImport(kLibName, EntryPoint = "ioctl", SetLastError = true)]
         private static extern int _ioctl(
@@ -178,17 +179,37 @@ namespace HIDrogen.Imports.Linux
             }
         }
 
+        public static unsafe int ioctl<T>(fd fd, IoCode<T> request, T* arg, int argCount)
+            where T : unmanaged
+        {
+            if (request.size % sizeof(T) != 0)
+            {
+                throw new ArgumentException($"Malformed request code (expected a multiple of {sizeof(T)}; {request.size} % {sizeof(T)} -> {request.size % sizeof(T)})");
+            }
+
+            return ioctl(fd, request.@base, arg, argCount * sizeof(T));
+        }
+
         public static unsafe int ioctl<T>(fd fd, IoCode<T> request, ref T arg)
             where T : unmanaged
         {
-            if (request.size != sizeof(T))
-            {
-                throw new ArgumentException($"Malformed request code (expected {sizeof(T)}, got {request.size})");
-            }
-
             fixed (T* ptr = &arg)
             {
-                return ioctl(fd, request.@base, ptr, sizeof(T));
+                return ioctl(fd, request, ptr, 1);
+            }
+        }
+
+        public static unsafe int ioctl<T>(fd fd, IoCode<T> request, T[] arg)
+            where T : unmanaged
+        {
+            if (arg == null)
+            {
+                throw new ArgumentNullException(nameof(arg));
+            }
+
+            fixed (T* ptr = arg)
+            {
+                return ioctl(fd, request, ptr, arg.Length);
             }
         }
     }
