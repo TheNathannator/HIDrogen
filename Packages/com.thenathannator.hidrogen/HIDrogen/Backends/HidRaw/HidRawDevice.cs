@@ -71,39 +71,60 @@ namespace HIDrogen.Backend
             UnsafeUtility.MemClear(readBuffer, readBufferSize);
 
             // Max allowed number of consecutive errors
-            const int retryThreshold = 3;
+            const int errorThreshold = 3;
             int errorCount = 0;
 
-            while (!m_ThreadStop.WaitOne(1))
+            while (!m_ThreadStop.WaitOne(1) && errorCount < errorThreshold)
             {
-                // Get current state
-                int result = Fcntl.read(m_Fd, readBuffer, readBufferSize);
-                if (result < 0)
+                int bytesRead;
+                lock (m_Fd)
                 {
-                    if (Posix.errno == Errno.ENOENT) // Device has been disconnected
+                    // Wait for new reports to come in
+                    var poll = new pollfd(m_Fd, Fcntl.POLLIN);
+                    int result = Fcntl.poll(ref poll, 0);
+                    if (result < 0)
                     {
+                        Logging.LastError($"Error while polling for device monitor events");
+                        errorCount++;
                         break;
                     }
 
-                    errorCount++;
-                    if (errorCount >= retryThreshold)
+                    // Read new report
+                    const int maxRetries = 3;
+                    int retryCount = 0;
+                retry:
+                    bytesRead = Fcntl.read(m_Fd, readBuffer, readBufferSize);
+                    if (bytesRead < 0)
                     {
+                        var errno = Posix.errno;
+                        if (errno == Errno.ENOENT)
+                        {
+                            // Device has been disconnected
+                            break;
+                        }
+
+                        if (errno == Errno.EINTR ||
+                            errno == Errno.EAGAIN ||
+                            errno == Errno.EINPROGRESS)
+                        {
+                            // Read was interrupted
+                            retryCount++;
+                            if (retryCount < maxRetries)
+                            {
+                                goto retry;
+                            }
+                        }
+
                         Logging.LastError($"Failed to read hidraw report");
-                        break;
+                        errorCount++;
+                        continue;
                     }
-#if HIDROGEN_VERBOSE_LOGGING
-                    else
-                    {
-                        Logging.LastError($"hid_read error (attempt {errorCount})");
-                    }
-#endif
-                    continue;
+                    errorCount = 0;
                 }
-                errorCount = 0;
 
-                if (result > 0)
+                if (bytesRead > 0)
                 {
-                    m_Backend.QueueStateEvent(m_Device, HidRawBackend.InputFormat, readBuffer, readBufferSize);
+                    m_Backend.QueueStateEvent(m_Device, HidRawBackend.InputFormat, readBuffer, bytesRead);
                 }
             }
 
