@@ -3,6 +3,8 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using HIDrogen.Imports.Posix;
+using HIDrogen.Utilities;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace HIDrogen.Imports.Linux
 {
@@ -296,6 +298,73 @@ namespace HIDrogen.Imports.Linux
         AUTOCENTER = 0x61,
     }
 
+    internal unsafe ref struct EvdevBits<TBit>
+        where TBit : unmanaged, Enum
+    {
+        public static readonly int BITS_PER_LONG = UIntPtr.Size * 8;
+
+        public UIntPtr* bits;
+        public int count;
+
+        public EvdevBits(UIntPtr* bits, int count)
+        {
+            this.bits = bits;
+            this.count = count;
+        }
+
+        public UIntPtr this[int index]
+        {
+            get
+            {
+                if ((uint)index >= (uint)count)
+                {
+                    throw new IndexOutOfRangeException();
+                }
+
+                return bits[index];
+            }
+        }
+
+        public static int BitsToLongs(int value)
+        {
+            value = NumberUtils.AlignToMultiple(value, BITS_PER_LONG);
+            return value / BITS_PER_LONG;
+        }
+
+        public bool TestBit(TBit bit)
+        {
+            long bitInt;
+            switch (UnsafeUtility.SizeOf<TBit>())
+            {
+                case 1: bitInt = *(byte*)&bit; break;
+                case 2: bitInt = *(short*)&bit; break;
+                case 4: bitInt = *(int*)&bit; break;
+                case 8: bitInt = *(long*)&bit; break;
+                default: return false;
+            }
+            if (bitInt < 0)
+            {
+                return false;
+            }
+
+            long index = bitInt / BITS_PER_LONG;
+            if (index >= count)
+            {
+                return false;
+            }
+
+            ulong field = (ulong)bits[index];
+            ulong wrappedBit = 1UL << (int)(bitInt % BITS_PER_LONG);
+            return (field & wrappedBit) != 0;
+        }
+
+        public int Populate(fd fd, IoCode<UIntPtr> ioCode)
+        {
+            UnsafeUtility.MemClear(bits, count * UIntPtr.Size);
+            return ioctl(fd, ioCode, bits, count);
+        }
+    }
+
     internal static class Evdev
     {
         public const int VERSION = 0x010001;
@@ -457,6 +526,12 @@ namespace HIDrogen.Imports.Linux
         /// Set timestamp clock ID.
         /// </summary>
         public static readonly IoCode<int> EVIOCSCLOCKID = IOW<int>('E', 0xa0);
+
+        public static readonly int EV_MAX_LONGS = EvdevBits<input_event_type>.BitsToLongs((int)input_event_type.EV_MAX);
+        public static readonly int KEY_MAX_LONGS = EvdevBits<input_key_code>.BitsToLongs((int)input_key_code.KEY_MAX);
+        public static readonly int ABS_MAX_LONGS = EvdevBits<input_abs_code>.BitsToLongs((int)input_abs_code.ABS_MAX);
+        public static readonly int REL_MAX_LONGS = EvdevBits<input_rel_code>.BitsToLongs((int)input_rel_code.REL_MAX);
+        public static readonly int PROP_MAX_LONGS = EvdevBits<input_device_prop>.BitsToLongs((int)input_device_prop.PROP_MAX);
     }
 }
 #endif
