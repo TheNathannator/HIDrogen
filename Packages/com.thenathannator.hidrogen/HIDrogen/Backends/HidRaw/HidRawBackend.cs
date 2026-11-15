@@ -289,6 +289,7 @@ namespace HIDrogen.Backend
                 hid_id = hidRoot.get_property_value("HID_ID");
                 var hid_name = hidRoot.get_property_value("HID_NAME");
                 var hid_uniq = hidRoot.get_property_value("HID_UNIQ");
+                var hid_firmware_version = hidRoot.get_property_value("HID_FIRMWARE_VERSION");
                 if (hid_id.IsInvalid)
                 {
                     // IDs are vital for identification
@@ -297,6 +298,7 @@ namespace HIDrogen.Backend
 
                 deviceInfo.product = hid_name.ToString();
                 deviceInfo.serial = hid_uniq.ToString();
+                deviceInfo.revision = (ushort)NumberUtils.ParseHexUInt32(hid_firmware_version.ToString(), 0);
             }
 
             //  bus  vendor   product
