@@ -10,9 +10,9 @@ namespace HIDrogen.Services.Linux
     /// <summary>
     /// Shims out the existing Linux support so we can replace it with our own.
     /// </summary>
-    internal static class LinuxShim
+    internal class LinuxShim : ICustomInputService
     {
-        internal static void Initialize()
+        public void Start()
         {
             // Shim native device discovery, as shimming their descriptions is not enough
             // InputManager InputSystem.s_Manager;
@@ -74,7 +74,15 @@ namespace HIDrogen.Services.Linux
             }
         }
 
-        internal static void Uninitialize()
+        public void Stop()
+        {
+        }
+
+        public void Update()
+        {
+        }
+
+        public void Dispose()
         {
         }
 
