@@ -28,7 +28,7 @@ namespace HIDrogen.Services.Linux
             // Action<int, string> IInputRuntime.onDeviceDiscovered { get; set; }
             var onDeviceDiscoveredProperty = inputRuntimeField.FieldType.GetProperty(
                 "onDeviceDiscovered",
-                BindingFlags.NonPublic | BindingFlags.Instance
+                BindingFlags.Public | BindingFlags.Instance
             );
 
             object inputManager = inputManagerField.GetValue(null);
