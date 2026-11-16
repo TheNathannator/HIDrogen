@@ -5,7 +5,7 @@ using HIDrogen.Imports.Posix;
 
 namespace HIDrogen.Imports.Linux
 {
-    internal readonly struct IoCode
+    internal struct IoCode
     {
         public const int NRBITS = 8;
         public const int TYPEBITS = 8;
@@ -45,12 +45,17 @@ namespace HIDrogen.Imports.Linux
         public const int IOCSIZE_MASK = SIZEMASK << SIZESHIFT;
         public const int IOCSIZE_SHIFT = SIZESHIFT;
 
-        public readonly int value;
+        public int value;
 
         public int direction => (value >> DIRSHIFT) & DIRMASK;
         public int type => (value >> TYPESHIFT) & TYPEMASK;
         public int number => (value >> NRSHIFT) & NRMASK;
-        public int size => (value >> SIZESHIFT) & SIZEMASK;
+
+        public int size
+        {
+            get => (value >> SIZESHIFT) & SIZEMASK;
+            set => this.value = (this.value & (SIZEMASK << SIZESHIFT)) | ((value & SIZEMASK) << SIZESHIFT);
+        }
 
         public IoCode(int direction, int type, int number, int size)
         {
@@ -71,18 +76,28 @@ namespace HIDrogen.Imports.Linux
         }
     }
 
-    internal readonly struct IoCode<T>
+    internal struct IoCode<T>
         where T : unmanaged
     {
-        public readonly IoCode @base;
+        public IoCode @base;
 
         public int value => @base.value;
 
         public int direction => @base.direction;
         public int type => @base.type;
         public int number => @base.number;
-        public int size => @base.size;
-        public unsafe int count => @base.size / sizeof(T);
+
+        public int size
+        {
+            get => @base.size;
+            set => @base.size = value;
+        }
+
+        public unsafe int count
+        {
+            get => @base.size / sizeof(T);
+            set => @base.size = value / sizeof(T);
+        }
 
         public unsafe IoCode(int direction, int type, int number, int count)
         {
@@ -131,51 +146,37 @@ namespace HIDrogen.Imports.Linux
             void* arg // ...
         );
 
-        private static int ioctl(fd fd, int request)
-        {
-            return _ioctl(fd.DangerousGetFileDescriptor(), (UIntPtr)request);
-        }
+        // TODO: is this actually valid?
+        // public static int ioctl(fd fd, IoCode request)
+        // {
+        //     if (request.size > 0)
+        //     {
+        //         throw new ArgumentException($"An argument must be provided for an ioc with non-zero size.");
+        //     }
 
-        private static unsafe int ioctl(fd fd, int request, void* arg)
-        {
-            return _ioctl(fd.DangerousGetFileDescriptor(), (UIntPtr)request, arg);
-        }
+        //     return _ioctl(fd.DangerousGetFileDescriptor(), (UIntPtr)request.value);
+        // }
 
-        public static int ioctl(fd fd, IoCode request)
+        public static unsafe int ioctl_unsafe(fd fd, IoCode request, void* arg)
         {
-            if (request.size > 0)
-            {
-                throw new ArgumentException($"An argument must be provided for an ioc with non-zero size.");
-            }
-
-            return ioctl(fd, request.value);
+            return _ioctl(fd.DangerousGetFileDescriptor(), (UIntPtr)request.value, arg);
         }
 
         public static unsafe int ioctl(fd fd, IoCode request, byte* arg, int argLength)
         {
-            if (arg == null)
-            {
-                throw new ArgumentNullException(nameof(arg));
-            }
-
             if ((uint)argLength < (uint)request.size)
             {
                 throw new ArgumentException($"Argument is too small for the specified request (expected {request.size}, got {argLength})");
             }
 
-            return ioctl(fd, request.value, arg);
+            return ioctl_unsafe(fd, request, arg);
         }
 
         public static unsafe int ioctl(fd fd, IoCode request, byte[] arg)
         {
-            if (arg == null)
-            {
-                throw new ArgumentNullException(nameof(arg));
-            }
-
             fixed (byte* ptr = arg)
             {
-                return ioctl(fd, request, ptr, arg.Length);
+                return ioctl(fd, request, ptr, arg?.Length ?? 0);
             }
         }
 
@@ -202,14 +203,9 @@ namespace HIDrogen.Imports.Linux
         public static unsafe int ioctl<T>(fd fd, IoCode<T> request, T[] arg)
             where T : unmanaged
         {
-            if (arg == null)
-            {
-                throw new ArgumentNullException(nameof(arg));
-            }
-
             fixed (T* ptr = arg)
             {
-                return ioctl(fd, request, ptr, arg.Length);
+                return ioctl(fd, request, ptr, arg?.Length ?? 0);
             }
         }
     }
