@@ -51,7 +51,7 @@ namespace HIDrogen.LowLevel
         private IntPtr m_Ptr;
         private bool m_Owned;
 
-        public bool IsInvalid => m_Str == null && m_Ptr == null;
+        public bool IsInvalid => m_Str == null && m_Ptr == IntPtr.Zero;
 
         public static UnicodeString<TChar> WithCharLength(int length)
         {
@@ -95,7 +95,7 @@ namespace HIDrogen.LowLevel
 
         public void Dispose()
         {
-            if (m_Ptr != null && m_Owned)
+            if (m_Ptr != IntPtr.Zero && m_Owned)
             {
                 Free(m_Ptr);
             }
@@ -111,7 +111,7 @@ namespace HIDrogen.LowLevel
 
         public IntPtr ToPtr()
         {
-            if (m_Ptr == null && m_Str != null)
+            if (m_Ptr == IntPtr.Zero && m_Str != null)
             {
                 m_Ptr = Marshal(m_Str);
                 m_Owned = true;
@@ -122,7 +122,7 @@ namespace HIDrogen.LowLevel
 
         public override string ToString()
         {
-            if (m_Str == null && m_Ptr != null)
+            if (m_Str == null && m_Ptr != IntPtr.Zero)
             {
                 m_Str = Unmarshal(m_Ptr);
             }
@@ -565,7 +565,7 @@ namespace HIDrogen.LowLevel
         public static string Unmarshal<TChar>(Encoding encoding, IntPtr ptr)
             where TChar : unmanaged
         {
-            if (ptr == null)
+            if (ptr == IntPtr.Zero)
             {
                 return null;
             }
