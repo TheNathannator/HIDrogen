@@ -554,7 +554,7 @@ namespace HIDrogen.LowLevel
             }
 
             // Apply null terminator
-            for (int i = sizeof(TChar); i > 0; i++)
+            for (int i = sizeof(TChar); i > 0; i--)
             {
                 bytePtr[byteLength - i] = 0;
             }
