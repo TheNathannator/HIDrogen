@@ -185,7 +185,7 @@ namespace HIDrogen.Backend.Linux
                         // Ignore permission errors in logs
                         if (Posix.errno != Errno.EACCES && Posix.errno != Errno.EPERM)
                         {
-                            Logging.LastError("Failed to open evdev device");
+                            Logging.LastError("Failed to open hidraw device");
                         }
                         return false;
                     }
