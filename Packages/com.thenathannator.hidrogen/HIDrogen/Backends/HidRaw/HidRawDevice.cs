@@ -142,8 +142,11 @@ namespace HIDrogen.Backend
                 return InputDeviceCommand.GenericFailure;
             }
 
-            int result = Fcntl.write(m_Fd, buffer, bufferSize);
-            return result >= 0 ? InputDeviceCommand.GenericSuccess : InputDeviceCommand.GenericFailure;
+            lock (m_Fd)
+            {
+                int result = Fcntl.write(m_Fd, buffer, bufferSize);
+                return result >= 0 ? InputDeviceCommand.GenericSuccess : InputDeviceCommand.GenericFailure;
+            }
         }
 
         public unsafe long GetFeature(void* buffer, int bufferSize)
@@ -153,8 +156,11 @@ namespace HIDrogen.Backend
                 return InputDeviceCommand.GenericFailure;
             }
 
-            int result = Ioctl.ioctl(m_Fd, HIDIOCGFEATURE(bufferSize), (byte*)buffer, bufferSize);
-            return result >= 0 ? InputDeviceCommand.GenericSuccess : InputDeviceCommand.GenericFailure;
+            lock (m_Fd)
+            {
+                int result = Ioctl.ioctl(m_Fd, HIDIOCGFEATURE(bufferSize), (byte*)buffer, bufferSize);
+                return result >= 0 ? InputDeviceCommand.GenericSuccess : InputDeviceCommand.GenericFailure;
+            }
         }
 
         public unsafe long SetFeature(void* buffer, int bufferSize)
@@ -164,8 +170,11 @@ namespace HIDrogen.Backend
                 return InputDeviceCommand.GenericFailure;
             }
 
-            int result = Ioctl.ioctl(m_Fd, HIDIOCSFEATURE(bufferSize), (byte*)buffer, bufferSize);
-            return result >= 0 ? InputDeviceCommand.GenericSuccess : InputDeviceCommand.GenericFailure;
+            lock (m_Fd)
+            {
+                int result = Ioctl.ioctl(m_Fd, HIDIOCSFEATURE(bufferSize), (byte*)buffer, bufferSize);
+                return result >= 0 ? InputDeviceCommand.GenericSuccess : InputDeviceCommand.GenericFailure;
+            }
         }
 
         // Not implemented; not necessary for layout building, and handling split top-level
@@ -174,9 +183,12 @@ namespace HIDrogen.Backend
         // public long GetReportDescriptorSize()
         // {
         //     int size = 0;
-        //     if (Ioctl.ioctl(m_Fd, HIDIOCGRDESCSIZE, ref size) < 0)
+        //     lock (m_Fd)
         //     {
-        //         return InputDeviceCommand.GenericFailure;
+        //         if (Ioctl.ioctl(m_Fd, HIDIOCGRDESCSIZE, ref size) < 0)
+        //         {
+        //             return InputDeviceCommand.GenericFailure;
+        //         }
         //     }
 
         //     // Expected return is the size of the descriptor
@@ -186,17 +198,20 @@ namespace HIDrogen.Backend
         // public unsafe long GetReportDescriptor(void* buffer, int bufferSize)
         // {
         //     hidraw_report_descriptor descBuffer = default;
-        //     if (Ioctl.ioctl(m_Fd, HIDIOCGRDESCSIZE, ref descBuffer.size) < 0 || bufferSize < descBuffer.size)
+        //     lock (m_Fd)
         //     {
-        //         return InputDeviceCommand.GenericFailure;
-        //     }
+        //         if (Ioctl.ioctl(m_Fd, HIDIOCGRDESCSIZE, ref descBuffer.size) < 0 || bufferSize < descBuffer.size)
+        //         {
+        //             return InputDeviceCommand.GenericFailure;
+        //         }
 
-        //     // paranoia clamp
-        //     descBuffer.size = Math.Min(descBuffer.size, HID_MAX_DESCRIPTOR_SIZE);
+        //         // paranoia clamp
+        //         descBuffer.size = Math.Min(descBuffer.size, HID_MAX_DESCRIPTOR_SIZE);
 
-        //     if (Ioctl.ioctl(m_Fd, HIDIOCGRDESC, ref descBuffer) < 0)
-        //     {
-        //         return InputDeviceCommand.GenericFailure;
+        //         if (Ioctl.ioctl(m_Fd, HIDIOCGRDESC, ref descBuffer) < 0)
+        //         {
+        //             return InputDeviceCommand.GenericFailure;
+        //         }
         //     }
 
         //     UnsafeUtility.MemCpy(buffer, descBuffer.value, descBuffer.size);
