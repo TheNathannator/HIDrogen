@@ -208,6 +208,7 @@ namespace HIDrogen.Backend.Linux
         //     {
         //         if (Ioctl.ioctl(m_Fd, HIDIOCGRDESCSIZE, ref size) < 0)
         //         {
+        //             Logging.LastError("Could not get hidraw descriptor size");
         //             return InputDeviceCommand.GenericFailure;
         //         }
         //     }
@@ -223,6 +224,7 @@ namespace HIDrogen.Backend.Linux
         //     {
         //         if (Ioctl.ioctl(m_Fd, HIDIOCGRDESCSIZE, ref descBuffer.size) < 0 || bufferSize < descBuffer.size)
         //         {
+        //             Logging.LastError("Could not get hidraw descriptor size");
         //             return InputDeviceCommand.GenericFailure;
         //         }
 
@@ -231,6 +233,7 @@ namespace HIDrogen.Backend.Linux
 
         //         if (Ioctl.ioctl(m_Fd, HIDIOCGRDESC, ref descBuffer) < 0)
         //         {
+        //             Logging.LastError("Could not get hidraw descriptor");
         //             return InputDeviceCommand.GenericFailure;
         //         }
         //     }

@@ -215,12 +215,10 @@ namespace HIDrogen.Backend.Linux
             int byteLength = Ioctl.ioctl(fd, ioCode, null);
             if (byteLength < 0)
             {
-#if HIDROGEN_VERBOSE_LOGGING
                 if (Posix.errno != Errno.ENOENT)
                 {
                     Logging.LastError("Could not get evdev device string");
                 }
-#endif
                 return null;
             }
 
@@ -231,6 +229,7 @@ namespace HIDrogen.Backend.Linux
             {
                 if (Ioctl.ioctl_unsafe(fd, ioCode, (void*)str.ToPtr()) < 0)
                 {
+                    Logging.LastError("Could not get evdev device string");
                     return null;
                 }
 

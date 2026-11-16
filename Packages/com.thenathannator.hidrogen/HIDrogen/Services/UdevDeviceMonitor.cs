@@ -74,24 +74,29 @@ namespace HIDrogen.Services.Linux
                 throw new Exception(Logging.MakeLastErrorMessage("Failed to create device monitor"));
             }
 
-            if (m_Monitor.filter_add_match_subsystem_devtype(Udev.SubsystemInput, null) < 0 ||
-                m_Monitor.filter_add_match_subsystem_devtype(Udev.SubsystemHidRaw, null) < 0)
+            int result;
+            if ((result = m_Monitor.filter_add_match_subsystem_devtype(Udev.SubsystemInput, null)) < 0 ||
+                (result = m_Monitor.filter_add_match_subsystem_devtype(Udev.SubsystemHidRaw, null)) < 0)
             {
                 m_Monitor.Dispose();
-                throw new Exception(Logging.MakeLastErrorMessage("Failed to add filters to device monitor"));
+                throw new Exception(Logging.MakeErrnoMessage("Failed to add filters to device monitor", result));
             }
 
-            if (m_Monitor.enable_receiving() < 0)
+            result = m_Monitor.enable_receiving();
+            if (result < 0)
             {
                 m_Monitor.Dispose();
-                throw new Exception(Logging.MakeLastErrorMessage("Failed to start device monitor"));
+                throw new Exception(Logging.MakeErrnoMessage("Failed to start device monitor", result));
             }
 
             m_MonitorFd = m_Monitor.get_fd();
             if (m_MonitorFd == null || m_MonitorFd.IsInvalid)
             {
                 m_Monitor.Dispose();
-                throw new Exception(Logging.MakeLastErrorMessage("Failed to get device monitor file descriptor"));
+                throw new Exception(m_MonitorFd != null
+                    ? Logging.MakeErrnoMessage("Failed to get device monitor file descriptor", m_MonitorFd.DangerousGetFileDescriptor())
+                    : Logging.MakeLastErrorMessage("Failed to get device monitor file descriptor")
+                );
             }
         }
 
@@ -114,16 +119,18 @@ namespace HIDrogen.Services.Linux
                     return;
                 }
 
-                if (enumerate.add_match_subsystem(Udev.SubsystemInput) < 0 ||
-                    enumerate.add_match_subsystem(Udev.SubsystemHidRaw) < 0)
+                int result;
+                if ((result = enumerate.add_match_subsystem(Udev.SubsystemInput)) < 0 ||
+                    (result = enumerate.add_match_subsystem(Udev.SubsystemHidRaw)) < 0)
                 {
-                    Logging.LastError("Failed to add filter to enumerator");
+                    Logging.Errno("Failed to add filter to enumerator", result);
                     return;
                 }
 
-                if (enumerate.scan_devices() < 0)
+                result = enumerate.scan_devices();
+                if (result < 0)
                 {
-                    Logging.LastError("Failed to scan devices for enumeration");
+                    Logging.Errno("Failed to scan devices for enumeration", result);
                     return;
                 }
 

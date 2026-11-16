@@ -28,11 +28,32 @@ namespace HIDrogen
             Debug.LogException(ex);
         }
 
+        public static string MakeErrorMessage(string message, int error)
+            => $"{message} (0x{error:X8})";
+
+#if UNITY_STANDALONE_LINUX
+        public static string MakeErrnoMessage(string message, int result)
+            => MakeErrnoMessage(message, (Errno)Math.Abs(result));
+        public static string MakeErrnoMessage(string message, Errno errno)
+            => $"{message} ({errno})";
+#endif
+
+        public static void Error(string message, int error)
+            => Error(MakeErrorMessage(message, error));
+
+#if UNITY_STANDALONE_LINUX
+        public static void Errno(string message, int result)
+            => Error(MakeErrnoMessage(message, result));
+        public static void Errno(string message, Errno errno)
+            => Error(MakeErrnoMessage(message, errno));
+
+#endif
+
         public static string MakeLastErrorMessage(string message)
 #if UNITY_STANDALONE_LINUX
-            => $"{message} ({Posix.errno})";
+            => MakeErrnoMessage(message, Posix.errno);
 #else
-            => $"{message} (0x{Marshal.GetLastWin32Error():X8})";
+            => MakeErrorMessage(message, Marshal.GetLastWin32Error());
 #endif
 
         public static void LastError(string message)
