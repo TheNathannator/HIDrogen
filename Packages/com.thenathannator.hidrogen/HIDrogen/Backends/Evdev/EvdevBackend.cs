@@ -317,6 +317,7 @@ namespace HIDrogen.Backend
                     continue;
                 }
 
+                absInfo.value = 0; // we don't care about the retrieved state here
                 descriptor.absInfo[i] = absInfo;
             }
 
