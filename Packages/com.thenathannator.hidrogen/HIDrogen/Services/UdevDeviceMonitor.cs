@@ -249,24 +249,6 @@ namespace HIDrogen.Services
             BackendManager.TryGetBackend<HidRawBackend>()?.ProbeDeviceRemove(m_Context, device);
             BackendManager.TryGetBackend<EvdevBackend>()?.ProbeDeviceRemove(m_Context, device);
         }
-
-        private udev_device FindEvdev(udev_device device)
-        {
-            if (device.get_subsystem().ToString() == Udev.SubsystemInput)
-            {
-                // We only want evdev devices here, not joydev or any other kinds of input devices
-                if (!device.get_sysname().ToString().StartsWith("event"))
-                {
-                    return null;
-                }
-
-                // Clone to simplify disposal handling
-                return device.add_ref();
-            }
-
-            // Don't try to search for the `input` node, let monitoring/enumeration give it to us instead
-            return null;
-        }
     }
 }
 #endif
