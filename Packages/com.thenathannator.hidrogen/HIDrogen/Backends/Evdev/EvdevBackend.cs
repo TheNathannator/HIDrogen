@@ -108,7 +108,11 @@ namespace HIDrogen.Backend.Linux
             {
                 if (fd == null || fd.IsInvalid)
                 {
-                    Logging.LastError("Failed to open evdev device");
+                    // Ignore permission errors in logs
+                    if (Posix.errno != Errno.EACCES && Posix.errno != Errno.EPERM)
+                    {
+                        Logging.LastError("Failed to open evdev device");
+                    }
                     return false;
                 }
 
