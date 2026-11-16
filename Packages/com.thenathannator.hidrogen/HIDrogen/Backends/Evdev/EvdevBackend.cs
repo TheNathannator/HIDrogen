@@ -9,7 +9,6 @@ using HIDrogen.Services.Linux;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Layouts;
-using UnityEngine.InputSystem.Utilities;
 
 // TODO:
 // - Try to correlate sibling evdev devices together;
@@ -41,9 +40,6 @@ namespace HIDrogen.Backend.Linux
             {
             }
         }
-
-        public const string InterfaceName = "Evdev";
-        public static readonly FourCC InputFormat = new FourCC('E', 'V', 'D', 'V');
 
         private readonly Dictionary<string, EvdevDevice> m_DevicesByPath = new Dictionary<string, EvdevDevice>();
 
@@ -120,7 +116,7 @@ namespace HIDrogen.Backend.Linux
 
             var description = new InputDeviceDescription()
             {
-                interfaceName = InterfaceName,
+                interfaceName = EvdevDefinitions.InterfaceName,
                 product = deviceInfo.name,
                 serial = deviceInfo.serial,
                 version = deviceInfo.revision.ToString(CultureInfo.InvariantCulture),

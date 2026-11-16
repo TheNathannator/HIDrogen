@@ -1,5 +1,6 @@
 using System;
 using HIDrogen.Imports.Linux;
+using UnityEngine.InputSystem.Utilities;
 
 namespace HIDrogen.Backend.Linux
 {
@@ -15,5 +16,11 @@ namespace HIDrogen.Backend.Linux
         public input_rel_code[] supportedRel;
 
         public input_absinfo[] absInfo;
+    }
+
+    public static class EvdevDefinitions
+    {
+        public const string InterfaceName = "Evdev";
+        public static readonly FourCC InputFormat = new FourCC('E', 'V', 'D', 'V');
     }
 }

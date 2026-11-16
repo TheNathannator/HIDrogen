@@ -406,7 +406,7 @@ namespace HIDrogen.Backend.Linux
                 // }
             }
 
-            m_Backend.QueueStateEvent(m_Device, EvdevBackend.InputFormat, m_State.GetUnsafeReadOnlyPtr(), m_State.Length);
+            m_Backend.QueueStateEvent(m_Device, EvdevDefinitions.InputFormat, m_State.GetUnsafeReadOnlyPtr(), m_State.Length);
         }
     }
 }
