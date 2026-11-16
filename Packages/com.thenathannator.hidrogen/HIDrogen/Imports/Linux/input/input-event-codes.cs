@@ -1,6 +1,8 @@
-#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
 namespace HIDrogen.Imports.Linux
 {
+    // Intentionally not platform guarded, for maintenance simplicity.
+    // Some types are public for other packages to reference.
+
     internal enum input_device_prop
     {
         PROP_POINTER = 0x00,
@@ -44,7 +46,8 @@ namespace HIDrogen.Imports.Linux
         SYN_CNT = SYN_MAX + 1,
     }
 
-    internal enum input_key_code
+    // intentionally public
+    public enum input_key_code
     {
         KEY_RESERVED = 0,
         KEY_ESC = 1,
@@ -710,7 +713,8 @@ namespace HIDrogen.Imports.Linux
         KEY_CNT = KEY_MAX + 1,
     }
 
-    internal enum input_rel_code
+    // intentionally public
+    public enum input_rel_code
     {
         REL_X = 0x00,
         REL_Y = 0x01,
@@ -730,7 +734,8 @@ namespace HIDrogen.Imports.Linux
         REL_CNT = REL_MAX + 1,
     }
 
-    internal enum input_abs_code
+    // intentionally public
+    public enum input_abs_code
     {
         ABS_X = 0x00,
         ABS_Y = 0x01,
@@ -861,4 +866,3 @@ namespace HIDrogen.Imports.Linux
         REP_CNT = REP_MAX + 1,
     }
 }
-#endif

@@ -1,4 +1,3 @@
-#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -6,8 +5,10 @@ using HIDrogen.Imports.Posix;
 using HIDrogen.Utilities;
 using Unity.Collections.LowLevel.Unsafe;
 
+// Intentionally not platform guarded so that some definitions can be public
 namespace HIDrogen.Imports.Linux
 {
+#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
     using static Ioctl;
 
     [StructLayout(LayoutKind.Sequential)]
@@ -39,11 +40,15 @@ namespace HIDrogen.Imports.Linux
         public ushort product;
         public ushort version;
     }
+#endif
 
+    // intentionally public
+    [Serializable]
     [StructLayout(LayoutKind.Sequential)]
-    internal struct input_absinfo
+    public struct input_absinfo
     {
-        public int value;
+        [NonSerialized]
+        internal int value;
         public int minimum;
         public int maximum;
         public int fuzz;
@@ -51,6 +56,7 @@ namespace HIDrogen.Imports.Linux
         public int resolution;
     }
 
+#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
     // had to dig into the driver source code for this because the documentation is so barren...
     [StructLayout(LayoutKind.Sequential)]
     internal struct input_keymap_entry_v1
@@ -533,5 +539,5 @@ namespace HIDrogen.Imports.Linux
         public static readonly int REL_MAX_LONGS = EvdevBits<input_rel_code>.BitsToLongs((int)input_rel_code.REL_MAX);
         public static readonly int PROP_MAX_LONGS = EvdevBits<input_device_prop>.BitsToLongs((int)input_device_prop.PROP_MAX);
     }
-}
 #endif
+}

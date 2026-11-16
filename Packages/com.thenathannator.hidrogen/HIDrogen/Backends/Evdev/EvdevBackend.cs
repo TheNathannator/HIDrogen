@@ -138,7 +138,7 @@ namespace HIDrogen.Backend
             }
 
             Logging.Verbose($"evdev device {evdevPath} added");
-            return false;
+            return true;
         }
 
         public void ProbeDeviceRemove(udev_context udev, udev_device device)
@@ -236,7 +236,7 @@ namespace HIDrogen.Backend
             }
         }
 
-        private static bool CreateEvdevDescriptor(
+        private static unsafe bool CreateEvdevDescriptor(
             udev_context udev,
             udev_device evdev,
             fd fd,
@@ -248,9 +248,79 @@ namespace HIDrogen.Backend
             {
                 vendorId = deviceInfo.vendorId,
                 productId = deviceInfo.productId,
+
+                supportedKeys = Array.Empty<input_key_code>(),
+                supportedAbs = Array.Empty<input_abs_code>(),
+                supportedRel = Array.Empty<input_rel_code>(),
             };
 
-            return false; // TODO
+            // note: C# 7.3 does not allow directly placing a `stackalloc` expression as an argument
+            var keyMaskPtr = stackalloc UIntPtr[KEY_MAX_LONGS];
+            var absMaskPtr = stackalloc UIntPtr[ABS_MAX_LONGS];
+            var relMaskPtr = stackalloc UIntPtr[REL_MAX_LONGS];
+
+            var keyMask = new EvdevBits<input_key_code>(keyMaskPtr, KEY_MAX_LONGS);
+            var absMask = new EvdevBits<input_abs_code>(absMaskPtr, ABS_MAX_LONGS);
+            var relMask = new EvdevBits<input_rel_code>(relMaskPtr, REL_MAX_LONGS);
+
+            if (keyMask.Populate(fd, EVIOCGBIT(input_event_type.EV_KEY, keyMask.count)) < 0 ||
+                absMask.Populate(fd, EVIOCGBIT(input_event_type.EV_ABS, absMask.count)) < 0 ||
+                relMask.Populate(fd, EVIOCGBIT(input_event_type.EV_REL, relMask.count)) < 0)
+            {
+                Logging.LastError("Failed to get evdev masks");
+                return false;
+            }
+
+            // Collect into lists for easier use
+            var supportedKeys = new List<input_key_code>();
+            var supportedAbs = new List<input_abs_code>();
+            var supportedRel = new List<input_rel_code>();
+
+            for (input_key_code key = 0; key < input_key_code.KEY_MAX; key++)
+            {
+                if (keyMask.TestBit(key))
+                {
+                    supportedKeys.Add(key);
+                }
+            }
+
+            for (input_abs_code abs = 0; abs < input_abs_code.ABS_MAX; abs++)
+            {
+                if (absMask.TestBit(abs))
+                {
+                    supportedAbs.Add(abs);
+                }
+            }
+
+            for (input_rel_code rel = 0; rel < input_rel_code.REL_MAX; rel++)
+            {
+                if (relMask.TestBit(rel))
+                {
+                    supportedRel.Add(rel);
+                }
+            }
+
+            descriptor.supportedKeys = supportedKeys.ToArray();
+            descriptor.supportedAbs = supportedAbs.ToArray();
+            descriptor.supportedRel = supportedRel.ToArray();
+
+            // Collect abs calibration info
+            descriptor.absInfo = new input_absinfo[descriptor.supportedAbs.Length];
+
+            for (int i = 0; i < descriptor.supportedAbs.Length; i++)
+            {
+                var abs = descriptor.supportedAbs[i];
+                var absInfo = new input_absinfo();
+                if (Ioctl.ioctl(fd, EVIOCGABS(abs), ref absInfo) < 0)
+                {
+                    Logging.LastError("Failed to get evdev absinfo");
+                    continue;
+                }
+
+                descriptor.absInfo[i] = absInfo;
+            }
+
+            return true;
         }
     }
 }
