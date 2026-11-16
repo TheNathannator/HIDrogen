@@ -164,11 +164,15 @@ namespace HIDrogen
             var stateBlock = control.stateBlock;
             
             if (stateBlock.bitOffset != 0)
+            {
                 throw new InvalidOperationException($"Cannot send delta state events against bitfield controls: {control}");
+            }
 
-            uint alignedSizeInBytes = (stateBlock.sizeInBits + 7) >> 3;
-            if (stateLength != alignedSizeInBytes)
-                throw new ArgumentException($"Size {stateLength} of delta state provided for control '{control}' does not match size {alignedSizeInBytes} of control");
+            uint sizeInBytes = NumberUtils.AlignToMultiple(stateBlock.sizeInBits, 8) / 8;
+            if (stateLength != sizeInBytes)
+            {
+                throw new ArgumentException($"Size {stateLength} of delta state provided for control '{control}' does not match size {sizeInBytes} of control");
+            }
 
             var device = control.device;
             uint offset = stateBlock.byteOffset - device.stateBlock.byteOffset;
