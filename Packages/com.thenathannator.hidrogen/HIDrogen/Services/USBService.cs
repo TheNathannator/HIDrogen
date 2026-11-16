@@ -2,12 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
-using HIDrogen.Backend;
+using HIDrogen.Backend.USB;
 using HIDrogen.Imports;
 using HIDrogen.LowLevel;
 using UnityEngine;
 
-namespace HIDrogen.Services
+namespace HIDrogen.Services.USB
 {
     using static libusb;
 

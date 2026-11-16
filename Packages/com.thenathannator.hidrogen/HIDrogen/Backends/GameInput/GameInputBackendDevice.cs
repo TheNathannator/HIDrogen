@@ -9,7 +9,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
 
-namespace HIDrogen.Backend
+namespace HIDrogen.Backend.Windows
 {
     [Serializable]
     internal struct GameInputDeviceCapabilities

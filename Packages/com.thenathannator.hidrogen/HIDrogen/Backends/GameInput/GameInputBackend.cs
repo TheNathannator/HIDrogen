@@ -8,7 +8,7 @@ using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.InputSystem.Utilities;
 
-namespace HIDrogen.Backend
+namespace HIDrogen.Backend.Windows
 {
     internal partial class GameInputBackend : CustomInputBackend<GameInputBackendDevice, IGameInputDevice>
     {

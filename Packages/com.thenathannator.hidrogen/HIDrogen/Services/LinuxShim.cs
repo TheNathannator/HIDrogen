@@ -5,7 +5,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
 
-namespace HIDrogen.Backend
+namespace HIDrogen.Services.Linux
 {
     /// <summary>
     /// Shims out the existing Linux support so we can replace it with our own.

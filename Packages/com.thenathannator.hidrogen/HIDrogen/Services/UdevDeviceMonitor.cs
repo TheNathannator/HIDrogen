@@ -1,12 +1,12 @@
 #if UNITY_STANDALONE_LINUX
 using System;
-using HIDrogen.Backend;
+using HIDrogen.Backend.Linux;
 using HIDrogen.Imports.Linux;
 using HIDrogen.Imports.Posix;
 
 // TODO: Avoid allocations from string unmarshalling where reasonable
 
-namespace HIDrogen.Services
+namespace HIDrogen.Services.Linux
 {
     internal interface IUdevBackend
     {

@@ -7,7 +7,7 @@ using UnityEngine.InputSystem.LowLevel;
 // XUSB open specification:
 // https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-xusbi/c79474e7-3968-43d1-8d2f-175d47bef43e
 
-namespace HIDrogen.Backend
+namespace HIDrogen.Backend.USB
 {
     using static libusb;
 

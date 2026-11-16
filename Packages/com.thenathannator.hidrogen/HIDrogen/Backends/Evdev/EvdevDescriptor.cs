@@ -1,7 +1,7 @@
 using System;
 using HIDrogen.Imports.Linux;
 
-namespace HIDrogen.Backend
+namespace HIDrogen.Backend.Linux
 {
     // Intentionally public and not platform guarded, for other packages to reference.
     [Serializable]

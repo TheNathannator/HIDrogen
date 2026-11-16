@@ -10,7 +10,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.HID;
 using UnityEngine.InputSystem.LowLevel;
 
-namespace HIDrogen.Backend
+namespace HIDrogen.Backend.Linux
 {
     using static HidRaw;
 

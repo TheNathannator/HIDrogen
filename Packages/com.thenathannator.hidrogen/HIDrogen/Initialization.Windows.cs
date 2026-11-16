@@ -1,6 +1,6 @@
 #if UNITY_STANDALONE_WIN
-using HIDrogen.Backend;
-using HIDrogen.Services;
+using HIDrogen.Backend.Windows;
+using HIDrogen.Services.USB;
 
 namespace HIDrogen
 {

@@ -5,7 +5,7 @@ using HIDrogen.Imports.Windows;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
 
-namespace HIDrogen.Backend
+namespace HIDrogen.Backend.Windows
 {
     internal class XInputBackendDevice : IDisposable
     {

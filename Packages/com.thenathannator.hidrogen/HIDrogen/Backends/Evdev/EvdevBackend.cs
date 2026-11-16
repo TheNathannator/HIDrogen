@@ -5,7 +5,7 @@ using System.Globalization;
 using HIDrogen.Imports.Linux;
 using HIDrogen.Imports.Posix;
 using HIDrogen.LowLevel;
-using HIDrogen.Services;
+using HIDrogen.Services.Linux;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Layouts;
@@ -15,7 +15,7 @@ using UnityEngine.InputSystem.Utilities;
 // - Try to correlate sibling evdev devices together;
 //   e.g. pair the accelerometer of a PS controller to its main gamepad inputs
 
-namespace HIDrogen.Backend
+namespace HIDrogen.Backend.Linux
 {
     using static Evdev;
 

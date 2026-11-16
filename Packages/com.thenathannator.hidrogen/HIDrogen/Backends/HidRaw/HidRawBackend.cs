@@ -7,7 +7,7 @@ using System.Reflection;
 using HIDrogen.Imports.Linux;
 using HIDrogen.Imports.Posix;
 using HIDrogen.LowLevel;
-using HIDrogen.Services;
+using HIDrogen.Services.Linux;
 using HIDrogen.Utilities;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -16,7 +16,7 @@ using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.InputSystem.Utilities;
 
-namespace HIDrogen.Backend
+namespace HIDrogen.Backend.Linux
 {
     internal class HidRawBackend : CustomInputBackend<HidRawDevice, HidRawBackend.AddContext>,
         IUdevBackend
@@ -306,8 +306,8 @@ namespace HIDrogen.Backend
             var splits = hid_id.ToString().Split(':');
             if (splits == null ||
                 splits.Length < 3 ||
-                NumberUtils.TryParseHexUInt32(splits[0], out uint _busType) || 
-                NumberUtils.TryParseHexUInt32(splits[0], out uint vendorId) || 
+                NumberUtils.TryParseHexUInt32(splits[0], out uint _busType) ||
+                NumberUtils.TryParseHexUInt32(splits[0], out uint vendorId) ||
                 NumberUtils.TryParseHexUInt32(splits[0], out uint productId)
             )
             {

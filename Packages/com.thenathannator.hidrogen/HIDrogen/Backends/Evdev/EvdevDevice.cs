@@ -8,7 +8,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine.InputSystem;
 
-namespace HIDrogen.Backend
+namespace HIDrogen.Backend.Linux
 {
     using static Evdev;
 

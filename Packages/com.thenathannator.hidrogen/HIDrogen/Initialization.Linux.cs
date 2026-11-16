@@ -1,6 +1,7 @@
 #if UNITY_STANDALONE_LINUX
-using HIDrogen.Backend;
-using HIDrogen.Services;
+using HIDrogen.Backend.Linux;
+using HIDrogen.Services.Linux;
+using HIDrogen.Services.USB;
 
 namespace HIDrogen
 {

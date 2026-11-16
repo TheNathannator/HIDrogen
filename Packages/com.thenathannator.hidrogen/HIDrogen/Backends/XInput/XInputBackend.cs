@@ -6,7 +6,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
 
-namespace HIDrogen.Backend
+namespace HIDrogen.Backend.Windows
 {
     internal partial class XInputBackend : CustomInputBackend<XInputBackendDevice, XInputBackend.AddContext>
     {
