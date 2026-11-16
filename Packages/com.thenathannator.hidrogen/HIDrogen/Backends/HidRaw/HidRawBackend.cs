@@ -165,6 +165,11 @@ namespace HIDrogen.Backend.Linux
                 }
 
                 string hidrawPath = hidraw.get_devnode().ToString();
+                if (hidrawPath == null)
+                {
+                    return false;
+                }
+
                 if (m_DevicesByPath.ContainsKey(hidrawPath))
                 {
                     // Signal claimage so that this device is not considered by other backends
@@ -235,7 +240,7 @@ namespace HIDrogen.Backend.Linux
                 }
 
                 string hidrawPath = hidraw.get_devnode().ToString();
-                if (m_DevicesByPath.TryGetValue(hidrawPath, out var backendDevices))
+                if (hidrawPath != null && m_DevicesByPath.TryGetValue(hidrawPath, out var backendDevices))
                 {
                     foreach (var dev in backendDevices)
                     {

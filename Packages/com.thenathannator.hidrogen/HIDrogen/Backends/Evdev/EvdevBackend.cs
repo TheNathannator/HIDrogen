@@ -84,6 +84,11 @@ namespace HIDrogen.Backend.Linux
             }
 
             string evdevPath = device.get_devnode().ToString();
+            if (evdevPath == null)
+            {
+                return false;
+            }
+
             if (m_DevicesByPath.ContainsKey(evdevPath))
             {
                 // Return true so that this device is not considered by other backends
@@ -91,7 +96,8 @@ namespace HIDrogen.Backend.Linux
             }
 
             // We only want evdev devices here, not joydev or any other kinds of input devices
-            if (!device.get_sysname().ToString().StartsWith("event"))
+            string sysname = device.get_sysname().ToString();
+            if (sysname == null || !sysname.StartsWith("event"))
             {
                 return false;
             }
@@ -145,7 +151,7 @@ namespace HIDrogen.Backend.Linux
             }
 
             string evdevPath = device.get_devnode().ToString();
-            if (m_DevicesByPath.TryGetValue(evdevPath, out var backendDevice))
+            if (evdevPath != null && m_DevicesByPath.TryGetValue(evdevPath, out var backendDevice))
             {
                 if (backendDevice != null)
                 {
