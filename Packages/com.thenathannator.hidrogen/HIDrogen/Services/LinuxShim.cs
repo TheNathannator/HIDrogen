@@ -23,12 +23,12 @@ namespace HIDrogen.Services.Linux
             // IInputRuntime InputManager.m_Runtime;
             var inputRuntimeField = inputManagerField.FieldType.GetField(
                 "m_Runtime",
-                BindingFlags.NonPublic | BindingFlags.Static
+                BindingFlags.NonPublic | BindingFlags.Instance
             );
             // Action<int, string> IInputRuntime.onDeviceDiscovered { get; set; }
             var onDeviceDiscoveredProperty = inputRuntimeField.FieldType.GetProperty(
                 "onDeviceDiscovered",
-                BindingFlags.NonPublic | BindingFlags.Static
+                BindingFlags.NonPublic | BindingFlags.Instance
             );
 
             object inputManager = inputManagerField.GetValue(null);
