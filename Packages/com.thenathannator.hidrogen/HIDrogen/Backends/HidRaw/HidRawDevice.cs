@@ -16,6 +16,9 @@ namespace HIDrogen.Backend
 
     internal class HidRawDevice : IDisposable
     {
+        private const int kMaxReadErrors = 3;
+        private const int kMaxReadRetries = 3;
+
         private HidRawBackend m_Backend;
         private InputDevice m_Device;
         private HID.HIDDeviceDescriptor m_Descriptor;
@@ -74,65 +77,83 @@ namespace HIDrogen.Backend
             // Stack-allocated data is not initialized
             UnsafeUtility.MemClear(readBuffer, readBufferSize);
 
-            // Max allowed number of consecutive errors
-            const int errorThreshold = 3;
             int errorCount = 0;
-
-            while (!m_ThreadStop.WaitOne(1) && errorCount < errorThreshold)
+            while (!m_ThreadStop.WaitOne(1) && errorCount < kMaxReadErrors)
             {
-                int bytesRead;
+                int bytesRead = 0;
                 lock (m_Fd)
                 {
                     // Wait for new reports to come in
-                    var poll = new pollfd(m_Fd, Fcntl.POLLIN);
-                    int result = Fcntl.poll(ref poll, 0);
-                    if (result < 0)
+                    if (!IsReadAvailable(ref errorCount))
                     {
-                        Logging.LastError($"Error while polling for device monitor events");
-                        errorCount++;
-                        break;
+                        continue;
                     }
 
                     // Read new report
-                    const int maxRetries = 3;
-                    int retryCount = 0;
-                retry:
-                    bytesRead = Fcntl.read(m_Fd, readBuffer, readBufferSize);
+                    bytesRead = ReadReport(readBuffer, readBufferSize, ref errorCount);
                     if (bytesRead < 0)
                     {
-                        var errno = Posix.errno;
-                        if (errno == Errno.ENOENT)
-                        {
-                            // Device has been disconnected
-                            break;
-                        }
-
-                        if (errno == Errno.EINTR ||
-                            errno == Errno.EAGAIN ||
-                            errno == Errno.EINPROGRESS)
-                        {
-                            // Read was interrupted
-                            retryCount++;
-                            if (retryCount < maxRetries)
-                            {
-                                goto retry;
-                            }
-                        }
-
-                        Logging.LastError($"Failed to read hidraw report");
-                        errorCount++;
                         continue;
                     }
-                    errorCount = 0;
                 }
 
                 if (bytesRead > 0)
                 {
                     m_Backend.QueueStateEvent(m_Device, HidRawBackend.InputFormat, readBuffer, bytesRead);
                 }
+
+                errorCount = 0;
             }
 
             m_Backend.QueueDeviceRemove(m_Device);
+        }
+
+        private bool IsReadAvailable(ref int errorCount)
+        {
+            var poll = new pollfd(m_Fd, Fcntl.POLLIN);
+            int result = Fcntl.poll(ref poll, 0);
+            if (result < 0)
+            {
+                Logging.LastError($"Error while polling for device monitor events");
+                errorCount++;
+            }
+
+            return result > 0;
+        }
+
+        private unsafe int ReadReport(byte* readBuffer, int readBufferSize, ref int errorCount)
+        {
+            for (int retryCount = 0; retryCount < kMaxReadRetries; retryCount++)
+            {
+                int bytesRead = Fcntl.read(m_Fd, readBuffer, readBufferSize);
+                if (bytesRead >= 0)
+                {
+                    // Successful read
+                    return bytesRead;
+                }
+
+                var errno = Posix.errno;
+                if (errno == Errno.ENOENT)
+                {
+                    // Device has been disconnected
+                    errorCount = kMaxReadErrors;
+                    return -1;
+                }
+
+                if (errno == Errno.EINTR ||
+                    errno == Errno.EAGAIN ||
+                    errno == Errno.EINPROGRESS)
+                {
+                    // Read was interrupted, try again
+                    continue;
+                }
+
+                break;
+            }
+
+            Logging.LastError($"Failed to read hidraw report");
+            errorCount++;
+            return -1;
         }
 
         public unsafe long SendOutput(void* buffer, int bufferSize)
