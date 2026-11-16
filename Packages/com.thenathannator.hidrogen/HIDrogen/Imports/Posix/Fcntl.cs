@@ -84,7 +84,6 @@ namespace HIDrogen.Imports.Posix
             int timeout
         );
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static fd open(string file, int flags)
         {
             var file_ptr = UTF8String.FromStr(file);
@@ -99,14 +98,12 @@ namespace HIDrogen.Imports.Posix
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static fd open(IntPtr file, int flags)
         {
             int fd = _open(file, flags);
             return new fd(fd, true);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe int read(fd fd, void* buffer, int bufferSize)
         {
             if (buffer == null)
@@ -117,7 +114,6 @@ namespace HIDrogen.Imports.Posix
             return (int)_read(fd.DangerousGetFileDescriptor(), buffer, (UIntPtr)bufferSize);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe int write(fd fd, void* buffer, int bufferSize)
         {
             if (buffer == null)
@@ -128,7 +124,6 @@ namespace HIDrogen.Imports.Posix
             return (int)_write(fd.DangerousGetFileDescriptor(), buffer, (UIntPtr)bufferSize);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe int read(fd fd, byte[] buffer)
         {
             if (buffer == null)
@@ -142,7 +137,6 @@ namespace HIDrogen.Imports.Posix
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe int write(fd fd, byte[] buffer)
         {
             if (buffer == null)
@@ -156,7 +150,6 @@ namespace HIDrogen.Imports.Posix
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe int read(fd fd, byte[] buffer, int offset, int count)
         {
             BufferUtils.ValidateBufferArguments(buffer, offset, count);
@@ -167,7 +160,6 @@ namespace HIDrogen.Imports.Posix
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe int write(fd fd, byte[] buffer, int offset, int count)
         {
             BufferUtils.ValidateBufferArguments(buffer, offset, count);
