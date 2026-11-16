@@ -44,7 +44,7 @@ namespace HIDrogen.Imports.Posix
         public const int O_RDWR = 0x02;
 
         public const int O_NONBLOCK = 0x800;
-        public const int O_CLOEXEC = 02000000;
+        public const int O_CLOEXEC = 0x80000;
 
         public const short POLLIN = 0x001;
         public const short POLLPRI = 0x002;
