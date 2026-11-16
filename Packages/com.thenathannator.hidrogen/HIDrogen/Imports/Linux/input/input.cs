@@ -27,7 +27,7 @@ namespace HIDrogen.Imports.Linux
         public long usec => __usec;
 #endif
 
-        public ushort type;
+        public input_event_type type;
         public ushort code;
         public int value;
     }
@@ -35,7 +35,7 @@ namespace HIDrogen.Imports.Linux
     [StructLayout(LayoutKind.Sequential)]
     internal struct input_id
     {
-        public ushort bustype;
+        public input_bus_type bustype;
         public ushort vendor;
         public ushort product;
         public ushort version;
@@ -114,7 +114,7 @@ namespace HIDrogen.Imports.Linux
         VERSION = 3,
     }
 
-    internal enum input_bus_type
+    internal enum input_bus_type : ushort
     {
         PCI = 0x01,
         ISAPNP = 0x02,

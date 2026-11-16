@@ -17,7 +17,7 @@ namespace HIDrogen.Imports.Linux
         PROP_COUNT = PROP_MAX + 1,
     }
 
-    internal enum input_event_type
+    internal enum input_event_type : ushort
     {
         EV_SYN = 0x00,
         EV_KEY = 0x01,
