@@ -322,9 +322,9 @@ namespace HIDrogen.Backend.Linux
             var splits = hid_id.ToString().Split(':');
             if (splits == null ||
                 splits.Length < 3 ||
-                NumberUtils.TryParseHexUInt32(splits[0], out uint _busType) ||
-                NumberUtils.TryParseHexUInt32(splits[0], out uint vendorId) ||
-                NumberUtils.TryParseHexUInt32(splits[0], out uint productId)
+                !NumberUtils.TryParseHexUInt32(splits[0], out uint _busType) ||
+                !NumberUtils.TryParseHexUInt32(splits[1], out uint vendorId) ||
+                !NumberUtils.TryParseHexUInt32(splits[2], out uint productId)
             )
             {
                 Logging.Verbose($"Encountered malformed HID_ID {hid_id.ToString()}");
