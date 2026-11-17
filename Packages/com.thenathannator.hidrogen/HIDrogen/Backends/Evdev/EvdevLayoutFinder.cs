@@ -179,6 +179,8 @@ namespace HIDrogen.Backend.Linux
 
             private void MakeDpadControl(ref InputControlLayout.Builder builder, ref int keyIndex)
             {
+                const int keyCount = 4;
+
                 string dpadRoot = "dpad";
                 builder.AddControl(dpadRoot)
                     .WithLayout("Dpad")
@@ -186,9 +188,9 @@ namespace HIDrogen.Backend.Linux
                     .WithUsages(CommonUsages.Hatswitch)
                     .WithByteOffset(GetKeyByteOffset(keyIndex))
                     .WithBitOffset(GetKeyBitOffset(keyIndex))
-                    .WithSizeInBits(4);
+                    .WithSizeInBits(keyCount);
 
-                for (int i = 0; i < 4; i++)
+                for (int i = 0; i < keyCount; i++)
                 {
                     var key = descriptor.supportedKeys[keyIndex + i];
 
@@ -205,10 +207,12 @@ namespace HIDrogen.Backend.Linux
                     builder.AddControl(name)
                         .WithLayout("Button")
                         .WithFormat(InputStateBlock.FormatInt)
-                        .WithByteOffset(GetKeyByteOffset(keyIndex + i))
-                        .WithBitOffset(GetKeyBitOffset(keyIndex + i))
+                        .WithByteOffset(GetKeyByteOffset(i)) // no keyIndex, this is relative to the parent
+                        .WithBitOffset(GetKeyBitOffset(i)) // no keyIndex, this is relative to the parent
                         .WithSizeInBits(1);
                 }
+
+                keyIndex += keyCount - 1; // - 1 to counteract the increment in the main loop
             }
 
             private void MakeHatControl(ref InputControlLayout.Builder builder, ref int absIndex, int absStartByte)
@@ -219,17 +223,19 @@ namespace HIDrogen.Backend.Linux
                     throw new InvalidOperationException("Cannot make a hat control from a non-hat abs.");
                 }
 
+                const int absCount = 2;
+
                 string hatRoot = $"hat{hatNum + 1}";
                 builder.AddControl(hatRoot)
                     .WithLayout("Dpad")
                     .WithByteOffset(GetAbsByteOffset(absStartByte, absIndex))
-                    .WithSizeInBits(sizeof(int) * 2 * 8)
+                    .WithSizeInBits(absCount * sizeof(int) * 8)
                     .WithUsages(CommonUsages.Hatswitch);
 
-                for (int i = 0; i < 2; i++)
+                for (int i = 0; i < absCount; i++)
                 {
-                    var abs = descriptor.supportedAbs[absIndex];
-                    var absInfo = descriptor.absInfo[absIndex];
+                    var abs = descriptor.supportedAbs[absIndex + i];
+                    var absInfo = descriptor.absInfo[absIndex + i];
 
                     // note: Y axis is inverted
                     string positive = IsHatX(abs) ? "right" : "down";
@@ -238,17 +244,19 @@ namespace HIDrogen.Backend.Linux
                     builder.AddControl($"{hatRoot}/{positive}")
                         .WithLayout("DiscreteButton")
                         .WithFormat(InputStateBlock.FormatInt)
-                        .WithByteOffset(GetAbsByteOffset(absStartByte, absIndex))
+                        .WithByteOffset(GetAbsByteOffset(0, i)) // no absStartByte or absIndex, this is relative to the parent
                         .WithBitOffset(0)
                         .WithParameters($"nullValue=0,minValue=-1,maxValue={absInfo.minimum}");
 
                     builder.AddControl($"{hatRoot}/{negative}")
                         .WithLayout("DiscreteButton")
                         .WithFormat(InputStateBlock.FormatInt)
-                        .WithByteOffset(GetAbsByteOffset(absStartByte, absIndex))
+                        .WithByteOffset(GetAbsByteOffset(0, i)) // no absStartByte or absIndex, this is relative to the parent
                         .WithBitOffset(0)
                         .WithParameters($"nullValue=0,minValue=1,maxValue={absInfo.maximum}");
                 }
+
+                absIndex += absCount - 1; // - 1 to counteract the increment in the main loop
             }
 
             private uint GetKeyByteOffset(int keyIndex)
