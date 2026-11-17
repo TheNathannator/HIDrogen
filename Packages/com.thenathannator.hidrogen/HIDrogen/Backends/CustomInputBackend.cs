@@ -85,8 +85,15 @@ namespace HIDrogen
 
                 foreach (var pair in m_DeviceLookup)
                 {
-                    RemoveDeviceNow(pair.Key);
+                    // need to defer to prevent modifying the lookup while enumerating it
+                    m_RemovalQueue.Add(pair.Key);
                 }
+
+                while (m_RemovalQueue.TryTake(out var device))
+                {
+                    RemoveDeviceNow(device);
+                }
+
                 m_DeviceLookup.Clear();
 
                 m_MainThreadId = 0;
