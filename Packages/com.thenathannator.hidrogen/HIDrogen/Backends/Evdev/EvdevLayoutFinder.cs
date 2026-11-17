@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using HIDrogen.Imports.Linux;
 using HIDrogen.Utilities;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -141,12 +142,20 @@ namespace HIDrogen.Backend.Linux
                 var abs = descriptor.supportedAbs[absIndex];
                 var absInfo = descriptor.absInfo[absIndex];
 
-                builder.AddControl(ToCamelCase(abs.ToString()))
+                var control = builder.AddControl(ToCamelCase(abs.ToString()))
                     .WithLayout("EvdevAxis")
                     .WithFormat(InputStateBlock.FormatInt)
                     .WithByteOffset(GetAbsByteOffset(absStartByte, absIndex))
-                    .WithBitOffset(0)
-                    .WithParameters($"minValue={absInfo.minimum},maxValue={absInfo.maximum},zeroPoint=0");
+                    .WithBitOffset(0);
+
+                if (IsAbsY(abs))
+                {
+                    control.WithParameters($"minValue={absInfo.maximum},maxValue={absInfo.minimum},zeroPoint=0");
+                }
+                else
+                {
+                    control.WithParameters($"minValue={absInfo.minimum},maxValue={absInfo.maximum},zeroPoint=0");
+                }
             }
 
             private uint GetKeyByteOffset(int keyIndex)
@@ -162,6 +171,30 @@ namespace HIDrogen.Backend.Linux
             private uint GetAbsByteOffset(int absStartByte, int absIndex)
             {
                 return (uint)(absStartByte + (absIndex * sizeof(int)));
+            }
+
+            private static bool IsAbsX(input_abs_code abs)
+            {
+                return
+                    abs == input_abs_code.ABS_X ||
+                    abs == input_abs_code.ABS_RX ||
+                    abs == input_abs_code.ABS_TILT_X ||
+                    abs == input_abs_code.ABS_HAT0X ||
+                    abs == input_abs_code.ABS_HAT1X ||
+                    abs == input_abs_code.ABS_HAT2X ||
+                    abs == input_abs_code.ABS_HAT3X;
+            }
+
+            private static bool IsAbsY(input_abs_code abs)
+            {
+                return
+                    abs == input_abs_code.ABS_Y ||
+                    abs == input_abs_code.ABS_RY ||
+                    abs == input_abs_code.ABS_TILT_Y ||
+                    abs == input_abs_code.ABS_HAT0Y ||
+                    abs == input_abs_code.ABS_HAT1Y ||
+                    abs == input_abs_code.ABS_HAT2Y ||
+                    abs == input_abs_code.ABS_HAT3Y;
             }
         }
 
