@@ -8,7 +8,7 @@ using Unity.Collections.LowLevel.Unsafe;
 // Intentionally not platform guarded so that some definitions can be public
 namespace HIDrogen.Imports.Linux
 {
-#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+#if UNITY_STANDALONE_LINUX
     using static Ioctl;
 
     [StructLayout(LayoutKind.Sequential)]
@@ -56,7 +56,7 @@ namespace HIDrogen.Imports.Linux
         public int resolution;
     }
 
-#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+#if UNITY_STANDALONE_LINUX
     // had to dig into the driver source code for this because the documentation is so barren...
     [StructLayout(LayoutKind.Sequential)]
     internal struct input_keymap_entry_v1
