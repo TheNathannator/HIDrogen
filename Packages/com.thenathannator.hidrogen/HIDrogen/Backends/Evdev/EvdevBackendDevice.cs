@@ -32,6 +32,10 @@ namespace HIDrogen.Backend.Linux
         readonly ushort[] m_AbsOffsets;
         readonly ushort[] m_RelOffsets;
 
+        private readonly int m_KeyEndByte = 0;
+        private readonly int m_AbsEndByte = 0;
+        private readonly int m_RelEndByte = 0;
+
         private NativeArray<byte> m_State;
 
         private Thread m_ReadThread;
@@ -57,10 +61,8 @@ namespace HIDrogen.Backend.Linux
             m_Fd = fd;
 
             // Determine key bit offsets
-            ushort keyEndByte = 0;
-            var supportedKeys = descriptor.supportedKeys;
-            if (supportedKeys.Length > 0)
             {
+                var supportedKeys = descriptor.supportedKeys;
                 m_KeyBitOffsets = new ushort[(int)input_key_code.KEY_CNT];
                 for (int i = 0; i < m_KeyBitOffsets.Length; i++)
                 {
@@ -75,15 +77,12 @@ namespace HIDrogen.Backend.Linux
 
                 int keyBits = NumberUtils.AlignToMultiple(supportedKeys.Length, 8);
                 // Align for axis values
-                int keyBytes = NumberUtils.AlignToMultiple(keyBits / 8, sizeof(int));
-                keyEndByte = (ushort)keyBytes;
+                m_KeyEndByte = NumberUtils.AlignToMultiple(keyBits / 8, sizeof(int));
             }
 
             // Determine abs byte offsets
-            int absEndByte = keyEndByte;
-            var supportedAbs = descriptor.supportedAbs;
-            if (supportedAbs.Length > 0)
             {
+                var supportedAbs = descriptor.supportedAbs;
                 m_AbsOffsets = new ushort[(int)input_abs_code.ABS_CNT];
                 for (int i = 0; i < m_AbsOffsets.Length; i++)
                 {
@@ -94,18 +93,15 @@ namespace HIDrogen.Backend.Linux
                 {
                     int abs = (int)supportedAbs[i];
                     int byteOffset = i * sizeof(int);
-                    m_AbsOffsets[abs] = (ushort)(keyEndByte + byteOffset);
+                    m_AbsOffsets[abs] = (ushort)(m_KeyEndByte + byteOffset);
                 }
 
-                int absBytes = supportedAbs.Length * sizeof(int);
-                absEndByte = keyEndByte + absBytes;
+                m_AbsEndByte = m_KeyEndByte + (supportedAbs.Length * sizeof(int));
             }
 
             // Determine rel byte offsets
-            // int relEndByte = absEndByte; // not necessary
-            var supportedRel = descriptor.supportedRel;
-            if (supportedRel.Length > 0)
             {
+                var supportedRel = descriptor.supportedRel;
                 m_RelOffsets = new ushort[(int)input_rel_code.REL_CNT];
                 for (int i = 0; i < m_RelOffsets.Length; i++)
                 {
@@ -116,15 +112,15 @@ namespace HIDrogen.Backend.Linux
                 {
                     int rel = (int)supportedRel[i];
                     int byteOffset = i * sizeof(int);
-                    m_RelOffsets[rel] = (ushort)(absEndByte + byteOffset);
+                    m_RelOffsets[rel] = (ushort)(m_AbsEndByte + byteOffset);
                 }
 
-                // Not necessary, rel axes don't have meaningful state
-                // int relBytes = supportedAbs.Length * sizeof(int);
-                // relEndByte = absEndByte + relBytes;
+                m_RelEndByte = m_AbsEndByte + (supportedRel.Length * sizeof(int));
             }
 
-            m_State = new NativeArray<byte>(absEndByte, Allocator.Persistent);
+            // State events will be accumulated and sent on SYN_REPORT
+            // Using delta-state events is incompatible with PlasticBand-Unity's state translation
+            m_State = new NativeArray<byte>(m_RelEndByte, Allocator.Persistent);
 
             m_ReadThread = new Thread(ReadThread) { IsBackground = true };
             m_ReadThread.Start();
@@ -185,7 +181,11 @@ namespace HIDrogen.Backend.Linux
                     }
 
                     // Keep lock on fd while processing events, to prevent racing with a concurrent call to SyncState
-                    ProcessEvents(eventBuffer, eventsRead);
+                    for (int i = 0; i < eventsRead; i++)
+                    {
+                        ref readonly var ev = ref eventBuffer[i];
+                        ProcessEvent(ev);
+                    }
                     errorCount = 0;
                 }
             }
@@ -246,63 +246,68 @@ namespace HIDrogen.Backend.Linux
             return -1;
         }
 
-        private unsafe void ProcessEvents(input_event* events, int eventCount)
+        private void ProcessEvent(in input_event ev)
         {
-            for (int i = 0; i < eventCount; i++)
+            // Evdev clients are required to ignore events until the next SYN_REPORT when an overrun occurs
+            if (m_EventDropped)
             {
-                ref readonly var ev = ref events[i];
-
-                // Evdev clients are required to ignore events when an overrun occurs
-                if (m_EventDropped &&
-                    (ev.type != input_event_type.EV_SYN ||
-                    ev.code != (int)input_sync_code.SYN_REPORT))
+                if (ev.type == input_event_type.EV_SYN && ev.code == (int)input_sync_code.SYN_REPORT)
                 {
-                    continue;
+                    m_EventDropped = false;
+                    SyncState();
                 }
+                return;
+            }
 
-                switch (ev.type)
+            switch (ev.type)
+            {
+                case input_event_type.EV_SYN:
                 {
-                    case input_event_type.EV_SYN:
-                    {
-                        var code = (input_sync_code)ev.code;
-                        if (code == input_sync_code.SYN_DROPPED)
-                        {
-                            // Ignore events until next SYN_REPORT
-                            m_EventDropped = true;
-                        }
-                        else if (code == input_sync_code.SYN_REPORT && m_EventDropped)
-                        {
-                            // Resync inputs
-                            m_EventDropped = false;
-                            SyncState();
-                        }
-                        break;
-                    }
-                    case input_event_type.EV_KEY:
-                    {
-                        SendKey((input_key_code)ev.code, ev.value);
-                        break;
-                    }
-                    case input_event_type.EV_ABS:
-                    {
-                        SendAbs((input_abs_code)ev.code, ev.value);
-                        break;
-                    }
-                    case input_event_type.EV_REL:
-                    {
-                        SendRel((input_rel_code)ev.code, ev.value);
-                        break;
-                    }
+                    HandleSyn((input_sync_code)ev.code);
+                    break;
+                }
+                case input_event_type.EV_KEY:
+                {
+                    ApplyKey((input_key_code)ev.code, ev.value);
+                    break;
+                }
+                case input_event_type.EV_ABS:
+                {
+                    ApplyAbs((input_abs_code)ev.code, ev.value);
+                    break;
+                }
+                case input_event_type.EV_REL:
+                {
+                    ApplyRel((input_rel_code)ev.code, ev.value);
+                    break;
                 }
             }
         }
 
-        private uint ApplyKey(input_key_code code, int value)
+        private void HandleSyn(input_sync_code code)
+        {
+            switch (code)
+            {
+                case input_sync_code.SYN_DROPPED:
+                {
+                    // Ignore events until next SYN_REPORT
+                    m_EventDropped = true;
+                    break;
+                }
+                case input_sync_code.SYN_REPORT:
+                {
+                    SendState();
+                    break;
+                }
+            }
+        }
+
+        private void ApplyKey(input_key_code code, int value)
         {
             // value == 2 is used to indicate key repeasts
             if (value != 0 && value != 1)
             {
-                return uint.MaxValue;
+                return;
             }
 
             ushort bitOffset = m_KeyBitOffsets[(int)code];
@@ -323,48 +328,39 @@ namespace HIDrogen.Backend.Linux
 
                 m_State[(int)byteOffset] = state;
             }
-
-            return byteOffset;
         }
 
-        private uint ApplyAbs(input_abs_code code, int value)
+        private void ApplyAbs(input_abs_code code, int value)
         {
             uint byteOffset = m_AbsOffsets[(int)code];
             if (byteOffset < m_State.Length)
             {
                 m_State.ReinterpretStore((int)byteOffset, value);
             }
-
-            return byteOffset;
         }
 
-        private unsafe void SendKey(input_key_code code, int value)
-        {
-            uint byteOffset = ApplyKey(code, value);
-            if (byteOffset < m_State.Length)
-            {
-                // Can't delta-state just a single bit, need to do the whole field
-                byte state = m_State[(int)byteOffset];
-                m_Backend.QueueDeltaStateEvent(m_Device, byteOffset, &state, sizeof(byte));
-            }
-        }
-
-        private unsafe void SendAbs(input_abs_code code, int value)
-        {
-            uint byteOffset = ApplyAbs(code, value);
-            if (byteOffset < m_State.Length)
-            {
-                m_Backend.QueueDeltaStateEvent(m_Device, byteOffset, &value, sizeof(int));
-            }
-        }
-
-        private unsafe void SendRel(input_rel_code code, int value)
+        private void ApplyRel(input_rel_code code, int value)
         {
             uint byteOffset = m_RelOffsets[(int)code];
             if (byteOffset < m_State.Length)
             {
-                m_Backend.QueueDeltaStateEvent(m_Device, byteOffset, &value, sizeof(int));
+                m_State.ReinterpretStore((int)byteOffset, value);
             }
+        }
+
+        private unsafe void SendState()
+        {
+            m_Backend.QueueStateEvent(
+                m_Device,
+                EvdevDefinitions.InputFormat,
+                m_State.GetUnsafeReadOnlyPtr(),
+                m_State.Length
+            );
+
+            // Clear rels, they don't have persistent state
+            int relsLength = m_RelEndByte - m_AbsEndByte;
+            var rels = m_State.GetSubArray(m_AbsEndByte, relsLength);
+            UnsafeUtility.MemClear(rels.GetUnsafePtr(), relsLength);
         }
 
         private unsafe void SyncState()
@@ -406,7 +402,7 @@ namespace HIDrogen.Backend.Linux
                 // }
             }
 
-            m_Backend.QueueStateEvent(m_Device, EvdevDefinitions.InputFormat, m_State.GetUnsafeReadOnlyPtr(), m_State.Length);
+            SendState();
         }
     }
 }
