@@ -210,23 +210,12 @@ namespace HIDrogen.Backend.Linux
 
         private static unsafe string GetDeviceString(fd fd, IoCode ioCode)
         {
-            ioCode.size = 0;
+            const int maxLength = 256;
 
-            int byteLength = Ioctl.ioctl(fd, ioCode, null);
-            if (byteLength < 0)
-            {
-                if (Posix.errno != Errno.ENOENT)
-                {
-                    Logging.LastError("Could not get evdev device string");
-                }
-                return null;
-            }
-
-            ioCode.size = byteLength;
-
-            var str = UTF8String.WithByteLength(byteLength);
+            var str = UTF8String.WithByteLength(maxLength);
             try
             {
+                ioCode.size = maxLength;
                 if (Ioctl.ioctl_unsafe(fd, ioCode, (void*)str.ToPtr()) < 0)
                 {
                     Logging.LastError("Could not get evdev device string");
