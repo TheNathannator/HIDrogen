@@ -128,6 +128,17 @@ namespace HIDrogen.Backend.Linux
 
             private void MakeKeyControl(ref InputControlLayout.Builder builder, ref int keyIndex)
             {
+                if (keyIndex + 3 < descriptor.supportedKeys.Length &&
+                    IsDpadButton(descriptor.supportedKeys[keyIndex + 0]) &&
+                    IsDpadButton(descriptor.supportedKeys[keyIndex + 1]) &&
+                    IsDpadButton(descriptor.supportedKeys[keyIndex + 2]) &&
+                    IsDpadButton(descriptor.supportedKeys[keyIndex + 3]))
+                {
+                    // Group consecutive d-pad bits into a d-pad control
+                    MakeDpadControl(ref builder, ref keyIndex);
+                    return;
+                }
+
                 var key = descriptor.supportedKeys[keyIndex];
 
                 builder.AddControl(ToCamelCase(key.ToString()))
@@ -139,6 +150,14 @@ namespace HIDrogen.Backend.Linux
 
             private void MakeAbsControl(ref InputControlLayout.Builder builder, ref int absIndex, int absStartByte)
             {
+                if (absIndex + 1 < descriptor.supportedAbs.Length &&
+                    IsHatPair(descriptor.supportedAbs[absIndex + 0], descriptor.supportedAbs[absIndex + 1]))
+                {
+                    // Group consecutive hat abs into a d-pad control
+                    MakeHatControl(ref builder, ref absIndex, absStartByte);
+                    return;
+                }
+
                 var abs = descriptor.supportedAbs[absIndex];
                 var absInfo = descriptor.absInfo[absIndex];
 
@@ -155,6 +174,80 @@ namespace HIDrogen.Backend.Linux
                 else
                 {
                     control.WithParameters($"minValue={absInfo.minimum},maxValue={absInfo.maximum},zeroPoint=0");
+                }
+            }
+
+            private void MakeDpadControl(ref InputControlLayout.Builder builder, ref int keyIndex)
+            {
+                string dpadRoot = "dpad";
+                builder.AddControl(dpadRoot)
+                    .WithLayout("Dpad")
+                    .WithFormat(InputStateBlock.FormatBit)
+                    .WithUsages(CommonUsages.Hatswitch)
+                    .WithByteOffset(GetKeyByteOffset(keyIndex))
+                    .WithBitOffset(GetKeyBitOffset(keyIndex))
+                    .WithSizeInBits(4);
+
+                for (int i = 0; i < 4; i++)
+                {
+                    var key = descriptor.supportedKeys[keyIndex + i];
+
+                    string name;
+                    switch (key)
+                    {
+                        case input_key_code.BTN_DPAD_UP: name = $"{dpadRoot}/up"; break;
+                        case input_key_code.BTN_DPAD_DOWN: name = $"{dpadRoot}/down"; break;
+                        case input_key_code.BTN_DPAD_LEFT: name = $"{dpadRoot}/left"; break;
+                        case input_key_code.BTN_DPAD_RIGHT: name = $"{dpadRoot}/right"; break;
+                        default: throw new Exception($"{key} is not a d-pad key");
+                    }
+
+                    builder.AddControl(name)
+                        .WithLayout("Button")
+                        .WithFormat(InputStateBlock.FormatInt)
+                        .WithByteOffset(GetKeyByteOffset(keyIndex + i))
+                        .WithBitOffset(GetKeyBitOffset(keyIndex + i))
+                        .WithSizeInBits(1);
+                }
+            }
+
+            private void MakeHatControl(ref InputControlLayout.Builder builder, ref int absIndex, int absStartByte)
+            {
+                int hatNum = GetHatNum(descriptor.supportedAbs[absIndex]);
+                if (hatNum < 0)
+                {
+                    throw new InvalidOperationException("Cannot make a hat control from a non-hat abs.");
+                }
+
+                string hatRoot = $"hat{hatNum + 1}";
+                builder.AddControl(hatRoot)
+                    .WithLayout("Dpad")
+                    .WithByteOffset(GetAbsByteOffset(absStartByte, absIndex))
+                    .WithSizeInBits(sizeof(int) * 2 * 8)
+                    .WithUsages(CommonUsages.Hatswitch);
+
+                for (int i = 0; i < 2; i++)
+                {
+                    var abs = descriptor.supportedAbs[absIndex];
+                    var absInfo = descriptor.absInfo[absIndex];
+
+                    // note: Y axis is inverted
+                    string positive = IsHatX(abs) ? "right" : "down";
+                    string negative = IsHatX(abs) ? "left" : "up";
+
+                    builder.AddControl($"{hatRoot}/{positive}")
+                        .WithLayout("DiscreteButton")
+                        .WithFormat(InputStateBlock.FormatInt)
+                        .WithByteOffset(GetAbsByteOffset(absStartByte, absIndex))
+                        .WithBitOffset(0)
+                        .WithParameters($"nullValue=0,minValue=-1,maxValue={absInfo.minimum}");
+
+                    builder.AddControl($"{hatRoot}/{negative}")
+                        .WithLayout("DiscreteButton")
+                        .WithFormat(InputStateBlock.FormatInt)
+                        .WithByteOffset(GetAbsByteOffset(absStartByte, absIndex))
+                        .WithBitOffset(0)
+                        .WithParameters($"nullValue=0,minValue=1,maxValue={absInfo.maximum}");
                 }
             }
 
@@ -195,6 +288,66 @@ namespace HIDrogen.Backend.Linux
                     abs == input_abs_code.ABS_HAT1Y ||
                     abs == input_abs_code.ABS_HAT2Y ||
                     abs == input_abs_code.ABS_HAT3Y;
+            }
+
+            private static bool IsDpadButton(input_key_code key)
+            {
+                return
+                    key == input_key_code.BTN_DPAD_UP ||
+                    key == input_key_code.BTN_DPAD_DOWN ||
+                    key == input_key_code.BTN_DPAD_LEFT ||
+                    key == input_key_code.BTN_DPAD_RIGHT;
+            }
+
+            private static bool IsHatPair(input_abs_code left, input_abs_code right)
+            {
+                return
+                    IsHatX(left) != IsHatX(right) &&
+                    IsHatY(left) != IsHatY(right) &&
+                    GetHatNum(left) == GetHatNum(right);
+            }
+
+            private static bool IsHatX(input_abs_code abs)
+            {
+                return
+                    abs == input_abs_code.ABS_HAT0X ||
+                    abs == input_abs_code.ABS_HAT1X ||
+                    abs == input_abs_code.ABS_HAT2X ||
+                    abs == input_abs_code.ABS_HAT3X;
+            }
+
+            private static bool IsHatY(input_abs_code abs)
+            {
+                return
+                    abs == input_abs_code.ABS_HAT0Y ||
+                    abs == input_abs_code.ABS_HAT1Y ||
+                    abs == input_abs_code.ABS_HAT2Y ||
+                    abs == input_abs_code.ABS_HAT3Y;
+            }
+
+            private static int GetHatNum(input_abs_code abs)
+            {
+                if (abs == input_abs_code.ABS_HAT0X || abs == input_abs_code.ABS_HAT0Y)
+                {
+                    return 0;
+                }
+
+                if (abs == input_abs_code.ABS_HAT1X || abs == input_abs_code.ABS_HAT1Y)
+                {
+                    return 1;
+                }
+
+                if (abs == input_abs_code.ABS_HAT2X || abs == input_abs_code.ABS_HAT2Y)
+                {
+                    return 2;
+                }
+
+                if (abs == input_abs_code.ABS_HAT3X || abs == input_abs_code.ABS_HAT3Y)
+                {
+                    return 3;
+                }
+
+                return -1;
             }
         }
 
