@@ -19,8 +19,6 @@ namespace HIDrogen.Backend.Linux
             InputSystem.onFindLayoutForDevice += FindDeviceLayout;
         }
 
-        private static readonly StringBuilder s_StringBuilder = new StringBuilder();
-
         internal static string FindDeviceLayout(
             ref InputDeviceDescription description,
             string matchedLayout,
@@ -126,6 +124,17 @@ namespace HIDrogen.Backend.Linux
                 return builder.Build();
             }
 
+            private static readonly (string prefix, string suffix)[] s_KeyNameFixes =
+            {
+                ("KEY_", "_KEY"),
+                ("BTN_", "_BUTTON"),
+            };
+
+            private static readonly (string prefix, string suffix)[] s_AbsNameFixes =
+            {
+                ("ABS_", ""),
+            };
+
             private void MakeKeyControl(ref InputControlLayout.Builder builder, ref int keyIndex)
             {
                 if (keyIndex + 3 < descriptor.supportedKeys.Length &&
@@ -142,6 +151,7 @@ namespace HIDrogen.Backend.Linux
                 var key = descriptor.supportedKeys[keyIndex];
 
                 builder.AddControl(ToCamelCase(key.ToString()))
+                    .WithDisplayName(ToDisplayName(key.ToString(), s_KeyNameFixes))
                     .WithLayout("Button")
                     .WithFormat(InputStateBlock.FormatBit)
                     .WithByteOffset(GetKeyByteOffset(keyIndex))
@@ -162,6 +172,7 @@ namespace HIDrogen.Backend.Linux
                 var absInfo = descriptor.absInfo[absIndex];
 
                 var control = builder.AddControl(ToCamelCase(abs.ToString()))
+                    .WithDisplayName(ToDisplayName(abs.ToString(), s_AbsNameFixes))
                     .WithLayout("EvdevAxis")
                     .WithFormat(InputStateBlock.FormatInt)
                     .WithByteOffset(GetAbsByteOffset(absStartByte, absIndex))
@@ -183,6 +194,7 @@ namespace HIDrogen.Backend.Linux
 
                 string dpadRoot = "dpad";
                 builder.AddControl(dpadRoot)
+                    .WithDisplayName("D-pad")
                     .WithLayout("Dpad")
                     .WithFormat(InputStateBlock.FormatBit)
                     .WithUsages(CommonUsages.Hatswitch)
@@ -227,6 +239,7 @@ namespace HIDrogen.Backend.Linux
 
                 string hatRoot = $"hat{hatNum + 1}";
                 builder.AddControl(hatRoot)
+                    .WithDisplayName($"Hat {hatNum + 1}")
                     .WithLayout("Dpad")
                     .WithByteOffset(GetAbsByteOffset(absStartByte, absIndex))
                     .WithSizeInBits(absCount * sizeof(int) * 8)
@@ -359,6 +372,8 @@ namespace HIDrogen.Backend.Linux
             }
         }
 
+        private static readonly StringBuilder s_StringBuilder = new StringBuilder();
+
         private static string SanitizeName(string name)
         {
             s_StringBuilder.Clear();
@@ -390,6 +405,46 @@ namespace HIDrogen.Backend.Linux
                 {
                     upper = true;
                     s_StringBuilder.Append(c);
+                }
+                else if (char.IsLetter(c))
+                {
+                    s_StringBuilder.Append(upper ? char.ToUpper(c) : char.ToLower(c));
+                    upper = false;
+                }
+                else
+                {
+                    s_StringBuilder.Append(c);
+                }
+            }
+
+            return s_StringBuilder.ToString();
+        }
+
+        private static string ToDisplayName(string name, (string prefix, string suffix)[] fixes)
+        {
+            foreach (var (prefix, suffix) in fixes)
+            {
+                if (name.StartsWith(prefix))
+                {
+                    name = name.Substring(prefix.Length) + suffix;
+                }
+            }
+
+            s_StringBuilder.Clear();
+
+            bool upper = true;
+            foreach (char c in name)
+            {
+                if (c == '_')
+                {
+                    upper = true;
+                    s_StringBuilder.Append(' ');
+                }
+                else if (char.IsNumber(c))
+                {
+                    upper = true;
+                    s_StringBuilder.Append(c);
+                    s_StringBuilder.Append(' ');
                 }
                 else if (char.IsLetter(c))
                 {
