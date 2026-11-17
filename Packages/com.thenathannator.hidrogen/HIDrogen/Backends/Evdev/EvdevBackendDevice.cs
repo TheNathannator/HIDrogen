@@ -155,7 +155,10 @@ namespace HIDrogen.Backend.Linux
 
         private unsafe void ReadThread()
         {
-            SyncState();
+            lock (m_Fd)
+            {
+                SyncStateLocked();
+            }
 
             const int eventBufferCount = 16;
             input_event* eventBuffer = stackalloc input_event[eventBufferCount];
@@ -184,7 +187,7 @@ namespace HIDrogen.Backend.Linux
                     for (int i = 0; i < eventsRead; i++)
                     {
                         ref readonly var ev = ref eventBuffer[i];
-                        ProcessEvent(ev);
+                        ProcessEventLocked(ev);
                     }
                     errorCount = 0;
                 }
@@ -246,7 +249,7 @@ namespace HIDrogen.Backend.Linux
             return -1;
         }
 
-        private void ProcessEvent(in input_event ev)
+        private void ProcessEventLocked(in input_event ev)
         {
             // Evdev clients are required to ignore events until the next SYN_REPORT when an overrun occurs
             if (m_EventDropped)
@@ -254,7 +257,7 @@ namespace HIDrogen.Backend.Linux
                 if (ev.type == input_event_type.EV_SYN && ev.code == (int)input_sync_code.SYN_REPORT)
                 {
                     m_EventDropped = false;
-                    SyncState();
+                    SyncStateLocked();
                 }
                 return;
             }
@@ -263,28 +266,28 @@ namespace HIDrogen.Backend.Linux
             {
                 case input_event_type.EV_SYN:
                 {
-                    HandleSyn((input_sync_code)ev.code);
+                    HandleSynLocked((input_sync_code)ev.code);
                     break;
                 }
                 case input_event_type.EV_KEY:
                 {
-                    ApplyKey((input_key_code)ev.code, ev.value);
+                    ApplyKeyLocked((input_key_code)ev.code, ev.value);
                     break;
                 }
                 case input_event_type.EV_ABS:
                 {
-                    ApplyAbs((input_abs_code)ev.code, ev.value);
+                    ApplyAbsLocked((input_abs_code)ev.code, ev.value);
                     break;
                 }
                 case input_event_type.EV_REL:
                 {
-                    ApplyRel((input_rel_code)ev.code, ev.value);
+                    ApplyRelLocked((input_rel_code)ev.code, ev.value);
                     break;
                 }
             }
         }
 
-        private void HandleSyn(input_sync_code code)
+        private void HandleSynLocked(input_sync_code code)
         {
             switch (code)
             {
@@ -296,13 +299,13 @@ namespace HIDrogen.Backend.Linux
                 }
                 case input_sync_code.SYN_REPORT:
                 {
-                    SendState();
+                    SendStateLocked();
                     break;
                 }
             }
         }
 
-        private void ApplyKey(input_key_code code, int value)
+        private void ApplyKeyLocked(input_key_code code, int value)
         {
             // value == 2 is used to indicate key repeasts
             if (value != 0 && value != 1)
@@ -330,7 +333,7 @@ namespace HIDrogen.Backend.Linux
             }
         }
 
-        private void ApplyAbs(input_abs_code code, int value)
+        private void ApplyAbsLocked(input_abs_code code, int value)
         {
             uint byteOffset = m_AbsOffsets[(int)code];
             if (byteOffset < m_State.Length)
@@ -339,7 +342,7 @@ namespace HIDrogen.Backend.Linux
             }
         }
 
-        private void ApplyRel(input_rel_code code, int value)
+        private void ApplyRelLocked(input_rel_code code, int value)
         {
             uint byteOffset = m_RelOffsets[(int)code];
             if (byteOffset < m_State.Length)
@@ -348,7 +351,7 @@ namespace HIDrogen.Backend.Linux
             }
         }
 
-        private unsafe void SendState()
+        private unsafe void SendStateLocked()
         {
             m_Backend.QueueStateEvent(
                 m_Device,
@@ -363,46 +366,43 @@ namespace HIDrogen.Backend.Linux
             UnsafeUtility.MemClear(rels.GetUnsafePtr(), relsLength);
         }
 
-        private unsafe void SyncState()
+        private unsafe void SyncStateLocked()
         {
-            lock (m_Fd)
+            UnsafeUtility.MemClear(m_State.GetUnsafePtr(), m_State.Length);
+
+            // The entire keymask must be grabbed all at once
+            var keyMaskPtr = stackalloc UIntPtr[KEY_MAX_LONGS];
+            var keyMask = new EvdevBits<input_key_code>(keyMaskPtr, KEY_MAX_LONGS);
+            if (keyMask.Populate(m_Fd, EVIOCGKEY(keyMask.count)) < 0)
             {
-                UnsafeUtility.MemClear(m_State.GetUnsafePtr(), m_State.Length);
-
-                // The entire keymask must be grabbed all at once
-                var keyMaskPtr = stackalloc UIntPtr[KEY_MAX_LONGS];
-                var keyMask = new EvdevBits<input_key_code>(keyMaskPtr, KEY_MAX_LONGS);
-                if (keyMask.Populate(m_Fd, EVIOCGKEY(keyMask.count)) < 0)
-                {
-                    Logging.LastError("Failed to sync evdev key mask");
-                }
-                else for (int i = 0; i < m_Descriptor.supportedKeys.Length; i++)
-                {
-                    var keyCode = m_Descriptor.supportedKeys[i];
-                    ApplyKey(keyCode, keyMask.TestBit(keyCode) ? 1 : 0);
-                }
-
-                for (int i = 0; i < m_Descriptor.supportedAbs.Length; i++)
-                {
-                    var absCode = m_Descriptor.supportedAbs[i];
-
-                    var abs = new input_absinfo();
-                    if (Ioctl.ioctl(m_Fd, EVIOCGABS(absCode), ref abs) < 0)
-                    {
-                        Logging.LastError("Failed to sync evdev abs value");
-                        abs.value = 0;
-                    }
-
-                    ApplyAbs(absCode, abs.value);
-                }
-
-                // Relative axes should not be synced; attempting to do so will just make them jitter briefly
-                // for (int i = 0; i < m_Descriptor.supportedRel.Length; i++)
-                // {
-                // }
+                Logging.LastError("Failed to sync evdev key mask");
+            }
+            else for (int i = 0; i < m_Descriptor.supportedKeys.Length; i++)
+            {
+                var keyCode = m_Descriptor.supportedKeys[i];
+                ApplyKeyLocked(keyCode, keyMask.TestBit(keyCode) ? 1 : 0);
             }
 
-            SendState();
+            for (int i = 0; i < m_Descriptor.supportedAbs.Length; i++)
+            {
+                var absCode = m_Descriptor.supportedAbs[i];
+
+                var abs = new input_absinfo();
+                if (Ioctl.ioctl(m_Fd, EVIOCGABS(absCode), ref abs) < 0)
+                {
+                    Logging.LastError("Failed to sync evdev abs value");
+                    abs.value = 0;
+                }
+
+                ApplyAbsLocked(absCode, abs.value);
+            }
+
+            // Relative axes should not be synced; attempting to do so will just make them jitter briefly
+            // for (int i = 0; i < m_Descriptor.supportedRel.Length; i++)
+            // {
+            // }
+
+            SendStateLocked();
         }
     }
 }
