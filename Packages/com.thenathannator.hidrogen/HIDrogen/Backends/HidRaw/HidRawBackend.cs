@@ -548,6 +548,12 @@ namespace HIDrogen.Backend.Linux
             collectionDescriptor.outputReportSize = NumberUtils.AlignToMultiple(outputSizeBits, 8) / 8;
             collectionDescriptor.featureReportSize = NumberUtils.AlignToMultiple(featureSizeBits, 8) / 8;
 
+            // Reject non-input devices
+            if (collectionDescriptor.inputReportSize < 1)
+            {
+                return false;
+            }
+
             return true;
         }
     }
