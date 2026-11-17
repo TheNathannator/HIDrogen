@@ -12,6 +12,11 @@ namespace HIDrogen.Services.Linux
     /// </summary>
     internal class LinuxShim : ICustomInputService
     {
+        private const string kLinuxInterface = "Linux";
+        private const string kSDLInterface = "SDL";
+
+        private Action<int, string> m_RealNativeDeviceDiscovered;
+
         public void Start()
         {
             // Shim native device discovery, as shimming their descriptions is not enough
@@ -33,7 +38,8 @@ namespace HIDrogen.Services.Linux
 
             object inputManager = inputManagerField.GetValue(null);
             object inputRuntime = inputRuntimeField.GetValue(inputManager);
-            onDeviceDiscoveredProperty.SetValue(inputRuntime, null);
+            m_RealNativeDeviceDiscovered = (Action<int, string>)onDeviceDiscoveredProperty.GetValue(inputRuntime);
+            onDeviceDiscoveredProperty.SetValue(inputRuntime, (Action<int, string>)OnNativeDeviceDiscovered);
 
             // Just to be thorough, also remove SDL layout finder
             var sdlLayoutBuilder = typeof(InputSystem).Assembly.GetType("UnityEngine.InputSystem.Linux.SDLLayoutBuilder");
@@ -86,13 +92,21 @@ namespace HIDrogen.Services.Linux
         {
         }
 
+        private void OnNativeDeviceDiscovered(int deviceId, string deviceDescriptor)
+        {
+            var description = InputDeviceDescription.FromJson(deviceDescriptor);
+            if (!IsShimmed(description))
+            {
+                m_RealNativeDeviceDiscovered?.Invoke(deviceId, deviceDescriptor);
+            }
+        }
+
         // Last-ditch efforts to ensure these devices don't show up
 
         private static string OnFindLayoutForDevice(ref InputDeviceDescription description, string matchedLayout,
             InputDeviceExecuteCommandDelegate executeCommandDelegate)
         {
-            if (description.interfaceName == "Linux" ||
-                description.interfaceName == "SDL")
+            if (IsShimmed(description))
             {
                 // NOTE: While this does work, it causes an exception internally,
                 // which produces log noise and may potentially affect some things adversely.
@@ -108,9 +122,15 @@ namespace HIDrogen.Services.Linux
             RemoveIfShimmed(device);
         }
 
+        private static bool IsShimmed(InputDeviceDescription description)
+        {
+            return description.interfaceName == kLinuxInterface ||
+                description.interfaceName == kSDLInterface;
+        }
+
         private static void RemoveIfShimmed(InputDevice device)
         {
-            if (device != null && device.native)
+            if (device != null && IsShimmed(device.description))
             {
                 Logging.Verbose($"Removing disallowed native device {device}");
                 InputSystem.RemoveDevice(device);
