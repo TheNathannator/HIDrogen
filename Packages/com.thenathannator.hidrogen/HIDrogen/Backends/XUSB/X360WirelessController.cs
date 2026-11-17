@@ -143,8 +143,11 @@ namespace HIDrogen.Backend.USB
         {
             m_ThreadStop?.Set();
 
-            m_Thread?.Join();
-            m_Thread = null;
+            if (m_Thread != null && m_Thread.IsAlive)
+            {
+                m_Thread?.Join();
+                m_Thread = null;
+            }
 
             m_ThreadStop?.Dispose();
             m_ThreadStop = null;

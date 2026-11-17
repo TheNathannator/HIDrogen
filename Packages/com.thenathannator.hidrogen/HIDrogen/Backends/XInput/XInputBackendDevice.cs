@@ -32,11 +32,16 @@ namespace HIDrogen.Backend.Windows
         public void Dispose()
         {
             m_ThreadStop?.Set();
-            m_ReadThread?.Join();
-            m_ReadThread = null;
+
+            if (m_ReadThread != null && m_ReadThread.IsAlive)
+            {
+                m_ReadThread?.Join();
+                m_ReadThread = null;
+            }
 
             m_ThreadStop?.Dispose();
             m_ThreadStop = null;
+
         }
 
         private unsafe void ReadThread()

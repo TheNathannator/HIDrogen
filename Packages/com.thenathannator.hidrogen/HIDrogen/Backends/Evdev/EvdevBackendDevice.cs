@@ -134,7 +134,7 @@ namespace HIDrogen.Backend.Linux
         {
             m_ThreadStop?.Set();
 
-            if (m_ReadThread.IsAlive)
+            if (m_ReadThread != null && m_ReadThread.IsAlive)
             {
                 m_ReadThread?.Join();
                 m_ReadThread = null;
