@@ -229,7 +229,7 @@ namespace HIDrogen.Backend.Linux
         //         }
 
         //         // paranoia clamp
-        //         descBuffer.size = Math.Min(descBuffer.size, HID_MAX_DESCRIPTOR_SIZE);
+        //         descBuffer.size = Math.Min(descBuffer.size, hidraw_report_descriptor.MAX_DESCRIPTOR_SIZE);
 
         //         if (Ioctl.ioctl(m_Fd, HIDIOCGRDESC, ref descBuffer) < 0)
         //         {

@@ -47,8 +47,9 @@ namespace HIDrogen.Backend.Linux
         public static readonly FourCC OutputFormat = new FourCC('H', 'I', 'D', 'O');
 
         // Get built-in HID descriptor parsing so we don't have to implement our own
-        private delegate bool HIDParser_ParseReportDescriptor(
-            byte[] buffer,
+        private unsafe delegate bool HIDParser_ParseReportDescriptor(
+            byte* bufferPtr,
+            int bufferLength,
             ref HID.HIDDeviceDescriptor deviceDescriptor
         );
 
@@ -60,7 +61,12 @@ namespace HIDrogen.Backend.Linux
                 "ParseReportDescriptor",
                 BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
                 null,
-                new Type[] { typeof(byte).MakeArrayType(), typeof(HID.HIDDeviceDescriptor).MakeByRefType() },
+                new Type[]
+                {
+                    typeof(byte).MakePointerType(),
+                    typeof(int),
+                    typeof(HID.HIDDeviceDescriptor).MakeByRefType()
+                },
                 null
             )
             .CreateDelegate(typeof(HIDParser_ParseReportDescriptor));
@@ -378,7 +384,7 @@ namespace HIDrogen.Backend.Linux
             return true;
         }
 
-        private static bool ParseReportDescriptor(
+        private static unsafe bool ParseReportDescriptor(
             udev_device hidraw,
             out HID.HIDDeviceDescriptor descriptor
         )
@@ -389,15 +395,31 @@ namespace HIDrogen.Backend.Linux
             {
                 // Read from sysfs to avoid the need to open the hidraw device
                 string descriptorPath = Path.Combine(hidraw.get_syspath().ToString(), "device", "report_descriptor");
-                var descriptorBytes = File.ReadAllBytes(descriptorPath);
-                return s_ParseReportDescriptor(descriptorBytes, ref descriptor);
+
+                using (var fd = Fcntl.open(descriptorPath, Fcntl.O_RDONLY | Fcntl.O_CLOEXEC))
+                {
+                    if (fd == null || fd.IsInvalid)
+                    {
+                        Logging.LastError("Failed to open report descriptor file");
+                        return false;
+                    }
+
+                    var descriptorBytes = new hidraw_report_descriptor();
+                    int bytesRead = Fcntl.read(fd, descriptorBytes.value, hidraw_report_descriptor.MAX_DESCRIPTOR_SIZE);
+                    if (bytesRead < 0)
+                    {
+                        Logging.LastError("Failed to read report descriptor file");
+                        return false;
+                    }
+
+                    return s_ParseReportDescriptor(descriptorBytes.value, bytesRead, ref descriptor);
+                }
             }
             catch (Exception ex)
             {
                 Logging.Exception("Failed to parse report descriptor", ex);
+                return false;
             }
-
-            return false;
         }
 
         private static bool SplitCollection(

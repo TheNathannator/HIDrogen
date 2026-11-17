@@ -9,8 +9,10 @@ namespace HIDrogen.Imports.Linux
     [StructLayout(LayoutKind.Sequential)]
     internal struct hidraw_report_descriptor
     {
+        public const int MAX_DESCRIPTOR_SIZE = 4096;
+
         public int size;
-        public unsafe fixed byte value[HidRaw.HID_MAX_DESCRIPTOR_SIZE];
+        public unsafe fixed byte value[MAX_DESCRIPTOR_SIZE];
     }
 
     struct hidraw_devinfo
@@ -22,8 +24,6 @@ namespace HIDrogen.Imports.Linux
 
     internal static class HidRaw
     {
-        public const int HID_MAX_DESCRIPTOR_SIZE = 4096;
-
         public static readonly IoCode<int> HIDIOCGRDESCSIZE = IOR<int>('H', 0x01);
         public static readonly IoCode<hidraw_report_descriptor> HIDIOCGRDESC = IOR<hidraw_report_descriptor>('H', 0x02);
         public static readonly IoCode<hidraw_devinfo> HIDIOCGRAWINFO = IOR<hidraw_devinfo>('H', 0x03);
