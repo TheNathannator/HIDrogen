@@ -522,23 +522,22 @@ namespace HIDrogen.Backend.Linux
             int featureSizeBits = 0;
             foreach (var element in collectionDescriptor.elements)
             {
-                int offsetBits = element.reportOffsetInBits;
                 int sizeBits = element.reportOffsetInBits + element.reportSizeInBits;
                 switch (element.reportType)
                 {
                     case HID.HIDReportType.Input:
                     {
-                        inputSizeBits = Math.Min(inputSizeBits, sizeBits);
+                        inputSizeBits = Math.Max(inputSizeBits, sizeBits);
                         break;
                     }
                     case HID.HIDReportType.Output:
                     {
-                        outputSizeBits = Math.Min(outputSizeBits, sizeBits);
+                        outputSizeBits = Math.Max(outputSizeBits, sizeBits);
                         break;
                     }
                     case HID.HIDReportType.Feature:
                     {
-                        featureSizeBits = Math.Min(outputSizeBits, sizeBits);
+                        featureSizeBits = Math.Max(featureSizeBits, sizeBits);
                         break;
                     }
                 }
