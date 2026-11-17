@@ -18,7 +18,7 @@ namespace HIDrogen.Backend.Linux
 {
     using static Evdev;
 
-    internal partial class EvdevBackend : CustomInputBackend<EvdevDevice, EvdevBackend.AddContext>,
+    internal partial class EvdevBackend : CustomInputBackend<EvdevBackendDevice, EvdevBackend.AddContext>,
         IUdevBackend
     {
         private struct DeviceInfo
@@ -41,7 +41,7 @@ namespace HIDrogen.Backend.Linux
             }
         }
 
-        private readonly Dictionary<string, EvdevDevice> m_DevicesByPath = new Dictionary<string, EvdevDevice>();
+        private readonly Dictionary<string, EvdevBackendDevice> m_DevicesByPath = new Dictionary<string, EvdevBackendDevice>();
 
         protected override void OnDispose()
         {
@@ -58,7 +58,7 @@ namespace HIDrogen.Backend.Linux
             m_DevicesByPath.Clear();
         }
 
-        protected override EvdevDevice OnDeviceAdded(InputDevice device, AddContext context)
+        protected override EvdevBackendDevice OnDeviceAdded(InputDevice device, AddContext context)
         {
             var fd = Fcntl.open(context.path, Fcntl.O_RDONLY | Fcntl.O_CLOEXEC);
             if (fd == null || fd.IsInvalid)
@@ -66,12 +66,12 @@ namespace HIDrogen.Backend.Linux
                 throw new Exception(Logging.MakeLastErrorMessage("Failed to open evdev device"));
             }
 
-            var backendDevice = new EvdevDevice(this, device, context.descriptor, context.path, fd);
+            var backendDevice = new EvdevBackendDevice(this, device, context.descriptor, context.path, fd);
             m_DevicesByPath.Add(context.path, backendDevice);
             return backendDevice;
         }
 
-        protected override void OnDeviceRemoved(EvdevDevice device)
+        protected override void OnDeviceRemoved(EvdevBackendDevice device)
         {
             device.Dispose();
         }

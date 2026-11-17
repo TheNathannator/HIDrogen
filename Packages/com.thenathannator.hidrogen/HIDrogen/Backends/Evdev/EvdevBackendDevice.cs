@@ -12,7 +12,7 @@ namespace HIDrogen.Backend.Linux
 {
     using static Evdev;
 
-    internal class EvdevDevice : IDisposable
+    internal class EvdevBackendDevice : IDisposable
     {
         private const int kMaxReadErrors = 3;
         private const int kMaxReadRetries = 3;
@@ -42,7 +42,7 @@ namespace HIDrogen.Backend.Linux
         public string path => m_Path;
         public InputDevice device => m_Device;
 
-        public EvdevDevice(
+        public EvdevBackendDevice(
             EvdevBackend backend,
             InputDevice device,
             EvdevDescriptor descriptor,
