@@ -133,7 +133,7 @@ namespace HIDrogen.Backend.Linux
                 }
 
                 var errno = Posix.errno;
-                if (errno == Errno.ENOENT)
+                if (errno == Errno.ENOENT || errno == Errno.ENODEV)
                 {
                     // Device has been disconnected
                     errorCount = kMaxReadErrors;
