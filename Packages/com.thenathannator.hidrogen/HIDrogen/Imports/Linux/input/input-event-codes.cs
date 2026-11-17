@@ -306,7 +306,6 @@ namespace HIDrogen.Imports.Linux
 
         KEY_MIC_MUTE = 248,
 
-        BTN_MISC = 0x100,
         BTN_0 = 0x100,
         BTN_1 = 0x101,
         BTN_2 = 0x102,
@@ -318,7 +317,6 @@ namespace HIDrogen.Imports.Linux
         BTN_8 = 0x108,
         BTN_9 = 0x109,
 
-        BTN_MOUSE = 0x110,
         BTN_LEFT = 0x110,
         BTN_RIGHT = 0x111,
         BTN_MIDDLE = 0x112,
@@ -328,7 +326,6 @@ namespace HIDrogen.Imports.Linux
         BTN_BACK = 0x116,
         BTN_TASK = 0x117,
 
-        BTN_JOYSTICK = 0x120,
         BTN_TRIGGER = 0x120,
         BTN_THUMB = 0x121,
         BTN_THUMB_2 = 0x122,
@@ -359,7 +356,6 @@ namespace HIDrogen.Imports.Linux
         BTN_THUMB_L = 0x13d,
         BTN_THUMB_R = 0x13e,
 
-        BTN_DIGI = 0x140,
         BTN_TOOL_PEN = 0x140,
         BTN_TOOL_RUBBER = 0x141,
         BTN_TOOL_BRUSH = 0x142,
@@ -377,7 +373,6 @@ namespace HIDrogen.Imports.Linux
         BTN_TOOL_TRIPLE_TAP = 0x14e,
         BTN_TOOL_QUAD_TAP = 0x14f,
 
-        BTN_WHEEL = 0x150,
         BTN_GEAR_DOWN = 0x150,
         BTN_GEAR_UP = 0x151,
 
@@ -652,7 +647,6 @@ namespace HIDrogen.Imports.Linux
         KEY_KBD_LCD_MENU4 = 0x2bb,
         KEY_KBD_LCD_MENU5 = 0x2bc,
 
-        BTN_TRIGGER_HAPPY = 0x2c0,
         BTN_TRIGGER_HAPPY1 = 0x2c0,
         BTN_TRIGGER_HAPPY2 = 0x2c1,
         BTN_TRIGGER_HAPPY3 = 0x2c2,
