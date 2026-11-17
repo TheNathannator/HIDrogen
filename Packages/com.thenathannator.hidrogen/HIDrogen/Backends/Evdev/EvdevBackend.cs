@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using HIDrogen.Imports.Linux;
 using HIDrogen.Imports.Posix;
 using HIDrogen.LowLevel;
@@ -33,6 +34,9 @@ namespace HIDrogen.Backend.Linux
             public ushort vendorId;
             public ushort productId;
             public ushort revision;
+
+            public ushort santrollerSubtype;
+            public ushort xpadSubtype;
         }
 
         internal struct AddContext : IDisposable
@@ -229,6 +233,101 @@ namespace HIDrogen.Backend.Linux
 
             deviceInfo.name = GetDeviceString(fd, EVIOCGNAME(0));
             deviceInfo.serial = GetDeviceString(fd, EVIOCGUNIQ(0));
+            bool xpad = evdev.get_property_value("ID_USB_DRIVER").ToString() == "xpad";
+            bool santroller2 = deviceInfo.vendorId == 0x1209 && deviceInfo.productId == 0x2883;
+
+            // If the device is neither xpad nor santroller2, we don't need to collect further info.
+            if (!xpad && !santroller2)
+                return true;
+
+            if (santroller2)
+            {
+                if (evdev.get_property_value("ID_BUS").ToString() == "bluetooth") {
+                    deviceInfo.santrollerSubtype = (byte)(deviceInfo.revision >> 8);
+                    return true;
+                }
+            }
+
+            // usb_interface: identifies which interface this evdev node belongs to
+            var usbInterface = evdev.get_parent_with_subsystem_devtype(Udev.SubsystemUsb, "usb_interface");
+            if (usbInterface == null || usbInterface.IsInvalid)
+                return true;
+
+            // bInterfaceNumber is formatted as hex, bAlternateSetting as space-padded decimal
+            if (!int.TryParse(usbInterface.get_sysattr_value("bInterfaceNumber").ToString()?.Trim(),
+                    NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int interfaceNumber) ||
+                !int.TryParse(usbInterface.get_sysattr_value("bAlternateSetting").ToString()?.Trim(),
+                    NumberStyles.Integer, CultureInfo.InvariantCulture, out int altSetting))
+            {
+                return true;
+            }
+            if (santroller2)
+            {
+                deviceInfo.name = usbInterface.get_sysattr_value("interface").ToString();
+            }
+
+            var usbDevice = evdev.get_parent_with_subsystem_devtype(Udev.SubsystemUsb, "usb_device");
+            if (usbDevice == null || usbDevice.IsInvalid)
+                return true;
+
+            string devicePath = usbDevice.get_syspath().ToString();
+            if (devicePath == null)
+                return true;
+            using (var fddesc = Fcntl.open(Path.Combine(devicePath, "descriptors"), Fcntl.O_RDONLY | Fcntl.O_CLOEXEC))
+            {
+                if (fddesc == null || fddesc.IsInvalid)
+                {
+                    Logging.LastError($"Failed to open USB descriptors for {devicePath}");
+                    return true;
+                }
+
+                const byte USB_DT_INTERFACE = 0x04;
+                bool foundInterface = false;
+
+                // bLength is a single byte, so no descriptor can be larger than this
+                var buffer = new byte[byte.MaxValue];
+
+                // Read one descriptor at a time: the 2-byte header (bLength, bDescriptorType), then the body.
+                while (Fcntl.read(fddesc, buffer, 0, 2) == 2)
+                {
+                    int length = buffer[0];
+                    byte type = buffer[1];
+
+                    // Malformed descriptor; bail instead of looping forever
+                    if (length < 2)
+                        break;
+
+                    int bodyLength = length - 2;
+                    if (bodyLength > 0 && Fcntl.read(fddesc, buffer, 2, bodyLength) != bodyLength)
+                        break;
+
+                    if (type == USB_DT_INTERFACE)
+                    {
+                        // bInterfaceNumber at offset 2, bAlternateSetting at offset 3
+                        foundInterface = length >= 4 &&
+                            buffer[2] == interfaceNumber &&
+                            buffer[3] == altSetting;
+                    }
+                    else if (foundInterface)
+                    {
+                        // XInput vendor descriptor: subtype at offset 4
+                        if (xpad && type == 0x21 && length >= 5)
+                        {
+                            deviceInfo.xpadSubtype = buffer[4];
+                            break;
+                        }
+
+                        // Santroller vendor descriptor: "SANT" at offset 2, subtype at offset 7
+                        if (santroller2 && type == 0xFF && length >= 8 &&
+                            buffer[2] == 'S' && buffer[3] == 'A' &&
+                            buffer[4] == 'N' && buffer[5] == 'T')
+                        {
+                            deviceInfo.santrollerSubtype = buffer[7];
+                            break;
+                        }
+                    }
+                }
+            }
 
             // Then query udev for any fixups or missing properties
 
@@ -297,6 +396,8 @@ namespace HIDrogen.Backend.Linux
                 busType = deviceInfo.busType,
                 vendorId = deviceInfo.vendorId,
                 productId = deviceInfo.productId,
+                xpadSubtype = deviceInfo.xpadSubtype,
+                santrollerSubtype = deviceInfo.santrollerSubtype,
 
                 supportedKeys = Array.Empty<input_key_code>(),
                 supportedAbs = Array.Empty<input_abs_code>(),

@@ -14,6 +14,8 @@ namespace HIDrogen.Backend.Linux
         public int vendorId;
         public int productId;
 
+        public int xpadSubtype;
+        public int santrollerSubtype;
         public input_key_code[] supportedKeys;
         public input_abs_code[] supportedAbs;
         public input_rel_code[] supportedRel;
