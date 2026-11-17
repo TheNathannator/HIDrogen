@@ -218,7 +218,10 @@ namespace HIDrogen.Backend.Linux
                 ioCode.size = maxLength;
                 if (Ioctl.ioctl_unsafe(fd, ioCode, (void*)str.ToPtr()) < 0)
                 {
-                    Logging.LastError("Could not get evdev device string");
+                    if (Posix.errno != Errno.ENOENT)
+                    {
+                        Logging.LastError("Could not get evdev device string");
+                    }
                     return null;
                 }
 
