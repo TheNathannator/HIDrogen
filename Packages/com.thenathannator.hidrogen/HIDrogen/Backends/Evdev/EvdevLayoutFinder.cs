@@ -93,7 +93,7 @@ namespace HIDrogen.Backend.Linux
 
             public InputControlLayout Build()
             {
-                var builder = new InputControlLayout.Builder
+                var builder = new InputControlLayout.Builder()
                 {
                     name = name,
                     displayName = displayName,
@@ -106,44 +106,62 @@ namespace HIDrogen.Backend.Linux
                 // - Abs
                 // - Rel
 
-                for (int i = 0; i < descriptor.supportedKeys.Length; i++)
+                for (int keyIndex = 0; keyIndex < descriptor.supportedKeys.Length; keyIndex++)
                 {
-                    var key = descriptor.supportedKeys[i];
-                    int byteOffset = i / 8;
-                    int bitOffset = i % 8;
-
-                    string name = ToCamelCase(key.ToString());
-
-                    builder.AddControl(name)
-                        .WithLayout("Button")
-                        .WithByteOffset((uint)byteOffset)
-                        .WithBitOffset((uint)bitOffset)
-                        .WithFormat(InputStateBlock.FormatBit);
+                    MakeKeyControl(ref builder, ref keyIndex);
                 }
 
                 int keyEndBit = NumberUtils.AlignToMultiple(descriptor.supportedKeys.Length, 8);
                 // Align for axis values
-                int keyEndByte = NumberUtils.AlignToMultiple(keyEndBit / 8, sizeof(int));
+                int absStartByte = NumberUtils.AlignToMultiple(keyEndBit / 8, sizeof(int));
 
-                for (int i = 0; i < descriptor.supportedAbs.Length; i++)
+                for (int absIndex = 0; absIndex < descriptor.supportedAbs.Length; absIndex++)
                 {
-                    var abs = descriptor.supportedAbs[i];
-                    var absInfo = descriptor.absInfo[i];
-
-                    int byteOffset = keyEndByte + (i * sizeof(int));
-
-                    string name = ToCamelCase(abs.ToString());
-
-                    builder.AddControl(name)
-                        .WithLayout("EvdevAxis")
-                        .WithByteOffset((uint)byteOffset)
-                        .WithFormat(InputStateBlock.FormatInt)
-                        .WithParameters($"minValue={absInfo.minimum},maxValue={absInfo.maximum},zeroPoint=0");
+                    MakeAbsControl(ref builder, ref absIndex, absStartByte);
                 }
 
                 // TODO: rel controls
 
                 return builder.Build();
+            }
+
+            private void MakeKeyControl(ref InputControlLayout.Builder builder, ref int keyIndex)
+            {
+                var key = descriptor.supportedKeys[keyIndex];
+
+                builder.AddControl(ToCamelCase(key.ToString()))
+                    .WithLayout("Button")
+                    .WithFormat(InputStateBlock.FormatBit)
+                    .WithByteOffset(GetKeyByteOffset(keyIndex))
+                    .WithBitOffset(GetKeyBitOffset(keyIndex));
+            }
+
+            private void MakeAbsControl(ref InputControlLayout.Builder builder, ref int absIndex, int absStartByte)
+            {
+                var abs = descriptor.supportedAbs[absIndex];
+                var absInfo = descriptor.absInfo[absIndex];
+
+                builder.AddControl(ToCamelCase(abs.ToString()))
+                    .WithLayout("EvdevAxis")
+                    .WithFormat(InputStateBlock.FormatInt)
+                    .WithByteOffset(GetAbsByteOffset(absStartByte, absIndex))
+                    .WithBitOffset(0)
+                    .WithParameters($"minValue={absInfo.minimum},maxValue={absInfo.maximum},zeroPoint=0");
+            }
+
+            private uint GetKeyByteOffset(int keyIndex)
+            {
+                return (uint)(keyIndex / 8);
+            }
+
+            private uint GetKeyBitOffset(int keyIndex)
+            {
+                return (uint)(keyIndex % 8);
+            }
+
+            private uint GetAbsByteOffset(int absStartByte, int absIndex)
+            {
+                return (uint)(absStartByte + (absIndex * sizeof(int)));
             }
         }
 
