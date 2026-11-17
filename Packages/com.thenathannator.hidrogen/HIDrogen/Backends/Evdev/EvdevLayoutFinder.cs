@@ -112,10 +112,7 @@ namespace HIDrogen.Backend.Linux
                     int byteOffset = i / 8;
                     int bitOffset = i % 8;
 
-                    string name = key.ToString();
-                    name = RemovePrefix(name, "KEY_");
-                    name = RemovePrefix(name, "BTN_");
-                    name = ToCamelCase(name);
+                    string name = ToCamelCase(key.ToString());
 
                     builder.AddControl(name)
                         .WithLayout("Button")
@@ -135,9 +132,7 @@ namespace HIDrogen.Backend.Linux
 
                     int byteOffset = keyEndByte + (i * sizeof(int));
 
-                    string name = abs.ToString();
-                    name = RemovePrefix(name, "ABS_");
-                    name = ToCamelCase(name);
+                    string name = ToCamelCase(abs.ToString());
 
                     builder.AddControl(name)
                         .WithLayout("EvdevAxis")
@@ -150,16 +145,6 @@ namespace HIDrogen.Backend.Linux
 
                 return builder.Build();
             }
-        }
-
-        private static string RemovePrefix(string name, string prefix)
-        {
-            if (name.StartsWith(prefix))
-            {
-                return name.Substring(prefix.Length);
-            }
-
-            return name;
         }
 
         private static string SanitizeName(string name)
