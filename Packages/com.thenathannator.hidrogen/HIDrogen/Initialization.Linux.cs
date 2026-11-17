@@ -9,7 +9,11 @@ namespace HIDrogen
     {
         static partial void PlatformInitialize()
         {
-            BackendManager.TryCreateBackend<EvdevBackend>();
+            if (BackendManager.TryCreateBackend<EvdevBackend>())
+            {
+                EvdevLayoutFinder.Initialize();
+            }
+
             BackendManager.TryCreateBackend<HidRawBackend>();
             BackendManager.TryCreateService<USBService>();
             BackendManager.TryCreateService<UdevDeviceMonitor>();
