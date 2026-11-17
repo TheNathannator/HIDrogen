@@ -214,7 +214,8 @@ namespace HIDrogen.Services.Linux
         private void OnDeviceAdded(udev_device device)
         {
 #if HIDROGEN_VERBOSE_LOGGING
-            Udev.PrintDeviceTree(m_Context, device);
+            // Udev.PrintDeviceTree(m_Context, device);
+            Logging.Verbose($"udev device added: " + Udev.MakeDeviceInfo(device));
 #endif
 
             // Subsystems are prioritized in the following order:
