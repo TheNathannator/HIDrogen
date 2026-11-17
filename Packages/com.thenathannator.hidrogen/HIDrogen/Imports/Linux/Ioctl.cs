@@ -54,7 +54,7 @@ namespace HIDrogen.Imports.Linux
         public int size
         {
             get => (value >> SIZESHIFT) & SIZEMASK;
-            set => this.value = (this.value & (SIZEMASK << SIZESHIFT)) | ((value & SIZEMASK) << SIZESHIFT);
+            set => this.value = (this.value & ~(SIZEMASK << SIZESHIFT)) | ((value & SIZEMASK) << SIZESHIFT);
         }
 
         public IoCode(int direction, int type, int number, int size)
@@ -96,7 +96,7 @@ namespace HIDrogen.Imports.Linux
         public unsafe int count
         {
             get => @base.size / sizeof(T);
-            set => @base.size = value / sizeof(T);
+            set => @base.size = value * sizeof(T);
         }
 
         public unsafe IoCode(int direction, int type, int number, int count)
