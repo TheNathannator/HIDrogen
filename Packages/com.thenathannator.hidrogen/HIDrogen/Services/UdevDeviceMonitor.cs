@@ -213,11 +213,6 @@ namespace HIDrogen.Services.Linux
 
         private void OnDeviceAdded(udev_device device)
         {
-#if HIDROGEN_VERBOSE_LOGGING
-            // Udev.PrintDeviceTree(m_Context, device);
-            Logging.Verbose($"udev device added: " + Udev.MakeDeviceInfo(device));
-#endif
-
             // Subsystems are prioritized in the following order:
             // 1. USB (TODO)
             // 2. hidraw
@@ -247,10 +242,6 @@ namespace HIDrogen.Services.Linux
 
         private void OnDeviceRemoved(udev_device device)
         {
-#if HIDROGEN_VERBOSE_LOGGING
-            Logging.Verbose($"udev device removed: " + Udev.MakeDeviceInfo(device));
-#endif
-
             // BackendManager.TryGetBackend<UsbManager>()?.ProbeDeviceRemove(m_Context, device); // TODO
             BackendManager.TryGetBackend<HidRawBackend>()?.ProbeDeviceRemove(m_Context, device);
             BackendManager.TryGetBackend<EvdevBackend>()?.ProbeDeviceRemove(m_Context, device);
