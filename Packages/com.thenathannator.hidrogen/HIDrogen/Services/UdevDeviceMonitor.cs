@@ -209,8 +209,6 @@ namespace HIDrogen.Services.Linux
                     }
                 }
             }
-
-            Logging.Verbose("Stopping udev monitor thread");
         }
 
         private void OnDeviceAdded(udev_device device)
