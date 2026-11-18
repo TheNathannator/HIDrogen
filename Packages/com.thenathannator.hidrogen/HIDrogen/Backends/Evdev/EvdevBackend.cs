@@ -27,6 +27,7 @@ namespace HIDrogen.Backend.Linux
             public string name;
             public string serial;
 
+            public input_bus_type busType;
             public ushort vendorId;
             public ushort productId;
             public ushort revision;
@@ -218,6 +219,7 @@ namespace HIDrogen.Backend.Linux
                 return false;
             }
 
+            deviceInfo.busType = inputIds.bustype;
             deviceInfo.vendorId = inputIds.vendor;
             deviceInfo.productId = inputIds.product;
             deviceInfo.revision = inputIds.version;
@@ -263,6 +265,7 @@ namespace HIDrogen.Backend.Linux
         {
             descriptor = new EvdevDescriptor()
             {
+                busType = deviceInfo.busType,
                 vendorId = deviceInfo.vendorId,
                 productId = deviceInfo.productId,
 

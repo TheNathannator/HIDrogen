@@ -113,8 +113,10 @@ namespace HIDrogen.Imports.Linux
         PRODUCT = 2,
         VERSION = 3,
     }
+#endif
 
-    internal enum input_bus_type : ushort
+    // intentionally public
+    public enum input_bus_type : ushort
     {
         PCI = 0x01,
         ISAPNP = 0x02,
@@ -141,6 +143,7 @@ namespace HIDrogen.Imports.Linux
         INTEL_ISHTP = 0x1F,
     }
 
+#if UNITY_STANDALONE_LINUX
     internal enum mt_tool_type
     {
         MT_TOOL_FINGER = 0x00,

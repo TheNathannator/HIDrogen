@@ -8,6 +8,7 @@ namespace HIDrogen.Backend.Linux
     [Serializable]
     public struct EvdevDescriptor
     {
+        public input_bus_type busType;
         public int vendorId;
         public int productId;
 
