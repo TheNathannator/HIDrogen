@@ -7,6 +7,7 @@ using HIDrogen.Utilities;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
 
 namespace HIDrogen.Backend.Linux
 {
@@ -183,7 +184,7 @@ namespace HIDrogen.Backend.Linux
                         continue;
                     }
 
-                    // Keep lock on fd while processing events, to prevent racing with a concurrent call to SyncState
+                    // Keep lock on fd while processing events, to prevent racing with a concurrent SyncState command
                     for (int i = 0; i < eventsRead; i++)
                     {
                         ref readonly var ev = ref eventBuffer[i];
@@ -403,6 +404,16 @@ namespace HIDrogen.Backend.Linux
             // }
 
             SendStateLocked();
+        }
+
+        public unsafe long SyncState(InputDeviceCommand* _command)
+        {
+            lock (m_Fd)
+            {
+                SyncStateLocked();
+            }
+
+            return InputDeviceCommand.GenericSuccess;
         }
     }
 }

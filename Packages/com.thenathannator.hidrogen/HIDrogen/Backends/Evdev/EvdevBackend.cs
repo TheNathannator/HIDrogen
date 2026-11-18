@@ -9,6 +9,7 @@ using HIDrogen.Services.Linux;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Layouts;
+using UnityEngine.InputSystem.LowLevel;
 
 // TODO:
 // - Try to correlate sibling evdev devices together;
@@ -74,6 +75,25 @@ namespace HIDrogen.Backend.Linux
         protected override void OnDeviceRemoved(EvdevBackendDevice device)
         {
             device.Dispose();
+        }
+
+        protected override unsafe long? OnDeviceCommand(EvdevBackendDevice device, InputDeviceCommand* command)
+        {
+            // System commands
+            // if (command->type == EnableDeviceCommand.Type)
+            //     return Enable(command);
+            // if (command->type == DisableDeviceCommand.Type)
+            //     return Disable(command);
+            // if (command->type == QueryEnabledStateCommand.Type)
+            //     return IsEnabled(command);
+            if (command->type == RequestSyncCommand.Type)
+                return device.SyncState(command);
+            // if (command->type == RequestResetCommand.Type)
+            //     return ResetState(command);
+            // if (command->type == QueryCanRunInBackground.Type)
+            //     return CanRunInBackground(command);
+
+            return null;
         }
 
         public bool ProbeDeviceAdd(udev_context udev, udev_device device)
