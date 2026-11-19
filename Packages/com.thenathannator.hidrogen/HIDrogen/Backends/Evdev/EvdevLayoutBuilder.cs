@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using HIDrogen.Imports.Linux;
 using HIDrogen.Utilities;
@@ -8,19 +9,107 @@ using UnityEngine.InputSystem.LowLevel;
 
 namespace HIDrogen.Backend.Linux
 {
-    internal struct EvdevLayoutBuilder
+    public struct EvdevControlMapping
     {
-        public string name;
+        public string path;
         public string displayName;
+
+        public static implicit operator EvdevControlMapping(string path)
+        {
+            return new EvdevControlMapping()
+            {
+                path = path,
+            };
+        }
+    }
+
+    public class EvdevDeviceMapping
+    {
+        internal Dictionary<input_key_code, EvdevControlMapping> m_Keys;
+        internal Dictionary<input_abs_code, EvdevControlMapping> m_Abs;
+        internal Dictionary<int, EvdevControlMapping> m_Hats;
+
+        public EvdevDeviceMapping WithKey(input_key_code key, EvdevControlMapping mapping)
+        {
+            if (m_Keys == null)
+            {
+                m_Keys = new Dictionary<input_key_code, EvdevControlMapping>();
+            }
+
+            if (m_Keys.ContainsKey(key))
+            {
+                throw new ArgumentException($"A mapping for {key} has already been added.");
+            }
+
+            m_Keys.Add(key, mapping);
+            return this;
+        }
+
+        public EvdevDeviceMapping WithAbs(input_abs_code abs, EvdevControlMapping mapping)
+        {
+            if (m_Abs == null)
+            {
+                m_Abs = new Dictionary<input_abs_code, EvdevControlMapping>();
+            }
+
+            if (m_Abs.ContainsKey(abs))
+            {
+                throw new ArgumentException($"A mapping for {abs} has already been added.");
+            }
+
+            m_Abs.Add(abs, mapping);
+            return this;
+        }
+
+        public EvdevDeviceMapping WithHat(int index, EvdevControlMapping mapping)
+        {
+            if (m_Hats == null)
+            {
+                m_Hats = new Dictionary<int, EvdevControlMapping>();
+            }
+
+            if (m_Hats.ContainsKey(index))
+            {
+                throw new ArgumentException($"A mapping for hat {index} has already been added.");
+            }
+
+            m_Hats.Add(index, mapping);
+            return this;
+        }
+    }
+
+    internal class EvdevLayoutBuilder
+    {
+        private static readonly StringBuilder s_StringBuilder = new StringBuilder();
+
+        private static readonly (string prefix, string suffix)[] s_KeyDisplayNameFixes =
+        {
+            ("KEY_", "_KEY"),
+            ("BTN_", "_BUTTON"),
+        };
+
+        private static readonly (string prefix, string suffix)[] s_AbsDisplayNameFixes =
+        {
+            ("ABS_", ""),
+        };
+
+        public string layoutName;
+        public string layoutDisplayName;
         public string baseLayout;
         public EvdevCapabilities descriptor;
+        public EvdevDeviceMapping mappings;
+
+        private int m_HatCount;
 
         public InputControlLayout Build()
         {
+            // Builders are persistent, make sure to reset any state here
+            m_HatCount = 0;
+
             var builder = new InputControlLayout.Builder()
             {
-                name = name,
-                displayName = displayName,
+                name = layoutName,
+                displayName = layoutDisplayName,
                 extendsLayout = baseLayout,
                 stateFormat = EvdevDefinitions.InputFormat,
             };
@@ -32,7 +121,7 @@ namespace HIDrogen.Backend.Linux
 
             for (int keyIndex = 0; keyIndex < descriptor.supportedKeys.Length; keyIndex++)
             {
-                MakeKeyControl(ref builder, ref keyIndex);
+                MakeKeyControl(builder, ref keyIndex);
             }
 
             int keyEndBit = NumberUtils.AlignToMultiple(descriptor.supportedKeys.Length, 8);
@@ -41,7 +130,7 @@ namespace HIDrogen.Backend.Linux
 
             for (int absIndex = 0; absIndex < descriptor.supportedAbs.Length; absIndex++)
             {
-                MakeAbsControl(ref builder, ref absIndex, absStartByte);
+                MakeAbsControl(builder, ref absIndex, absStartByte);
             }
 
             // TODO: rel controls
@@ -49,18 +138,24 @@ namespace HIDrogen.Backend.Linux
             return builder.Build();
         }
 
-        private static readonly (string prefix, string suffix)[] s_KeyNameFixes =
+        internal InputControlLayout.Builder.ControlBuilder AddControl(InputControlLayout.Builder builder, EvdevControlMapping mapping)
         {
-            ("KEY_", "_KEY"),
-            ("BTN_", "_BUTTON"),
-        };
+            if (string.IsNullOrEmpty(mapping.path))
+            {
+                throw new InvalidOperationException($"No control path has been specified for this mapping!");
+            }
 
-        private static readonly (string prefix, string suffix)[] s_AbsNameFixes =
-        {
-            ("ABS_", ""),
-        };
+            var control = builder.AddControl(mapping.path);
 
-        private void MakeKeyControl(ref InputControlLayout.Builder builder, ref int keyIndex)
+            if (!string.IsNullOrEmpty(mapping.displayName))
+            {
+                control = control.WithDisplayName(mapping.displayName);
+            }
+
+            return control;
+        }
+
+        private void MakeKeyControl(InputControlLayout.Builder builder, ref int keyIndex)
         {
             if (keyIndex + 3 < descriptor.supportedKeys.Length &&
                 IsDpadButton(descriptor.supportedKeys[keyIndex + 0]) &&
@@ -69,60 +164,92 @@ namespace HIDrogen.Backend.Linux
                 IsDpadButton(descriptor.supportedKeys[keyIndex + 3]))
             {
                 // Group consecutive d-pad bits into a d-pad control
-                MakeDpadControl(ref builder, ref keyIndex);
+                MakeDpadControl(builder, ref keyIndex);
                 return;
             }
 
             var key = descriptor.supportedKeys[keyIndex];
 
-            builder.AddControl(ToCamelCase(key.ToString()))
-                .WithDisplayName(ToDisplayName(key.ToString(), s_KeyNameFixes))
+            if (mappings == null || !mappings.m_Keys.TryGetValue(key, out var mapping))
+            {
+                mapping = new EvdevControlMapping()
+                {
+                    path = ToCamelCase(key.ToString()),
+                    displayName = ToDisplayName(key.ToString(), s_KeyDisplayNameFixes),
+                };
+            }
+
+            AddControl(builder, mapping)
                 .WithLayout("Button")
                 .WithFormat(InputStateBlock.FormatBit)
                 .WithByteOffset(GetKeyByteOffset(keyIndex))
                 .WithBitOffset(GetKeyBitOffset(keyIndex));
         }
 
-        private void MakeAbsControl(ref InputControlLayout.Builder builder, ref int absIndex, int absStartByte)
+        private void MakeAbsControl(InputControlLayout.Builder builder, ref int absIndex, int absStartByte)
         {
             if (absIndex + 1 < descriptor.supportedAbs.Length &&
                 IsHatPair(descriptor.supportedAbs[absIndex + 0], descriptor.supportedAbs[absIndex + 1]))
             {
                 // Group consecutive hat abs into a d-pad control
-                MakeHatControl(ref builder, ref absIndex, absStartByte);
+                MakeHatControl(builder, ref absIndex, absStartByte);
                 return;
             }
 
             var abs = descriptor.supportedAbs[absIndex];
             var absInfo = descriptor.absInfo[absIndex];
 
-            var control = builder.AddControl(ToCamelCase(abs.ToString()))
-                .WithDisplayName(ToDisplayName(abs.ToString(), s_AbsNameFixes))
+            string parameters = IsAbsY(abs)
+                ? $"minValue={absInfo.maximum},maxValue={absInfo.minimum},zeroPoint=0"
+                : $"minValue={absInfo.minimum},maxValue={absInfo.maximum},zeroPoint=0";
+
+            if (mappings == null || !mappings.m_Abs.TryGetValue(abs, out var mapping))
+            {
+                mapping = new EvdevControlMapping()
+                {
+                    path = ToCamelCase(abs.ToString()),
+                    displayName = ToDisplayName(abs.ToString(), s_AbsDisplayNameFixes),
+                };
+            }
+
+            AddControl(builder, mapping)
                 .WithLayout("EvdevAxis")
+                .WithParameters(parameters)
                 .WithFormat(InputStateBlock.FormatInt)
                 .WithByteOffset(GetAbsByteOffset(absStartByte, absIndex))
                 .WithBitOffset(0);
-
-            if (IsAbsY(abs))
-            {
-                control.WithParameters($"minValue={absInfo.maximum},maxValue={absInfo.minimum},zeroPoint=0");
-            }
-            else
-            {
-                control.WithParameters($"minValue={absInfo.minimum},maxValue={absInfo.maximum},zeroPoint=0");
-            }
         }
 
-        private void MakeDpadControl(ref InputControlLayout.Builder builder, ref int keyIndex)
+        private InputControlLayout.Builder.ControlBuilder AddHatControl(
+            InputControlLayout.Builder builder,
+            out string rootPath
+        )
+        {
+            int hatIndex = m_HatCount;
+            m_HatCount++;
+
+            if (mappings == null || !mappings.m_Hats.TryGetValue(hatIndex, out var mapping))
+            {
+                mapping = new EvdevControlMapping()
+                {
+                    path = $"dpad{hatIndex + 1}",
+                    displayName = $"D-pad {hatIndex + 1}",
+                };
+            }
+
+            rootPath = mapping.path;
+
+            return AddControl(builder, mapping)
+                .WithLayout("Dpad")
+                .WithUsages(CommonUsages.Hatswitch);
+        }
+
+        private void MakeDpadControl(InputControlLayout.Builder builder, ref int keyIndex)
         {
             const int keyCount = 4;
 
-            string dpadRoot = "dpad";
-            builder.AddControl(dpadRoot)
-                .WithDisplayName("D-pad")
-                .WithLayout("Dpad")
+            AddHatControl(builder, out string dpadRoot)
                 .WithFormat(InputStateBlock.FormatBit)
-                .WithUsages(CommonUsages.Hatswitch)
                 .WithByteOffset(GetKeyByteOffset(keyIndex))
                 .WithBitOffset(GetKeyBitOffset(keyIndex))
                 .WithSizeInBits(keyCount);
@@ -131,17 +258,17 @@ namespace HIDrogen.Backend.Linux
             {
                 var key = descriptor.supportedKeys[keyIndex + i];
 
-                string name;
+                string path;
                 switch (key)
                 {
-                    case input_key_code.BTN_DPAD_UP: name = $"{dpadRoot}/up"; break;
-                    case input_key_code.BTN_DPAD_DOWN: name = $"{dpadRoot}/down"; break;
-                    case input_key_code.BTN_DPAD_LEFT: name = $"{dpadRoot}/left"; break;
-                    case input_key_code.BTN_DPAD_RIGHT: name = $"{dpadRoot}/right"; break;
+                    case input_key_code.BTN_DPAD_UP: path = $"{dpadRoot}/up"; break;
+                    case input_key_code.BTN_DPAD_DOWN: path = $"{dpadRoot}/down"; break;
+                    case input_key_code.BTN_DPAD_LEFT: path = $"{dpadRoot}/left"; break;
+                    case input_key_code.BTN_DPAD_RIGHT: path = $"{dpadRoot}/right"; break;
                     default: throw new Exception($"{key} is not a d-pad key");
                 }
 
-                builder.AddControl(name)
+                builder.AddControl(path)
                     .WithLayout("Button")
                     .WithFormat(InputStateBlock.FormatInt)
                     .WithByteOffset(GetKeyByteOffset(i)) // no keyIndex, this is relative to the parent
@@ -152,23 +279,13 @@ namespace HIDrogen.Backend.Linux
             keyIndex += keyCount - 1; // - 1 to counteract the increment in the main loop
         }
 
-        private void MakeHatControl(ref InputControlLayout.Builder builder, ref int absIndex, int absStartByte)
+        private void MakeHatControl(InputControlLayout.Builder builder, ref int absIndex, int absStartByte)
         {
-            int hatNum = GetHatNum(descriptor.supportedAbs[absIndex]);
-            if (hatNum < 0)
-            {
-                throw new InvalidOperationException("Cannot make a hat control from a non-hat abs.");
-            }
-
             const int absCount = 2;
 
-            string hatRoot = $"hat{hatNum + 1}";
-            builder.AddControl(hatRoot)
-                .WithDisplayName($"Hat {hatNum + 1}")
-                .WithLayout("Dpad")
+            AddHatControl(builder, out string hatRoot)
                 .WithByteOffset(GetAbsByteOffset(absStartByte, absIndex))
-                .WithSizeInBits(absCount * sizeof(int) * 8)
-                .WithUsages(CommonUsages.Hatswitch);
+                .WithSizeInBits(absCount * sizeof(int) * 8);
 
             for (int i = 0; i < absCount; i++)
             {
@@ -295,8 +412,6 @@ namespace HIDrogen.Backend.Linux
 
             return -1;
         }
-
-        private static readonly StringBuilder s_StringBuilder = new StringBuilder();
 
         private static string ToCamelCase(string name)
         {

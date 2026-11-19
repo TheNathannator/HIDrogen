@@ -69,8 +69,8 @@ namespace HIDrogen.Backend.Linux
 
             var builder = new EvdevLayoutBuilder()
             {
-                name = layoutName,
-                displayName = description.product,
+                layoutName = layoutName,
+                layoutDisplayName = description.product,
                 baseLayout = baseLayout,
                 descriptor = descriptor,
             };
