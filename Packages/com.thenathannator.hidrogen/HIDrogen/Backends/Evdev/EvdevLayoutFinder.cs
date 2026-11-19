@@ -31,10 +31,10 @@ namespace HIDrogen.Backend.Linux
                 return null;
             }
             
-            EvdevDescriptor descriptor;
+            EvdevCapabilities descriptor;
             try
             {
-                descriptor = JsonUtility.FromJson<EvdevDescriptor>(description.capabilities);
+                descriptor = JsonUtility.FromJson<EvdevCapabilities>(description.capabilities);
             }
             catch (Exception ex)
             {

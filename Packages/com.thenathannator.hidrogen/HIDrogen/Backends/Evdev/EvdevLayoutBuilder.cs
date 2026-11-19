@@ -13,7 +13,7 @@ namespace HIDrogen.Backend.Linux
         public string name;
         public string displayName;
         public string baseLayout;
-        public EvdevDescriptor descriptor;
+        public EvdevCapabilities descriptor;
 
         public InputControlLayout Build()
         {

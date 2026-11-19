@@ -6,7 +6,7 @@ namespace HIDrogen.Backend.Linux
 {
     // Intentionally public and not platform guarded, for other packages to reference.
     [Serializable]
-    public struct EvdevDescriptor
+    public struct EvdevCapabilities
     {
         public input_bus_type busType;
         public int vendorId;

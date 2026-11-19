@@ -20,7 +20,7 @@ namespace HIDrogen.Backend.Linux
 
         private EvdevBackend m_Backend;
         private InputDevice m_Device;
-        private EvdevDescriptor m_Descriptor;
+        private EvdevCapabilities m_Descriptor;
         private string m_Path;
         private fd m_Fd;
 
@@ -50,7 +50,7 @@ namespace HIDrogen.Backend.Linux
         public EvdevBackendDevice(
             EvdevBackend backend,
             InputDevice device,
-            EvdevDescriptor descriptor,
+            EvdevCapabilities descriptor,
             string path,
             fd fd
         )

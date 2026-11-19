@@ -36,7 +36,7 @@ namespace HIDrogen.Backend.Linux
         internal struct AddContext : IDisposable
         {
             public string path;
-            public EvdevDescriptor descriptor;
+            public EvdevCapabilities descriptor;
 
             public void Dispose()
             {
@@ -124,7 +124,7 @@ namespace HIDrogen.Backend.Linux
             }
 
             DeviceInfo deviceInfo;
-            EvdevDescriptor descriptor;
+            EvdevCapabilities descriptor;
             using (var fd = Fcntl.open(evdevPath, Fcntl.O_RDONLY | Fcntl.O_CLOEXEC))
             {
                 if (fd == null || fd.IsInvalid)
@@ -260,10 +260,10 @@ namespace HIDrogen.Backend.Linux
             udev_device evdev,
             fd fd,
             DeviceInfo deviceInfo,
-            out EvdevDescriptor descriptor
+            out EvdevCapabilities descriptor
         )
         {
-            descriptor = new EvdevDescriptor()
+            descriptor = new EvdevCapabilities()
             {
                 busType = deviceInfo.busType,
                 vendorId = deviceInfo.vendorId,
