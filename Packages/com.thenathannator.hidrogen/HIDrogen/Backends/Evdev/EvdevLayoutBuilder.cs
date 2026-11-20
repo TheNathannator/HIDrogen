@@ -238,6 +238,21 @@ namespace HIDrogen.Backend.Linux
                 .WithBitOffset(GetKeyBitOffset(keyIndex));
         }
 
+        private int GetAbsZeroPoint(input_absinfo absInfo)
+        {
+            return absInfo.minimum + (absInfo.maximum - absInfo.minimum) / 2;
+        }
+
+        private int GetAbsMin(input_absinfo absInfo, bool isX)
+        {
+            return isX ? absInfo.maximum : absInfo.minimum;
+        }
+
+        private int GetAbsMax(input_absinfo absInfo, bool isX)
+        {
+            return isX ? absInfo.minimum : absInfo.maximum;
+        }
+
         private void MakeAbsControl(InputControlLayout.Builder builder, int absIndex, int absStartByte)
         {
             var abs = descriptor.supportedAbs[absIndex];
@@ -257,11 +272,6 @@ namespace HIDrogen.Backend.Linux
                 return;
             }
 
-            var absInfo = descriptor.absInfo[absIndex];
-            string parameters = IsAbsY(abs)
-                ? $"minValue={absInfo.maximum},maxValue={absInfo.minimum},zeroPoint=0"
-                : $"minValue={absInfo.minimum},maxValue={absInfo.maximum},zeroPoint=0";
-
             if (mappings == null || !mappings.m_Abs.TryGetValue(abs, out var mapping))
             {
                 mapping = new EvdevControlMapping()
@@ -271,9 +281,16 @@ namespace HIDrogen.Backend.Linux
                 };
             }
 
+            var absInfo = descriptor.absInfo[absIndex];
+
+            bool isX = IsAbsX(abs);
+            int zero = GetAbsZeroPoint(absInfo);
+            int min = GetAbsMin(absInfo, isX);
+            int max = GetAbsMax(absInfo, isX);
+
             AddControl(builder, mapping)
                 .WithLayout("EvdevAxis")
-                .WithParameters(parameters)
+                .WithParameters($"zeroPoint={zero},minValue={min},maxValue={max}")
                 .WithFormat(InputStateBlock.FormatInt)
                 .WithByteOffset(GetAbsByteOffset(absStartByte, absIndex))
                 .WithBitOffset(0);
@@ -370,20 +387,20 @@ namespace HIDrogen.Backend.Linux
                 string positive = isX ? "right" : "up";
                 string negative = isX ? "left" : "down";
 
-                // note: Y axis is inverted
-                int max = isX ? absInfo.maximum : absInfo.minimum;
-                int min = isX ? absInfo.minimum : absInfo.maximum;
+                int zero = GetAbsZeroPoint(absInfo);
+                int min = GetAbsMin(absInfo, isX);
+                int max = GetAbsMax(absInfo, isX);
 
                 builder.AddControl($"{hatRoot}/{positive}")
                     .WithLayout("EvdevButton")
-                    .WithParameters($"minValue=0,maxValue={max}")
+                    .WithParameters($"minValue={zero},maxValue={max}")
                     .WithFormat(InputStateBlock.FormatInt)
                     .WithByteOffset(GetAbsByteOffset(0, i)) // no absStartByte or absIndex, this is relative to the parent
                     .WithBitOffset(0);
 
                 builder.AddControl($"{hatRoot}/{negative}")
                     .WithLayout("EvdevButton")
-                    .WithParameters($"minValue=0,maxValue={min}")
+                    .WithParameters($"minValue={zero},maxValue={min}")
                     .WithFormat(InputStateBlock.FormatInt)
                     .WithByteOffset(GetAbsByteOffset(0, i)) // no absStartByte or absIndex, this is relative to the parent
                     .WithBitOffset(0);
@@ -414,27 +431,27 @@ namespace HIDrogen.Backend.Linux
                 string positive = isX ? "right" : "up";
                 string negative = isX ? "left" : "down";
 
-                // note: Y axis is inverted
-                int max = isX ? absInfo.maximum : absInfo.minimum;
-                int min = isX ? absInfo.minimum : absInfo.maximum;
+                int zero = GetAbsZeroPoint(absInfo);
+                int min = GetAbsMin(absInfo, isX);
+                int max = GetAbsMax(absInfo, isX);
 
                 builder.AddControl($"{stickRoot}/{axis}")
                     .WithLayout("EvdevAxis")
-                    .WithParameters($"minValue={min},maxValue={max},zeroPoint=0")
+                    .WithParameters($"zeroPoint={zero},minValue={min},maxValue={max}")
                     .WithFormat(InputStateBlock.FormatInt)
                     .WithByteOffset(GetAbsByteOffset(0, i)) // no absStartByte or absIndex, this is relative to the parent
                     .WithBitOffset(0);
 
                 builder.AddControl($"{stickRoot}/{positive}")
                     .WithLayout("EvdevButton")
-                    .WithParameters($"minValue=0,maxValue={max}")
+                    .WithParameters($"minValue={zero},maxValue={max}")
                     .WithFormat(InputStateBlock.FormatInt)
                     .WithByteOffset(GetAbsByteOffset(0, i)) // no absStartByte or absIndex, this is relative to the parent
                     .WithBitOffset(0);
 
                 builder.AddControl($"{stickRoot}/{negative}")
                     .WithLayout("EvdevButton")
-                    .WithParameters($"minValue=0,maxValue={min}")
+                    .WithParameters($"minValue={zero},maxValue={min}")
                     .WithFormat(InputStateBlock.FormatInt)
                     .WithByteOffset(GetAbsByteOffset(0, i)) // no absStartByte or absIndex, this is relative to the parent
                     .WithBitOffset(0);
