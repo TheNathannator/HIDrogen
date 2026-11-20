@@ -14,7 +14,8 @@ namespace HIDrogen.Backend.Linux
 
         internal static void Initialize()
         {
-            EvdevAxis.Initialize();
+            EvdevAxisControl.Initialize();
+            EvdevButtonControl.Initialize();
             EvdevDevice.Initialize();
             InputSystem.onFindLayoutForDevice += FindDeviceLayout;
         }

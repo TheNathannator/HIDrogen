@@ -8,11 +8,11 @@ namespace HIDrogen.Backend.Linux
 {
     // Not platform guarded
     // Freestanding copy of PlasticBand-Unity's IntegerAxisControl, for simplicity
-    internal class EvdevAxis : AxisControl
+    internal class EvdevAxisControl : AxisControl
     {
         internal static void Initialize()
         {
-            InputSystem.RegisterLayout<EvdevAxis>("EvdevAxis");
+            InputSystem.RegisterLayout<EvdevAxisControl>("EvdevAxis");
         }
 
         public int minValue = 0;

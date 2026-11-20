@@ -333,26 +333,29 @@ namespace HIDrogen.Backend.Linux
 
             for (int i = 0; i < absCount; i++)
             {
-                var abs = descriptor.supportedAbs[absIndex + i];
                 var absInfo = descriptor.absInfo[absIndex + i];
 
+                bool isX = i == 0;
+                string positive = isX ? "right" : "up";
+                string negative = isX ? "left" : "down";
+
                 // note: Y axis is inverted
-                string positive = IsHatX(abs) ? "right" : "down";
-                string negative = IsHatX(abs) ? "left" : "up";
+                int max = isX ? absInfo.maximum : absInfo.minimum;
+                int min = isX ? absInfo.minimum : absInfo.maximum;
 
                 builder.AddControl($"{hatRoot}/{positive}")
-                    .WithLayout("DiscreteButton")
+                    .WithLayout("EvdevButton")
+                    .WithParameters($"minValue=0,maxValue={max}")
                     .WithFormat(InputStateBlock.FormatInt)
                     .WithByteOffset(GetAbsByteOffset(0, i)) // no absStartByte or absIndex, this is relative to the parent
-                    .WithBitOffset(0)
-                    .WithParameters($"nullValue=0,minValue=1,maxValue={absInfo.maximum}");
+                    .WithBitOffset(0);
 
                 builder.AddControl($"{hatRoot}/{negative}")
-                    .WithLayout("DiscreteButton")
+                    .WithLayout("EvdevButton")
+                    .WithParameters($"minValue=0,maxValue={min}")
                     .WithFormat(InputStateBlock.FormatInt)
                     .WithByteOffset(GetAbsByteOffset(0, i)) // no absStartByte or absIndex, this is relative to the parent
-                    .WithBitOffset(0)
-                    .WithParameters($"nullValue=0,minValue=-1,maxValue={absInfo.minimum}");
+                    .WithBitOffset(0);
             }
 
             m_AvailableAbs.Remove(descriptor.supportedAbs[absIndex]);
