@@ -178,18 +178,24 @@ namespace HIDrogen.Backend.Linux
 
         private void MakeKeyControl(InputControlLayout.Builder builder, int keyIndex)
         {
-            if (keyIndex + 3 < descriptor.supportedKeys.Length &&
-                IsDpadButton(descriptor.supportedKeys[keyIndex + 0]) &&
-                IsDpadButton(descriptor.supportedKeys[keyIndex + 1]) &&
-                IsDpadButton(descriptor.supportedKeys[keyIndex + 2]) &&
-                IsDpadButton(descriptor.supportedKeys[keyIndex + 3]))
+            var key = descriptor.supportedKeys[keyIndex];
+
+            if (key == input_key_code.BTN_DPAD_UP &&
+                m_AvailableKeys.Contains(input_key_code.BTN_DPAD_DOWN) &&
+                m_AvailableKeys.Contains(input_key_code.BTN_DPAD_LEFT) &&
+                m_AvailableKeys.Contains(input_key_code.BTN_DPAD_RIGHT) &&
+                (mappings == null || (
+                    !mappings.m_Keys.ContainsKey(input_key_code.BTN_DPAD_UP) &&
+                    !mappings.m_Keys.ContainsKey(input_key_code.BTN_DPAD_DOWN) &&
+                    !mappings.m_Keys.ContainsKey(input_key_code.BTN_DPAD_LEFT) &&
+                    !mappings.m_Keys.ContainsKey(input_key_code.BTN_DPAD_RIGHT)
+                ))
+            )
             {
                 // Group d-pad buttons
                 MakeDpadControl(builder, keyIndex);
                 return;
             }
-
-            var key = descriptor.supportedKeys[keyIndex];
 
             if (mappings == null || !mappings.m_Keys.TryGetValue(key, out var mapping))
             {
@@ -209,17 +215,18 @@ namespace HIDrogen.Backend.Linux
 
         private void MakeAbsControl(InputControlLayout.Builder builder, int absIndex, int absStartByte)
         {
-            if (absIndex + 1 < descriptor.supportedAbs.Length &&
-                IsHatPair(descriptor.supportedAbs[absIndex + 0], descriptor.supportedAbs[absIndex + 1]))
+            var abs = descriptor.supportedAbs[absIndex];
+
+            if (IsHatX(abs) &&
+                m_AvailableAbs.Contains(abs + 1) &&
+                (mappings == null || !mappings.m_Abs.ContainsKey(abs + 1)))
             {
                 // Group hat axes
                 MakeHatControl(builder, absIndex, absStartByte);
                 return;
             }
 
-            var abs = descriptor.supportedAbs[absIndex];
             var absInfo = descriptor.absInfo[absIndex];
-
             string parameters = IsAbsY(abs)
                 ? $"minValue={absInfo.maximum},maxValue={absInfo.minimum},zeroPoint=0"
                 : $"minValue={absInfo.minimum},maxValue={absInfo.maximum},zeroPoint=0";
@@ -391,23 +398,6 @@ namespace HIDrogen.Backend.Linux
                 abs == input_abs_code.ABS_HAT3Y;
         }
 
-        private static bool IsDpadButton(input_key_code key)
-        {
-            return
-                key == input_key_code.BTN_DPAD_UP ||
-                key == input_key_code.BTN_DPAD_DOWN ||
-                key == input_key_code.BTN_DPAD_LEFT ||
-                key == input_key_code.BTN_DPAD_RIGHT;
-        }
-
-        private static bool IsHatPair(input_abs_code left, input_abs_code right)
-        {
-            return
-                IsHatX(left) != IsHatX(right) &&
-                IsHatY(left) != IsHatY(right) &&
-                GetHatNum(left) == GetHatNum(right);
-        }
-
         private static bool IsHatX(input_abs_code abs)
         {
             return
@@ -424,31 +414,6 @@ namespace HIDrogen.Backend.Linux
                 abs == input_abs_code.ABS_HAT1Y ||
                 abs == input_abs_code.ABS_HAT2Y ||
                 abs == input_abs_code.ABS_HAT3Y;
-        }
-
-        private static int GetHatNum(input_abs_code abs)
-        {
-            if (abs == input_abs_code.ABS_HAT0X || abs == input_abs_code.ABS_HAT0Y)
-            {
-                return 0;
-            }
-
-            if (abs == input_abs_code.ABS_HAT1X || abs == input_abs_code.ABS_HAT1Y)
-            {
-                return 1;
-            }
-
-            if (abs == input_abs_code.ABS_HAT2X || abs == input_abs_code.ABS_HAT2Y)
-            {
-                return 2;
-            }
-
-            if (abs == input_abs_code.ABS_HAT3X || abs == input_abs_code.ABS_HAT3Y)
-            {
-                return 3;
-            }
-
-            return -1;
         }
 
         private static string ToCamelCase(string name)
