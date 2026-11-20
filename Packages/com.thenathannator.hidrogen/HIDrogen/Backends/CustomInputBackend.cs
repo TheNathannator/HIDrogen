@@ -26,14 +26,14 @@ namespace HIDrogen
         private readonly CustomInputBuffer m_InputBuffer = new CustomInputBuffer();
 
         // Map from input system instance to backend instance
-        private readonly Dictionary<InputDevice, TBackendDevice> m_DeviceLookup
-            = new Dictionary<InputDevice, TBackendDevice>();
+        private readonly Dictionary<int, TBackendDevice> m_DeviceLookup
+            = new Dictionary<int, TBackendDevice>();
 
         // Queues for devices; they must be managed on the main thread
         private readonly ConcurrentBag<(InputDeviceDescription description, TAddContext context)> m_AdditionQueue
             = new ConcurrentBag<(InputDeviceDescription, TAddContext)>();
-        internal readonly ConcurrentBag<InputDevice> m_RemovalQueue = new ConcurrentBag<InputDevice>();
-
+        internal readonly ConcurrentBag<int> m_RemovalQueue = new ConcurrentBag<int>();
+        private readonly ConcurrentBag<int> m_PendingRemovals = new ConcurrentBag<int>();
         private int m_MainThreadId;
 
         private bool m_Started = false;
@@ -89,9 +89,9 @@ namespace HIDrogen
                     m_RemovalQueue.Add(pair.Key);
                 }
 
-                while (m_RemovalQueue.TryTake(out var device))
+                while (m_RemovalQueue.TryTake(out var deviceId))
                 {
-                    RemoveDeviceNow(device);
+                    RemoveDeviceNow(deviceId);
                 }
 
                 m_DeviceLookup.Clear();
@@ -116,7 +116,7 @@ namespace HIDrogen
 
             if (change == InputDeviceChange.Removed)
             {
-                RemoveBackendDevice(device);
+                m_PendingRemovals.Add(device.deviceId);
             }
         }
 
@@ -124,7 +124,7 @@ namespace HIDrogen
         {
             CheckStarted();
 
-            if (!m_DeviceLookup.TryGetValue(device, out var backendDevice))
+            if (!m_DeviceLookup.TryGetValue(device.deviceId, out var backendDevice))
             {
                 return null;
             }
@@ -134,12 +134,19 @@ namespace HIDrogen
 
         private void FlushDeviceQueue()
         {
-            // Process device removals first, for backends that may remove and re-add a device in the same update
-            while (m_RemovalQueue.TryTake(out var device))
+            // Process removals from InputSystem, unless they were recreated
+            while (m_PendingRemovals.TryTake(out var deviceId))
             {
-                RemoveDeviceNow(device);
+                if (InputSystem.GetDeviceById(deviceId) == null)
+                {
+                    RemoveBackendDevice(deviceId);
+                }
             }
-
+            // Process device removals first, for backends that may remove and re-add a device in the same update
+            while (m_RemovalQueue.TryTake(out var deviceId))
+            {
+                RemoveDeviceNow(deviceId);
+            }
             while (m_AdditionQueue.TryTake(out var _context))
             {
                 var (description, context) = _context;
@@ -214,7 +221,7 @@ namespace HIDrogen
                 try
                 {
                     var backendDevice = OnDeviceAdded(device, context);
-                    m_DeviceLookup.Add(device, backendDevice);
+                    m_DeviceLookup.Add(device.deviceId, backendDevice);
                     return true;
                 }
                 catch (Exception ex)
@@ -226,7 +233,7 @@ namespace HIDrogen
             }
         }
 
-        public bool RemoveDeviceNow(InputDevice device)
+        public bool RemoveDeviceNow(int deviceId)
         {
             if (Thread.CurrentThread.ManagedThreadId != m_MainThreadId)
             {
@@ -235,8 +242,12 @@ namespace HIDrogen
 
             try
             {
-                RemoveBackendDevice(device);
-                InputSystem.RemoveDevice(device);
+                RemoveBackendDevice(deviceId);
+                var current = InputSystem.GetDeviceById(deviceId);
+                if (current != null)
+                {
+                    InputSystem.RemoveDevice(current);
+                }
                 return true;
             }
             catch (Exception ex)
@@ -245,13 +256,21 @@ namespace HIDrogen
                 return false;
             }
         }
-        
-        private void RemoveBackendDevice(InputDevice device)
+
+        public bool RemoveDeviceNow(InputDevice device)
         {
-            if (m_DeviceLookup.TryGetValue(device, out var backendDevice))
+            if (device == null)
+                return false;
+
+            return RemoveDeviceNow(device.deviceId);
+        }
+        
+        private void RemoveBackendDevice(int deviceId)
+        {
+            if (m_DeviceLookup.TryGetValue(deviceId, out var backendDevice))
             {
                 OnDeviceRemoved(backendDevice);
-                m_DeviceLookup.Remove(device);
+                m_DeviceLookup.Remove(deviceId);
             }
         }
 
@@ -262,7 +281,8 @@ namespace HIDrogen
 
         public void QueueDeviceRemove(InputDevice device)
         {
-            m_RemovalQueue.Add(device);
+            if (device != null)
+                m_RemovalQueue.Add(device.deviceId);
         }
 
         public void QueueEvent(InputEventPtr eventPtr)
