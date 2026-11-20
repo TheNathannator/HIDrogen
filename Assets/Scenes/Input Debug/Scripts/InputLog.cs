@@ -49,13 +49,14 @@ namespace HIDrogen.InputDebug
                 {
                     case ButtonControl button:
                     {
-                        if (button.isPressed)
+                        float value = button.ReadValueFromEvent(eventPtr);
+                        if (button.IsValueConsideredPressed(value))
                         {
-                            m_Log.AppendLine($"{eventPtr.time:F6}: {button} {button.ReadValueFromEvent(eventPtr):F3} (pressed)");
+                            m_Log.AppendLine($"{eventPtr.time:F6}: {button} {value:F3} (pressed)");
                         }
                         else
                         {
-                            m_Log.AppendLine($"{eventPtr.time:F6}: {button} {button.ReadValueFromEvent(eventPtr):F3}");
+                            m_Log.AppendLine($"{eventPtr.time:F6}: {button} {value:F3}");
                         }
                         break;
                     }
