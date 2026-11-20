@@ -27,7 +27,22 @@ namespace HIDrogen.Backend.Linux
     {
         internal Dictionary<input_key_code, EvdevControlMapping> m_Keys;
         internal Dictionary<input_abs_code, EvdevControlMapping> m_Abs;
+
         internal Dictionary<int, EvdevControlMapping> m_Hats;
+        internal Dictionary<input_abs_code, EvdevControlMapping> m_Sticks;
+
+        private void EnsureAbsUnique(input_abs_code abs)
+        {
+            if (m_Abs != null && m_Abs.ContainsKey(abs))
+            {
+                throw new ArgumentException($"An axis mapping for {abs} has already been added.");
+            }
+
+            if (m_Sticks != null && m_Sticks.ContainsKey(abs))
+            {
+                throw new ArgumentException($"A stick mapping for {abs} has already been added.");
+            }
+        }
 
         public EvdevDeviceMapping WithKey(input_key_code key, EvdevControlMapping mapping)
         {
@@ -52,11 +67,7 @@ namespace HIDrogen.Backend.Linux
                 m_Abs = new Dictionary<input_abs_code, EvdevControlMapping>();
             }
 
-            if (m_Abs.ContainsKey(abs))
-            {
-                throw new ArgumentException($"A mapping for {abs} has already been added.");
-            }
-
+            EnsureAbsUnique(abs);
             m_Abs.Add(abs, mapping);
             return this;
         }
@@ -74,6 +85,20 @@ namespace HIDrogen.Backend.Linux
             }
 
             m_Hats.Add(index, mapping);
+            return this;
+        }
+
+        public EvdevDeviceMapping WithStick(input_abs_code abs, EvdevControlMapping mapping)
+        {
+            if (m_Sticks == null)
+            {
+                m_Sticks = new Dictionary<input_abs_code, EvdevControlMapping>();
+            }
+
+            EnsureAbsUnique(abs);
+            EnsureAbsUnique(abs + 1); // The next abs needs to be available, as they will be paired together
+            m_Sticks.Add(abs, mapping);
+            m_Sticks.Add(abs + 1, mapping);
             return this;
         }
     }
@@ -226,6 +251,12 @@ namespace HIDrogen.Backend.Linux
                 return;
             }
 
+            if (mappings != null && mappings.m_Sticks.ContainsKey(abs))
+            {
+                MakeStickControl(builder, absIndex, absStartByte);
+                return;
+            }
+
             var absInfo = descriptor.absInfo[absIndex];
             string parameters = IsAbsY(abs)
                 ? $"minValue={absInfo.maximum},maxValue={absInfo.minimum},zeroPoint=0"
@@ -351,6 +382,57 @@ namespace HIDrogen.Backend.Linux
                     .WithBitOffset(0);
 
                 builder.AddControl($"{hatRoot}/{negative}")
+                    .WithLayout("EvdevButton")
+                    .WithParameters($"minValue=0,maxValue={min}")
+                    .WithFormat(InputStateBlock.FormatInt)
+                    .WithByteOffset(GetAbsByteOffset(0, i)) // no absStartByte or absIndex, this is relative to the parent
+                    .WithBitOffset(0);
+            }
+
+            m_AvailableAbs.Remove(descriptor.supportedAbs[absIndex]);
+            m_AvailableAbs.Remove(descriptor.supportedAbs[absIndex + 1]);
+        }
+
+        private void MakeStickControl(InputControlLayout.Builder builder, int absIndex, int absStartByte)
+        {
+            const int absCount = 2;
+
+            var mapping = mappings.m_Sticks[descriptor.supportedAbs[absIndex]];
+
+            string stickRoot = mapping.path;
+            AddControl(builder, mapping)
+                .WithLayout("Stick")
+                .WithByteOffset(GetAbsByteOffset(absStartByte, absIndex))
+                .WithSizeInBits(absCount * sizeof(int) * 8);
+
+            for (int i = 0; i < 2; i++)
+            {
+                var absInfo = descriptor.absInfo[absIndex + i];
+
+                bool isX = i == 0;
+                string axis = isX ? "x" : "y";
+                string positive = isX ? "right" : "up";
+                string negative = isX ? "left" : "down";
+
+                // note: Y axis is inverted
+                int max = isX ? absInfo.maximum : absInfo.minimum;
+                int min = isX ? absInfo.minimum : absInfo.maximum;
+
+                builder.AddControl($"{stickRoot}/{axis}")
+                    .WithLayout("EvdevAxis")
+                    .WithParameters($"minValue={min},maxValue={max},zeroPoint=0")
+                    .WithFormat(InputStateBlock.FormatInt)
+                    .WithByteOffset(GetAbsByteOffset(0, i)) // no absStartByte or absIndex, this is relative to the parent
+                    .WithBitOffset(0);
+
+                builder.AddControl($"{stickRoot}/{positive}")
+                    .WithLayout("EvdevButton")
+                    .WithParameters($"minValue=0,maxValue={max}")
+                    .WithFormat(InputStateBlock.FormatInt)
+                    .WithByteOffset(GetAbsByteOffset(0, i)) // no absStartByte or absIndex, this is relative to the parent
+                    .WithBitOffset(0);
+
+                builder.AddControl($"{stickRoot}/{negative}")
                     .WithLayout("EvdevButton")
                     .WithParameters($"minValue=0,maxValue={min}")
                     .WithFormat(InputStateBlock.FormatInt)
