@@ -59,6 +59,8 @@ namespace HIDrogen.Backend.Linux
                 return null;
             }
 
+            Debug.Log($"Finding layout for {descriptor}");
+
             int bestMatchIndex = -1;
             float bestMatch = 0;
             for (int i = 0; i < s_Registry.Count; i++)
@@ -66,6 +68,7 @@ namespace HIDrogen.Backend.Linux
                 float match = s_Registry[i].matcher.MatchPercentage(description);
                 if (match > bestMatch)
                 {
+                    Debug.Log($"Candidate layout {s_Registry[i].layoutName} matched (score {match})");
                     bestMatch = match;
                     bestMatchIndex = i;
                 }
@@ -76,6 +79,7 @@ namespace HIDrogen.Backend.Linux
             EvdevDeviceMapping mappings;
             if (bestMatchIndex < 0)
             {
+                Debug.Log("No registered layouts matched; using generic builder");
                 baseLayout = nameof(EvdevDevice);
                 layoutName = description.interfaceName;
                 mappings = null;
