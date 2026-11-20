@@ -25,26 +25,26 @@ namespace HIDrogen.Backend.Linux
 
     public class EvdevDeviceMapping
     {
-        internal Dictionary<input_key_code, EvdevControlMapping> m_Keys;
-        internal Dictionary<input_abs_code, EvdevControlMapping> m_Abs;
-        internal Dictionary<int, EvdevControlMapping> m_Hats;
+        internal readonly Dictionary<input_key_code, EvdevControlMapping> m_Keys = new Dictionary<input_key_code, EvdevControlMapping>();
+        internal readonly Dictionary<input_abs_code, EvdevControlMapping> m_Abs = new Dictionary<input_abs_code, EvdevControlMapping>();
+        internal readonly Dictionary<int, EvdevControlMapping> m_Hats = new Dictionary<int, EvdevControlMapping>();
 
-        internal Dictionary<input_abs_code, EvdevControlMapping> m_AbsButtons;
-        internal Dictionary<input_abs_code, EvdevControlMapping> m_Sticks;
+        internal readonly Dictionary<input_abs_code, EvdevControlMapping> m_AbsButtons = new Dictionary<input_abs_code, EvdevControlMapping>();
+        internal readonly Dictionary<input_abs_code, EvdevControlMapping> m_Sticks = new Dictionary<input_abs_code, EvdevControlMapping>();
 
         private void EnsureAbsUnique(input_abs_code abs)
         {
-            if (m_Abs != null && m_Abs.ContainsKey(abs))
+            if (m_Abs.ContainsKey(abs))
             {
                 throw new ArgumentException($"An axis mapping for {abs} has already been added.");
             }
 
-            if (m_AbsButtons != null && m_AbsButtons.ContainsKey(abs))
+            if (m_AbsButtons.ContainsKey(abs))
             {
                 throw new ArgumentException($"A button mapping for {abs} has already been added.");
             }
 
-            if (m_Sticks != null && m_Sticks.ContainsKey(abs))
+            if (m_Sticks.ContainsKey(abs))
             {
                 throw new ArgumentException($"A stick mapping for {abs} has already been added.");
             }
@@ -52,11 +52,6 @@ namespace HIDrogen.Backend.Linux
 
         public EvdevDeviceMapping WithKey(input_key_code key, EvdevControlMapping mapping)
         {
-            if (m_Keys == null)
-            {
-                m_Keys = new Dictionary<input_key_code, EvdevControlMapping>();
-            }
-
             if (m_Keys.ContainsKey(key))
             {
                 throw new ArgumentException($"A mapping for {key} has already been added.");
@@ -68,11 +63,6 @@ namespace HIDrogen.Backend.Linux
 
         public EvdevDeviceMapping WithAbs(input_abs_code abs, EvdevControlMapping mapping)
         {
-            if (m_Abs == null)
-            {
-                m_Abs = new Dictionary<input_abs_code, EvdevControlMapping>();
-            }
-
             EnsureAbsUnique(abs);
             m_Abs.Add(abs, mapping);
             return this;
@@ -80,11 +70,6 @@ namespace HIDrogen.Backend.Linux
 
         public EvdevDeviceMapping WithHat(int index, EvdevControlMapping mapping)
         {
-            if (m_Hats == null)
-            {
-                m_Hats = new Dictionary<int, EvdevControlMapping>();
-            }
-
             if (m_Hats.ContainsKey(index))
             {
                 throw new ArgumentException($"A mapping for hat {index} has already been added.");
@@ -96,11 +81,6 @@ namespace HIDrogen.Backend.Linux
 
         public EvdevDeviceMapping WithAbsButton(input_abs_code abs, EvdevControlMapping mapping)
         {
-            if (m_AbsButtons == null)
-            {
-                m_AbsButtons = new Dictionary<input_abs_code, EvdevControlMapping>();
-            }
-
             EnsureAbsUnique(abs);
             m_AbsButtons.Add(abs, mapping);
             return this;
@@ -108,11 +88,6 @@ namespace HIDrogen.Backend.Linux
 
         public EvdevDeviceMapping WithStick(input_abs_code abs, EvdevControlMapping mapping)
         {
-            if (m_Sticks == null)
-            {
-                m_Sticks = new Dictionary<input_abs_code, EvdevControlMapping>();
-            }
-
             EnsureAbsUnique(abs);
             EnsureAbsUnique(abs + 1); // The next abs needs to be available, as they will be paired together
             m_Sticks.Add(abs, mapping);
