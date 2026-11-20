@@ -230,8 +230,8 @@ namespace HIDrogen.Backend.Linux
 
         public static void RegisterLayout<TDevice>(
             EvdevDeviceMapping mapping,
-            int vendorId,
-            int productId
+            ushort vendorId,
+            ushort productId
         )
             where TDevice : InputDevice
         {
@@ -240,9 +240,9 @@ namespace HIDrogen.Backend.Linux
 
         public static void RegisterLayout<TDevice>(
             EvdevDeviceMapping mapping,
-            int vendorId,
-            int productId,
-            int revision
+            ushort vendorId,
+            ushort productId,
+            ushort revision
         )
             where TDevice : InputDevice
         {
@@ -252,9 +252,9 @@ namespace HIDrogen.Backend.Linux
         public static void RegisterLayout<TDevice>(
             EvdevDeviceMapping mapping,
             input_bus_type busType,
-            int vendorId,
-            int productId,
-            int revision
+            ushort vendorId,
+            ushort productId,
+            ushort revision
         )
             where TDevice : InputDevice
         {
@@ -262,42 +262,42 @@ namespace HIDrogen.Backend.Linux
         }
 
         private static InputDeviceMatcher GetMatcher(
-            int vendorId,
-            int productId
+            ushort vendorId,
+            ushort productId
         )
         {
             return new InputDeviceMatcher()
                 .WithInterface(EvdevDefinitions.InterfaceName)
-                .WithCapability("vendorId", vendorId)
-                .WithCapability("productId", productId);
+                .WithCapability("vendorId", (int)vendorId)
+                .WithCapability("productId", (int)productId);
         }
 
         private static InputDeviceMatcher GetMatcher(
-            int vendorId,
-            int productId,
-            int revision
+            ushort vendorId,
+            ushort productId,
+            ushort revision
         )
         {
             return new InputDeviceMatcher()
                 .WithInterface(EvdevDefinitions.InterfaceName)
                 .WithVersion(revision.ToString())
-                .WithCapability("vendorId", vendorId)
-                .WithCapability("productId", productId);
+                .WithCapability("vendorId", (int)vendorId)
+                .WithCapability("productId", (int)productId);
         }
 
         private static InputDeviceMatcher GetMatcher(
             input_bus_type busType,
-            int vendorId,
-            int productId,
-            int revision
+            ushort vendorId,
+            ushort productId,
+            ushort revision
         )
         {
             return new InputDeviceMatcher()
                 .WithInterface(EvdevDefinitions.InterfaceName)
                 .WithVersion(revision.ToString())
                 .WithCapability("busType", (int)busType)
-                .WithCapability("vendorId", vendorId)
-                .WithCapability("productId", productId);
+                .WithCapability("vendorId", (int)vendorId)
+                .WithCapability("productId", (int)productId);
         }
     }
 }
