@@ -17,7 +17,7 @@ namespace HIDrogen.Services.Linux
 
         private Action<int, string> m_RealNativeDeviceDiscovered;
 
-        public void Start()
+        public LinuxShim()
         {
             // Shim native device discovery, as shimming their descriptions is not enough
             // InputManager InputSystem.s_Manager;
@@ -78,6 +78,10 @@ namespace HIDrogen.Services.Linux
             {
                 RemoveIfShimmed(device);
             }
+        }
+
+        public void Start()
+        {
         }
 
         public void Stop()
