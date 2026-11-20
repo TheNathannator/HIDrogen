@@ -31,7 +31,12 @@ namespace HIDrogen
                 Logging.Verbose("Initializing backends");
 
                 PlatformInitialize();
+#if UNITY_EDITOR
+                // Defer backend start to the next editor update to ensure all layouts are registered.
+                UnityEditor.EditorApplication.delayCall += StartBackends;
+#else
                 BackendManager.Start();
+#endif
             }
             catch (Exception ex)
             {
@@ -39,11 +44,26 @@ namespace HIDrogen
             }
         }
 
+#if UNITY_EDITOR
+        private static void StartBackends()
+        {
+            try
+            {
+                BackendManager.Start();
+            }
+            catch (Exception ex)
+            {
+                Logging.Exception("Failed to start backends", ex);
+            }
+        }
+#endif
+
         internal static void Uninitialize()
         {
 #if UNITY_EDITOR
             UnityEditor.AssemblyReloadEvents.beforeAssemblyReload -= Uninitialize;
             UnityEditor.EditorApplication.quitting -= Uninitialize;
+            UnityEditor.EditorApplication.delayCall -= StartBackends;
 #else
             UnityEngine.Application.quitting -= Uninitialize;
 #endif
