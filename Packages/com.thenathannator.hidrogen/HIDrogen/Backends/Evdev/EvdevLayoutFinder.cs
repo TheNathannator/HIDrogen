@@ -191,7 +191,9 @@ namespace HIDrogen.Backend.Linux
                 .WithCapability("driver", descriptor.driver)
                 .WithCapability("busType", (int)descriptor.busType)
                 .WithCapability("vendorId", descriptor.vendorId)
-                .WithCapability("productId", descriptor.productId);
+                .WithCapability("productId", descriptor.productId)
+                .WithCapability("xpadSubtype", descriptor.xpadSubtype)
+                .WithCapability("santrollerSubtype", descriptor.santrollerSubtype);
 
             var builder = new EvdevLayoutBuilder()
             {
