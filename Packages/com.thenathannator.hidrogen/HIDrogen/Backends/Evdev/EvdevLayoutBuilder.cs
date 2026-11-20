@@ -161,9 +161,11 @@ namespace HIDrogen.Backend.Linux
 
             for (int keyIndex = 0; keyIndex < descriptor.supportedKeys.Length; keyIndex++)
             {
-                if (m_AvailableKeys.Contains(descriptor.supportedKeys[keyIndex]))
+                var key = descriptor.supportedKeys[keyIndex];
+                if (m_AvailableKeys.Contains(key))
                 {
                     MakeKeyControl(builder, keyIndex);
+                    m_AvailableKeys.Remove(key);
                 }
             }
 
@@ -173,9 +175,11 @@ namespace HIDrogen.Backend.Linux
 
             for (int absIndex = 0; absIndex < descriptor.supportedAbs.Length; absIndex++)
             {
-                if (m_AvailableAbs.Contains(descriptor.supportedAbs[absIndex]))
+                var abs = descriptor.supportedAbs[absIndex];
+                if (m_AvailableAbs.Contains(abs))
                 {
                     MakeAbsControl(builder, absIndex, absStartByte);
+                    m_AvailableAbs.Remove(abs);
                 }
             }
 
@@ -184,51 +188,29 @@ namespace HIDrogen.Backend.Linux
             return builder.Build();
         }
 
-        internal InputControlLayout.Builder.ControlBuilder AddControl(InputControlLayout.Builder builder, EvdevControlMapping mapping)
-        {
-            if (string.IsNullOrEmpty(mapping.path))
-            {
-                throw new InvalidOperationException($"No control path has been specified for this mapping!");
-            }
-
-            var control = builder.AddControl(mapping.path);
-
-            if (!string.IsNullOrEmpty(mapping.displayName))
-            {
-                control = control.WithDisplayName(mapping.displayName);
-            }
-
-            return control;
-        }
-
         private void MakeKeyControl(InputControlLayout.Builder builder, int keyIndex)
         {
             var key = descriptor.supportedKeys[keyIndex];
 
             if (key == input_key_code.BTN_DPAD_UP &&
-                m_AvailableKeys.Contains(input_key_code.BTN_DPAD_DOWN) &&
-                m_AvailableKeys.Contains(input_key_code.BTN_DPAD_LEFT) &&
-                m_AvailableKeys.Contains(input_key_code.BTN_DPAD_RIGHT) &&
-                (mappings == null || (
-                    !mappings.m_Keys.ContainsKey(input_key_code.BTN_DPAD_UP) &&
-                    !mappings.m_Keys.ContainsKey(input_key_code.BTN_DPAD_DOWN) &&
-                    !mappings.m_Keys.ContainsKey(input_key_code.BTN_DPAD_LEFT) &&
-                    !mappings.m_Keys.ContainsKey(input_key_code.BTN_DPAD_RIGHT)
-                ))
-            )
+                !IsKeyMapped(input_key_code.BTN_DPAD_UP) &&
+                !IsKeyMapped(input_key_code.BTN_DPAD_DOWN) &&
+                !IsKeyMapped(input_key_code.BTN_DPAD_LEFT) &&
+                !IsKeyMapped(input_key_code.BTN_DPAD_RIGHT))
             {
                 // Group d-pad buttons
                 MakeDpadControl(builder, keyIndex);
                 return;
             }
 
-            if (mappings == null || !mappings.m_Keys.TryGetValue(key, out var mapping))
+            var mapping = new EvdevControlMapping()
             {
-                mapping = new EvdevControlMapping()
-                {
-                    path = ToCamelCase(key.ToString()),
-                    displayName = ToDisplayName(key.ToString(), s_KeyDisplayNameFixes),
-                };
+                path = ToCamelCase(key.ToString()),
+                displayName = ToDisplayName(key.ToString(), s_KeyDisplayNameFixes),
+            };
+            if (mappings != null && mappings.m_Keys.TryGetValue(key, out var buttonMapping))
+            {
+                mapping = buttonMapping;
             }
 
             AddControl(builder, mapping)
@@ -238,28 +220,13 @@ namespace HIDrogen.Backend.Linux
                 .WithBitOffset(GetKeyBitOffset(keyIndex));
         }
 
-        private int GetAbsZeroPoint(input_absinfo absInfo)
-        {
-            return absInfo.minimum + (absInfo.maximum - absInfo.minimum) / 2;
-        }
-
-        private int GetAbsMin(input_absinfo absInfo, bool isX)
-        {
-            return isX ? absInfo.maximum : absInfo.minimum;
-        }
-
-        private int GetAbsMax(input_absinfo absInfo, bool isX)
-        {
-            return isX ? absInfo.minimum : absInfo.maximum;
-        }
-
         private void MakeAbsControl(InputControlLayout.Builder builder, int absIndex, int absStartByte)
         {
             var abs = descriptor.supportedAbs[absIndex];
 
             if (IsHatX(abs) &&
-                m_AvailableAbs.Contains(abs + 1) &&
-                (mappings == null || !mappings.m_Abs.ContainsKey(abs + 1)))
+                !IsAbsMapped(abs) &&
+                !IsAbsMapped(abs + 1))
             {
                 // Group hat axes
                 MakeHatControl(builder, absIndex, absStartByte);
@@ -272,13 +239,14 @@ namespace HIDrogen.Backend.Linux
                 return;
             }
 
-            if (mappings == null || !mappings.m_Abs.TryGetValue(abs, out var mapping))
+            var mapping = new EvdevControlMapping()
             {
-                mapping = new EvdevControlMapping()
-                {
-                    path = ToCamelCase(abs.ToString()),
-                    displayName = ToDisplayName(abs.ToString(), s_AbsDisplayNameFixes),
-                };
+                path = ToCamelCase(abs.ToString()),
+                displayName = ToDisplayName(abs.ToString(), s_AbsDisplayNameFixes),
+            };
+            if (mappings != null && mappings.m_Abs.TryGetValue(abs, out var axisMapping))
+            {
+                mapping = axisMapping;
             }
 
             var absInfo = descriptor.absInfo[absIndex];
@@ -294,30 +262,6 @@ namespace HIDrogen.Backend.Linux
                 .WithFormat(InputStateBlock.FormatInt)
                 .WithByteOffset(GetAbsByteOffset(absStartByte, absIndex))
                 .WithBitOffset(0);
-        }
-
-        private InputControlLayout.Builder.ControlBuilder AddHatControl(
-            InputControlLayout.Builder builder,
-            out string rootPath
-        )
-        {
-            int hatIndex = m_HatCount;
-            m_HatCount++;
-
-            if (mappings == null || !mappings.m_Hats.TryGetValue(hatIndex, out var mapping))
-            {
-                mapping = new EvdevControlMapping()
-                {
-                    path = $"dpad{hatIndex + 1}",
-                    displayName = $"D-pad {hatIndex + 1}",
-                };
-            }
-
-            rootPath = mapping.path;
-
-            return AddControl(builder, mapping)
-                .WithLayout("Dpad")
-                .WithUsages(CommonUsages.Hatswitch);
         }
 
         private void MakeDpadControl(InputControlLayout.Builder builder, int keyIndex)
@@ -359,13 +303,13 @@ namespace HIDrogen.Backend.Linux
             m_AvailableKeys.Remove(input_key_code.BTN_DPAD_RIGHT);
 
             // Both d-pad buttons and hat 0 may be specified as supported; prefer the buttons over the hat axes
-            // (but make sure to respect the mapping overrides)
-            if (mappings == null || !mappings.m_Abs.ContainsKey(input_abs_code.ABS_HAT0X))
+            // (but make sure to respect mapping overrides)
+            if (!IsAbsMapped(input_abs_code.ABS_HAT0X))
             {
                 m_AvailableAbs.Remove(input_abs_code.ABS_HAT0X);
             }
 
-            if (mappings == null || !mappings.m_Abs.ContainsKey(input_abs_code.ABS_HAT0Y))
+            if (!IsAbsMapped(input_abs_code.ABS_HAT0Y))
             {
                 m_AvailableAbs.Remove(input_abs_code.ABS_HAT0Y);
             }
@@ -406,6 +350,7 @@ namespace HIDrogen.Backend.Linux
                     .WithBitOffset(0);
             }
 
+            // Consume abs bits
             m_AvailableAbs.Remove(descriptor.supportedAbs[absIndex]);
             m_AvailableAbs.Remove(descriptor.supportedAbs[absIndex + 1]);
         }
@@ -457,8 +402,81 @@ namespace HIDrogen.Backend.Linux
                     .WithBitOffset(0);
             }
 
+            // Consume abs bits
             m_AvailableAbs.Remove(descriptor.supportedAbs[absIndex]);
             m_AvailableAbs.Remove(descriptor.supportedAbs[absIndex + 1]);
+        }
+
+        private InputControlLayout.Builder.ControlBuilder AddControl(InputControlLayout.Builder builder, EvdevControlMapping mapping)
+        {
+            if (string.IsNullOrEmpty(mapping.path))
+            {
+                throw new InvalidOperationException($"No control path has been specified for this mapping!");
+            }
+
+            var control = builder.AddControl(mapping.path);
+
+            if (!string.IsNullOrEmpty(mapping.displayName))
+            {
+                control = control.WithDisplayName(mapping.displayName);
+            }
+
+            return control;
+        }
+
+        private InputControlLayout.Builder.ControlBuilder AddHatControl(
+            InputControlLayout.Builder builder,
+            out string rootPath
+        )
+        {
+            int hatIndex = m_HatCount;
+            m_HatCount++;
+
+            if (mappings == null || !mappings.m_Hats.TryGetValue(hatIndex, out var mapping))
+            {
+                mapping = new EvdevControlMapping()
+                {
+                    path = $"dpad{hatIndex + 1}",
+                    displayName = $"D-pad {hatIndex + 1}",
+                };
+            }
+
+            rootPath = mapping.path;
+
+            return AddControl(builder, mapping)
+                .WithLayout("Dpad")
+                .WithUsages(CommonUsages.Hatswitch);
+        }
+
+        private bool IsKeyMapped(input_key_code key)
+        {
+            if (!m_AvailableKeys.Contains(key))
+            {
+                return true;
+            }
+
+            if (mappings == null)
+            {
+                return false;
+            }
+
+            return mappings.m_Keys.ContainsKey(key);
+        }
+
+        private bool IsAbsMapped(input_abs_code abs)
+        {
+            if (!m_AvailableAbs.Contains(abs))
+            {
+                return true;
+            }
+
+            if (mappings == null)
+            {
+                return false;
+            }
+
+            return mappings.m_Abs.ContainsKey(abs) ||
+                mappings.m_Sticks.ContainsKey(abs);
         }
 
         private uint GetKeyByteOffset(int keyIndex)
@@ -474,6 +492,21 @@ namespace HIDrogen.Backend.Linux
         private uint GetAbsByteOffset(int absStartByte, int absIndex)
         {
             return (uint)(absStartByte + (absIndex * sizeof(int)));
+        }
+
+        private int GetAbsZeroPoint(input_absinfo absInfo)
+        {
+            return absInfo.minimum + (absInfo.maximum - absInfo.minimum) / 2;
+        }
+
+        private int GetAbsMin(input_absinfo absInfo, bool isX)
+        {
+            return isX ? absInfo.maximum : absInfo.minimum;
+        }
+
+        private int GetAbsMax(input_absinfo absInfo, bool isX)
+        {
+            return isX ? absInfo.minimum : absInfo.maximum;
         }
 
         private static bool IsAbsX(input_abs_code abs)
