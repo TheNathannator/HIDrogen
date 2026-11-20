@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Runtime.InteropServices;
 using HIDrogen.Imports.Linux;
 using HIDrogen.Imports.Posix;
 using HIDrogen.LowLevel;
@@ -267,7 +268,7 @@ namespace HIDrogen.Backend.Linux
 
             if (santroller2)
             {
-                if (evdev.get_property_value("ID_BUS").ToString() == "bluetooth") {
+                if (deviceInfo.busType == input_bus_type.BLUETOOTH) {
                     deviceInfo.santrollerSubtype = (byte)(deviceInfo.revision >> 8);
                     return true;
                 }
@@ -306,55 +307,97 @@ namespace HIDrogen.Backend.Linux
                     return true;
                 }
 
-                const byte USB_DT_INTERFACE = 0x04;
-                bool foundInterface = false;
-
-                // bLength is a single byte, so no descriptor can be larger than this
-                var buffer = new byte[byte.MaxValue];
-
-                // Read one descriptor at a time: the 2-byte header (bLength, bDescriptorType), then the body.
-                while (Fcntl.read(fddesc, buffer, 0, 2) == 2)
-                {
-                    int length = buffer[0];
-                    byte type = buffer[1];
-
-                    // Malformed descriptor; bail instead of looping forever
-                    if (length < 2)
-                        break;
-
-                    int bodyLength = length - 2;
-                    if (bodyLength > 0 && Fcntl.read(fddesc, buffer, 2, bodyLength) != bodyLength)
-                        break;
-
-                    if (type == USB_DT_INTERFACE)
-                    {
-                        // bInterfaceNumber at offset 2, bAlternateSetting at offset 3
-                        foundInterface = length >= 4 &&
-                            buffer[2] == interfaceNumber &&
-                            buffer[3] == altSetting;
-                    }
-                    else if (foundInterface)
-                    {
-                        // XInput vendor descriptor: subtype at offset 4
-                        if (xpad && type == 0x21 && length >= 5)
-                        {
-                            deviceInfo.xpadSubtype = buffer[4];
-                            break;
-                        }
-
-                        // Santroller vendor descriptor: "SANT" at offset 2, subtype at offset 7
-                        if (santroller2 && type == 0xFF && length >= 8 &&
-                            buffer[2] == 'S' && buffer[3] == 'A' &&
-                            buffer[4] == 'N' && buffer[5] == 'T')
-                        {
-                            deviceInfo.santrollerSubtype = buffer[7];
-                            break;
-                        }
-                    }
-                }
+                ReadVendorSubtype(fddesc, interfaceNumber, altSetting, xpad, santroller2, ref deviceInfo);
             }
 
             return true;
+        }
+
+        private const byte XINPUT_DT_VENDOR = 0x21;
+        private const byte SANTROLLER_DT_VENDOR = 0xFF;
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        private struct XInputVendorDescriptor
+        {
+            public usb_descriptor_header header;
+            public ushort bcdVersion;
+            public byte subtype;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        private unsafe struct SantrollerVendorDescriptor
+        {
+            public usb_descriptor_header header;
+            public fixed byte signature[4]; // "SANT"
+            public byte unknown;
+            public byte subtype;
+
+            public bool HasSignature => signature[0] == 'S' && signature[1] == 'A' &&
+                signature[2] == 'N' && signature[3] == 'T';
+        }
+
+        // Walk usb descriptor to fill the vendor subtype for the given interface
+        private static unsafe void ReadVendorSubtype(
+            fd fddesc,
+            int interfaceNumber,
+            int altSetting,
+            bool xpad,
+            bool santroller2,
+            ref DeviceInfo deviceInfo
+        )
+        {
+            // bLength is a single byte, so no descriptor can be larger than this
+            byte* buffer = stackalloc byte[byte.MaxValue];
+            var header = (usb_descriptor_header*)buffer;
+            bool foundInterface = false;
+
+            // Read one descriptor at a time: the header, then the body
+            while (Fcntl.read(fddesc, buffer, sizeof(usb_descriptor_header)) == sizeof(usb_descriptor_header))
+            {
+                int length = header->bLength;
+
+                // Malformed descriptor; bail instead of looping forever
+                if (length < sizeof(usb_descriptor_header))
+                    break;
+
+                int bodyLength = length - sizeof(usb_descriptor_header);
+                if (bodyLength > 0 &&
+                    Fcntl.read(fddesc, buffer + sizeof(usb_descriptor_header), bodyLength) != bodyLength)
+                    break;
+
+                switch (header->bDescriptorType)
+                {
+                    case UsbDescriptorType.USB_DT_INTERFACE when length >= sizeof(usb_interface_descriptor):
+                    {
+                        var iface = (usb_interface_descriptor*)buffer;
+                        foundInterface = iface->bInterfaceNumber == interfaceNumber &&
+                            iface->bAlternateSetting == altSetting;
+                        break;
+                    }
+                    case UsbDescriptorType.USB_DT_INTERFACE:
+                        foundInterface = false;
+                        break;
+
+                    case XINPUT_DT_VENDOR when foundInterface && xpad &&
+                        length >= sizeof(XInputVendorDescriptor):
+                    {
+                        deviceInfo.xpadSubtype = ((XInputVendorDescriptor*)buffer)->subtype;
+                        return;
+                    }
+
+                    case SANTROLLER_DT_VENDOR when foundInterface && santroller2 &&
+                        length >= sizeof(SantrollerVendorDescriptor):
+                    {
+                        var santroller = (SantrollerVendorDescriptor*)buffer;
+                        if (santroller->HasSignature)
+                        {
+                            deviceInfo.santrollerSubtype = santroller->subtype;
+                            return;
+                        }
+                        break;
+                    }
+                }
+            }
         }
 
         private static unsafe string GetDeviceString(fd fd, IoCode ioCode)
