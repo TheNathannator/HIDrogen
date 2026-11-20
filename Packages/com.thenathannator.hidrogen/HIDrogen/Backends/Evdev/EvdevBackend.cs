@@ -233,7 +233,34 @@ namespace HIDrogen.Backend.Linux
 
             deviceInfo.name = GetDeviceString(fd, EVIOCGNAME(0));
             deviceInfo.serial = GetDeviceString(fd, EVIOCGUNIQ(0));
-            bool xpad = evdev.get_property_value("ID_USB_DRIVER").ToString() == "xpad";
+
+            // Then query udev for any fixups or missing properties
+
+            // The kernel doesn't report the revision correctly for all device types for whatever reason
+            // USB HID devices for example have bcdHID reported instead of bcdDevice
+            // udev seems to smooth this over, so trust its judgement over evdev's
+            var id_revision = evdev.get_property_value("ID_REVISION");
+            if (!id_revision.IsInvalid && NumberUtils.TryParseHexUInt32(id_revision.ToString(), out uint realRevision))
+            {
+                deviceInfo.revision = (ushort)realRevision;
+            }
+
+            // Retrieve device driver from parents
+            Logging.Verbose($"Looking for driver on evdev device: {Udev.MakeDeviceInfo(evdev)}");
+            for (var parent = evdev.get_parent(); parent != null && !parent.IsInvalid; parent = parent.get_parent())
+            {
+                Logging.Verbose($"Checking parent: {Udev.MakeDeviceInfo(parent)}");
+                if (parent.get_subsystem().ToString() != Udev.SubsystemInput)
+                {
+                    deviceInfo.driver = parent.get_driver().ToString();
+                    if (!string.IsNullOrEmpty(deviceInfo.driver))
+                    {
+                        break;
+                    }
+                }
+            }
+
+            bool xpad = deviceInfo.driver == "xpad";
             bool santroller2 = deviceInfo.vendorId == 0x1209 && deviceInfo.productId == 0x2883;
 
             // If the device is neither xpad nor santroller2, we don't need to collect further info.
@@ -325,30 +352,6 @@ namespace HIDrogen.Backend.Linux
                             deviceInfo.santrollerSubtype = buffer[7];
                             break;
                         }
-                    }
-                }
-            }
-
-            // Then query udev for any fixups or missing properties
-
-            // The kernel doesn't report the revision correctly for all device types for whatever reason
-            // USB HID devices for example have bcdHID reported instead of bcdDevice
-            // udev seems to smooth this over, so trust its judgement over evdev's
-            var id_revision = evdev.get_property_value("ID_REVISION");
-            if (!id_revision.IsInvalid && NumberUtils.TryParseHexUInt32(id_revision.ToString(), out uint realRevision))
-            {
-                deviceInfo.revision = (ushort)realRevision;
-            }
-
-            // Retrieve device driver from parents
-            for (var parent = evdev.get_parent(); parent != null && !parent.IsInvalid; parent = parent.get_parent())
-            {
-                if (parent.get_subsystem().ToString() != Udev.SubsystemInput)
-                {
-                    deviceInfo.driver = parent.get_driver().ToString();
-                    if (!string.IsNullOrEmpty(deviceInfo.driver))
-                    {
-                        break;
                     }
                 }
             }
