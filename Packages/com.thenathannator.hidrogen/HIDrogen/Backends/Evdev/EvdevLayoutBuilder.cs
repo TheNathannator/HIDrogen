@@ -27,8 +27,9 @@ namespace HIDrogen.Backend.Linux
     {
         internal Dictionary<input_key_code, EvdevControlMapping> m_Keys;
         internal Dictionary<input_abs_code, EvdevControlMapping> m_Abs;
-
         internal Dictionary<int, EvdevControlMapping> m_Hats;
+
+        internal Dictionary<input_abs_code, EvdevControlMapping> m_AbsButtons;
         internal Dictionary<input_abs_code, EvdevControlMapping> m_Sticks;
 
         private void EnsureAbsUnique(input_abs_code abs)
@@ -36,6 +37,11 @@ namespace HIDrogen.Backend.Linux
             if (m_Abs != null && m_Abs.ContainsKey(abs))
             {
                 throw new ArgumentException($"An axis mapping for {abs} has already been added.");
+            }
+
+            if (m_AbsButtons != null && m_AbsButtons.ContainsKey(abs))
+            {
+                throw new ArgumentException($"A button mapping for {abs} has already been added.");
             }
 
             if (m_Sticks != null && m_Sticks.ContainsKey(abs))
@@ -85,6 +91,18 @@ namespace HIDrogen.Backend.Linux
             }
 
             m_Hats.Add(index, mapping);
+            return this;
+        }
+
+        public EvdevDeviceMapping WithAbsButton(input_abs_code abs, EvdevControlMapping mapping)
+        {
+            if (m_AbsButtons == null)
+            {
+                m_AbsButtons = new Dictionary<input_abs_code, EvdevControlMapping>();
+            }
+
+            EnsureAbsUnique(abs);
+            m_AbsButtons.Add(abs, mapping);
             return this;
         }
 
@@ -239,16 +257,6 @@ namespace HIDrogen.Backend.Linux
                 return;
             }
 
-            var mapping = new EvdevControlMapping()
-            {
-                path = ToCamelCase(abs.ToString()),
-                displayName = ToDisplayName(abs.ToString(), s_AbsDisplayNameFixes),
-            };
-            if (mappings != null && mappings.m_Abs.TryGetValue(abs, out var axisMapping))
-            {
-                mapping = axisMapping;
-            }
-
             var absInfo = descriptor.absInfo[absIndex];
 
             bool isX = IsAbsX(abs);
@@ -256,9 +264,30 @@ namespace HIDrogen.Backend.Linux
             int min = GetAbsMin(absInfo, isX);
             int max = GetAbsMax(absInfo, isX);
 
+            string layout = "EvdevAxis";
+            string parameters = $"zeroPoint={zero},minValue={min},maxValue={max}";
+            var mapping = new EvdevControlMapping()
+            {
+                path = ToCamelCase(abs.ToString()),
+                displayName = ToDisplayName(abs.ToString(), s_AbsDisplayNameFixes),
+            };
+            if (mappings != null)
+            {
+                if (mappings.m_Abs.TryGetValue(abs, out var axisMapping))
+                {
+                    mapping = axisMapping;
+                }
+                else if (mappings.m_AbsButtons.TryGetValue(abs, out var buttonMapping))
+                {
+                    mapping = buttonMapping;
+                    layout = "EvdevButton";
+                    parameters = $"minValue={min},maxValue={max}";
+                }
+            }
+
             AddControl(builder, mapping)
-                .WithLayout("EvdevAxis")
-                .WithParameters($"zeroPoint={zero},minValue={min},maxValue={max}")
+                .WithLayout(layout)
+                .WithParameters(parameters)
                 .WithFormat(InputStateBlock.FormatInt)
                 .WithByteOffset(GetAbsByteOffset(absStartByte, absIndex))
                 .WithBitOffset(0);
@@ -476,6 +505,7 @@ namespace HIDrogen.Backend.Linux
             }
 
             return mappings.m_Abs.ContainsKey(abs) ||
+                mappings.m_AbsButtons.ContainsKey(abs) ||
                 mappings.m_Sticks.ContainsKey(abs);
         }
 
