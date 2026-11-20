@@ -259,10 +259,9 @@ namespace HIDrogen.Backend.Linux
 
             var absInfo = descriptor.absInfo[absIndex];
 
-            bool isX = IsAbsX(abs);
             int zero = GetAbsZeroPoint(absInfo);
-            int min = GetAbsMin(absInfo, isX);
-            int max = GetAbsMax(absInfo, isX);
+            int min = GetAbsMin(abs, absInfo);
+            int max = GetAbsMax(abs, absInfo);
 
             string layout = "EvdevAxis";
             string parameters = $"zeroPoint={zero},minValue={min},maxValue={max}";
@@ -354,15 +353,15 @@ namespace HIDrogen.Backend.Linux
 
             for (int i = 0; i < absCount; i++)
             {
+                var abs = descriptor.supportedAbs[absIndex + i];
                 var absInfo = descriptor.absInfo[absIndex + i];
 
-                bool isX = i == 0;
-                string positive = isX ? "right" : "up";
-                string negative = isX ? "left" : "down";
+                string positive = i == 0 ? "right" : "up";
+                string negative = i == 0 ? "left" : "down";
 
                 int zero = GetAbsZeroPoint(absInfo);
-                int min = GetAbsMin(absInfo, isX);
-                int max = GetAbsMax(absInfo, isX);
+                int min = GetAbsMin(abs, absInfo);
+                int max = GetAbsMax(abs, absInfo);
 
                 builder.AddControl($"{hatRoot}/{positive}")
                     .WithLayout("EvdevButton")
@@ -398,16 +397,16 @@ namespace HIDrogen.Backend.Linux
 
             for (int i = 0; i < 2; i++)
             {
+                var abs = descriptor.supportedAbs[absIndex + i];
                 var absInfo = descriptor.absInfo[absIndex + i];
 
-                bool isX = i == 0;
-                string axis = isX ? "x" : "y";
-                string positive = isX ? "right" : "up";
-                string negative = isX ? "left" : "down";
+                string axis = i == 0 ? "x" : "y";
+                string positive = i == 0 ? "right" : "up";
+                string negative = i == 0 ? "left" : "down";
 
                 int zero = GetAbsZeroPoint(absInfo);
-                int min = GetAbsMin(absInfo, isX);
-                int max = GetAbsMax(absInfo, isX);
+                int min = GetAbsMin(abs, absInfo);
+                int max = GetAbsMax(abs, absInfo);
 
                 builder.AddControl($"{stickRoot}/{axis}")
                     .WithLayout("EvdevAxis")
@@ -529,14 +528,14 @@ namespace HIDrogen.Backend.Linux
             return absInfo.minimum + (absInfo.maximum - absInfo.minimum) / 2;
         }
 
-        private int GetAbsMin(input_absinfo absInfo, bool isX)
+        private int GetAbsMin(input_abs_code abs, input_absinfo absInfo)
         {
-            return isX ? absInfo.maximum : absInfo.minimum;
+            return IsAbsY(abs) ? absInfo.maximum : absInfo.minimum;
         }
 
-        private int GetAbsMax(input_absinfo absInfo, bool isX)
+        private int GetAbsMax(input_abs_code abs, input_absinfo absInfo)
         {
-            return isX ? absInfo.minimum : absInfo.maximum;
+            return IsAbsY(abs) ? absInfo.minimum : absInfo.maximum;
         }
 
         private static bool IsAbsX(input_abs_code abs)
