@@ -345,14 +345,14 @@ namespace HIDrogen.Backend.Linux
                     .WithFormat(InputStateBlock.FormatInt)
                     .WithByteOffset(GetAbsByteOffset(0, i)) // no absStartByte or absIndex, this is relative to the parent
                     .WithBitOffset(0)
-                    .WithParameters($"nullValue=0,minValue=-1,maxValue={absInfo.minimum}");
+                    .WithParameters($"nullValue=0,minValue=1,maxValue={absInfo.maximum}");
 
                 builder.AddControl($"{hatRoot}/{negative}")
                     .WithLayout("DiscreteButton")
                     .WithFormat(InputStateBlock.FormatInt)
                     .WithByteOffset(GetAbsByteOffset(0, i)) // no absStartByte or absIndex, this is relative to the parent
                     .WithBitOffset(0)
-                    .WithParameters($"nullValue=0,minValue=1,maxValue={absInfo.maximum}");
+                    .WithParameters($"nullValue=0,minValue=-1,maxValue={absInfo.minimum}");
             }
 
             m_AvailableAbs.Remove(descriptor.supportedAbs[absIndex]);
