@@ -99,12 +99,17 @@ namespace HIDrogen.Backend.Linux
         public EvdevCapabilities descriptor;
         public EvdevDeviceMapping mappings;
 
+        private readonly HashSet<input_key_code> m_AvailableKeys = new HashSet<input_key_code>();
+        private readonly HashSet<input_abs_code> m_AvailableAbs = new HashSet<input_abs_code>();
+
         private int m_HatCount;
 
         public InputControlLayout Build()
         {
             // Builders are persistent, make sure to reset any state here
             m_HatCount = 0;
+            m_AvailableKeys.Clear();
+            m_AvailableAbs.Clear();
 
             var builder = new InputControlLayout.Builder()
             {
@@ -114,6 +119,16 @@ namespace HIDrogen.Backend.Linux
                 stateFormat = EvdevDefinitions.InputFormat,
             };
 
+            foreach (var key in descriptor.supportedKeys)
+            {
+                m_AvailableKeys.Add(key);
+            }
+
+            foreach (var abs in descriptor.supportedAbs)
+            {
+                m_AvailableAbs.Add(abs);
+            }
+
             // Controls are laid out in the following order:
             // - Keys
             // - Abs
@@ -121,7 +136,10 @@ namespace HIDrogen.Backend.Linux
 
             for (int keyIndex = 0; keyIndex < descriptor.supportedKeys.Length; keyIndex++)
             {
-                MakeKeyControl(builder, ref keyIndex);
+                if (m_AvailableKeys.Contains(descriptor.supportedKeys[keyIndex]))
+                {
+                    MakeKeyControl(builder, keyIndex);
+                }
             }
 
             int keyEndBit = NumberUtils.AlignToMultiple(descriptor.supportedKeys.Length, 8);
@@ -130,7 +148,10 @@ namespace HIDrogen.Backend.Linux
 
             for (int absIndex = 0; absIndex < descriptor.supportedAbs.Length; absIndex++)
             {
-                MakeAbsControl(builder, ref absIndex, absStartByte);
+                if (m_AvailableAbs.Contains(descriptor.supportedAbs[absIndex]))
+                {
+                    MakeAbsControl(builder, absIndex, absStartByte);
+                }
             }
 
             // TODO: rel controls
@@ -155,7 +176,7 @@ namespace HIDrogen.Backend.Linux
             return control;
         }
 
-        private void MakeKeyControl(InputControlLayout.Builder builder, ref int keyIndex)
+        private void MakeKeyControl(InputControlLayout.Builder builder, int keyIndex)
         {
             if (keyIndex + 3 < descriptor.supportedKeys.Length &&
                 IsDpadButton(descriptor.supportedKeys[keyIndex + 0]) &&
@@ -163,8 +184,8 @@ namespace HIDrogen.Backend.Linux
                 IsDpadButton(descriptor.supportedKeys[keyIndex + 2]) &&
                 IsDpadButton(descriptor.supportedKeys[keyIndex + 3]))
             {
-                // Group consecutive d-pad bits into a d-pad control
-                MakeDpadControl(builder, ref keyIndex);
+                // Group d-pad buttons
+                MakeDpadControl(builder, keyIndex);
                 return;
             }
 
@@ -186,13 +207,13 @@ namespace HIDrogen.Backend.Linux
                 .WithBitOffset(GetKeyBitOffset(keyIndex));
         }
 
-        private void MakeAbsControl(InputControlLayout.Builder builder, ref int absIndex, int absStartByte)
+        private void MakeAbsControl(InputControlLayout.Builder builder, int absIndex, int absStartByte)
         {
             if (absIndex + 1 < descriptor.supportedAbs.Length &&
                 IsHatPair(descriptor.supportedAbs[absIndex + 0], descriptor.supportedAbs[absIndex + 1]))
             {
-                // Group consecutive hat abs into a d-pad control
-                MakeHatControl(builder, ref absIndex, absStartByte);
+                // Group hat axes
+                MakeHatControl(builder, absIndex, absStartByte);
                 return;
             }
 
@@ -244,7 +265,7 @@ namespace HIDrogen.Backend.Linux
                 .WithUsages(CommonUsages.Hatswitch);
         }
 
-        private void MakeDpadControl(InputControlLayout.Builder builder, ref int keyIndex)
+        private void MakeDpadControl(InputControlLayout.Builder builder, int keyIndex)
         {
             const int keyCount = 4;
 
@@ -276,10 +297,26 @@ namespace HIDrogen.Backend.Linux
                     .WithSizeInBits(1);
             }
 
-            keyIndex += keyCount - 1; // - 1 to counteract the increment in the main loop
+            // Consume key bits
+            m_AvailableKeys.Remove(input_key_code.BTN_DPAD_UP);
+            m_AvailableKeys.Remove(input_key_code.BTN_DPAD_DOWN);
+            m_AvailableKeys.Remove(input_key_code.BTN_DPAD_LEFT);
+            m_AvailableKeys.Remove(input_key_code.BTN_DPAD_RIGHT);
+
+            // Both d-pad buttons and hat 0 may be specified as supported; prefer the buttons over the hat axes
+            // (but make sure to respect the mapping overrides)
+            if (mappings == null || !mappings.m_Abs.ContainsKey(input_abs_code.ABS_HAT0X))
+            {
+                m_AvailableAbs.Remove(input_abs_code.ABS_HAT0X);
+            }
+
+            if (mappings == null || !mappings.m_Abs.ContainsKey(input_abs_code.ABS_HAT0Y))
+            {
+                m_AvailableAbs.Remove(input_abs_code.ABS_HAT0Y);
+            }
         }
 
-        private void MakeHatControl(InputControlLayout.Builder builder, ref int absIndex, int absStartByte)
+        private void MakeHatControl(InputControlLayout.Builder builder, int absIndex, int absStartByte)
         {
             const int absCount = 2;
 
@@ -311,7 +348,8 @@ namespace HIDrogen.Backend.Linux
                     .WithParameters($"nullValue=0,minValue=1,maxValue={absInfo.maximum}");
             }
 
-            absIndex += absCount - 1; // - 1 to counteract the increment in the main loop
+            m_AvailableAbs.Remove(descriptor.supportedAbs[absIndex]);
+            m_AvailableAbs.Remove(descriptor.supportedAbs[absIndex + 1]);
         }
 
         private uint GetKeyByteOffset(int keyIndex)
