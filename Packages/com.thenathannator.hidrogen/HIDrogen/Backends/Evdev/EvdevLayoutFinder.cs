@@ -188,6 +188,7 @@ namespace HIDrogen.Backend.Linux
             }
 
             var matcher = InputDeviceMatcher.FromDeviceDescription(description)
+                .WithCapability("driver", descriptor.driver)
                 .WithCapability("busType", (int)descriptor.busType)
                 .WithCapability("vendorId", descriptor.vendorId)
                 .WithCapability("productId", descriptor.productId);

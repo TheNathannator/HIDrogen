@@ -26,6 +26,7 @@ namespace HIDrogen.Backend.Linux
         {
             public string name;
             public string serial;
+            public string driver;
 
             public input_bus_type busType;
             public ushort vendorId;
@@ -227,6 +228,29 @@ namespace HIDrogen.Backend.Linux
             deviceInfo.name = GetDeviceString(fd, EVIOCGNAME(0));
             deviceInfo.serial = GetDeviceString(fd, EVIOCGUNIQ(0));
 
+            Logging.Verbose($"Looking for driver on evdev device: {Udev.MakeDeviceInfo(evdev)}");
+            for (var parent = evdev.get_parent(); parent != null && !parent.IsInvalid; parent = parent.get_parent())
+            {
+                Logging.Verbose($"Checking parent: {Udev.MakeDeviceInfo(parent)}");
+                if (parent.get_subsystem().ToString() != Udev.SubsystemInput)
+                {
+                    deviceInfo.driver = parent.get_driver().ToString();
+                    if (!string.IsNullOrEmpty(deviceInfo.driver))
+                    {
+                        break;
+                    }
+                }
+            }
+
+            if (string.IsNullOrEmpty(deviceInfo.driver))
+            {
+                Logging.Verbose($"Found driver: {deviceInfo.driver}");
+            }
+            else
+            {
+                Logging.Verbose("No driver found");
+            }
+
             return true;
         }
 
@@ -265,6 +289,8 @@ namespace HIDrogen.Backend.Linux
         {
             descriptor = new EvdevCapabilities()
             {
+                driver = deviceInfo.driver,
+
                 busType = deviceInfo.busType,
                 vendorId = deviceInfo.vendorId,
                 productId = deviceInfo.productId,
