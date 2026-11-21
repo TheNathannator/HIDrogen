@@ -185,11 +185,8 @@ namespace HIDrogen.Backend.Linux
         {
             var key = descriptor.supportedKeys[keyIndex];
 
-            if (key == input_key_code.BTN_DPAD_UP &&
-                !IsKeyMapped(input_key_code.BTN_DPAD_UP) &&
-                !IsKeyMapped(input_key_code.BTN_DPAD_DOWN) &&
-                !IsKeyMapped(input_key_code.BTN_DPAD_LEFT) &&
-                !IsKeyMapped(input_key_code.BTN_DPAD_RIGHT))
+            // Keys are sorted, so this is the first d-pad key the device has, whichever one that is
+            if (IsDpadKey(key) && !AreDpadKeysMapped())
             {
                 // Group d-pad buttons
                 MakeDpadControl(builder, keyIndex);
@@ -266,32 +263,72 @@ namespace HIDrogen.Backend.Linux
                 .WithByteOffset(GetAbsByteOffset(absStartByte, absIndex))
                 .WithBitOffset(0);
         }
+        internal static bool IsDpadKey(input_key_code key)
+        {
+            return key >= input_key_code.BTN_DPAD_UP && key <= input_key_code.BTN_DPAD_RIGHT;
+        }
+        private static readonly input_key_code[] s_DpadKeys =
+        {
+            input_key_code.BTN_DPAD_UP,
+            input_key_code.BTN_DPAD_DOWN,
+            input_key_code.BTN_DPAD_LEFT,
+            input_key_code.BTN_DPAD_RIGHT,
+        };
 
+        // If the mapping places any d-pad key itself, the keys aren't grouped
+        private bool AreDpadKeysMapped()
+        {
+            if (mappings == null)
+            {
+                return false;
+            }
+
+            foreach (var key in s_DpadKeys)
+            {
+                if (mappings.m_Keys.ContainsKey(key))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static string GetDpadPath(string dpadRoot, input_key_code key)
+        {
+            switch (key)
+            {
+                case input_key_code.BTN_DPAD_UP: return $"{dpadRoot}/up";
+                case input_key_code.BTN_DPAD_DOWN: return $"{dpadRoot}/down";
+                case input_key_code.BTN_DPAD_LEFT: return $"{dpadRoot}/left";
+                case input_key_code.BTN_DPAD_RIGHT: return $"{dpadRoot}/right";
+                default: throw new Exception($"{key} is not a d-pad key");
+            }
+        }
         private void MakeDpadControl(InputControlLayout.Builder builder, int keyIndex)
         {
-            const int keyCount = 4;
+            // Group only the d-pad keys that are actually present
+            int keyCount = 0;
+            while (keyIndex + keyCount < descriptor.supportedKeys.Length &&
+                IsDpadKey(descriptor.supportedKeys[keyIndex + keyCount]))
+            {
+                keyCount++;
+            }
 
             AddHatControl(builder, out string dpadRoot)
                 .WithFormat(InputStateBlock.FormatBit)
                 .WithByteOffset(GetKeyByteOffset(keyIndex))
                 .WithBitOffset(GetKeyBitOffset(keyIndex))
-                .WithSizeInBits(keyCount);
+                .WithSizeInBits((uint)keyCount);
             // Byte offsets are relative to the parent
             // Bit offsets are not
+            var missingDpadKeys = new HashSet<input_key_code>(s_DpadKeys);
             int firstBit = (int)GetKeyBitOffset(keyIndex);
             for (int i = 0; i < keyCount; i++)
             {
                 var key = descriptor.supportedKeys[keyIndex + i];
-
-                string path;
-                switch (key)
-                {
-                    case input_key_code.BTN_DPAD_UP: path = $"{dpadRoot}/up"; break;
-                    case input_key_code.BTN_DPAD_DOWN: path = $"{dpadRoot}/down"; break;
-                    case input_key_code.BTN_DPAD_LEFT: path = $"{dpadRoot}/left"; break;
-                    case input_key_code.BTN_DPAD_RIGHT: path = $"{dpadRoot}/right"; break;
-                    default: throw new Exception($"{key} is not a d-pad key");
-                }
+                missingDpadKeys.Remove(key);
+                string path = GetDpadPath(dpadRoot, key);
 
                 int bit = firstBit + i;
                 builder.AddControl(path)
@@ -300,6 +337,17 @@ namespace HIDrogen.Backend.Linux
                     .WithByteOffset((uint)(bit / 8))
                     .WithBitOffset((uint)(bit % 8))
                     .WithSizeInBits(1);
+            }
+            foreach (var missingKey in missingDpadKeys)
+            {
+                // point missing keys at the first bit, but zero out the scale so they don't report pressed
+                builder.AddControl(GetDpadPath(dpadRoot, missingKey))
+                    .WithLayout("Button")
+                    .WithFormat(InputStateBlock.FormatBit)
+                    .WithByteOffset(0)
+                    .WithBitOffset((uint)(firstBit % 8))
+                    .WithSizeInBits(1)
+                    .WithProcessors("scale(factor=0)");
             }
 
             // Consume key bits

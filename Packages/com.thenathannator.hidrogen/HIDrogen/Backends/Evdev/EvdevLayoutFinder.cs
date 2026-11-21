@@ -141,10 +141,10 @@ namespace HIDrogen.Backend.Linux
                     }
 
                     if (hat == 0 &&
-                        availableKeys.Contains(input_key_code.BTN_DPAD_UP) &&
-                        availableKeys.Contains(input_key_code.BTN_DPAD_DOWN) &&
-                        availableKeys.Contains(input_key_code.BTN_DPAD_LEFT) &&
-                        availableKeys.Contains(input_key_code.BTN_DPAD_RIGHT))
+                        (availableKeys.Contains(input_key_code.BTN_DPAD_UP) ||
+                        availableKeys.Contains(input_key_code.BTN_DPAD_DOWN) ||
+                        availableKeys.Contains(input_key_code.BTN_DPAD_LEFT) ||
+                        availableKeys.Contains(input_key_code.BTN_DPAD_RIGHT)))
                     {
                         // present
                         continue;
