@@ -19,8 +19,14 @@ namespace HIDrogen.Backend.Linux
         public int maxValue = 0;
         public int zeroPoint = 0;
 
-        public bool hasNullValue; 
+        public bool hasNullValue;
         public int nullValue;
+
+        /// <summary>
+        /// If set, the value is a two's complement number this many bits wide, and is sign-extended before
+        /// it's normalized (for drivers that pass raw signed fields through as unsigned values).
+        /// </summary>
+        public int signBits;
 
         private float m_LastValue;
 
@@ -49,6 +55,12 @@ namespace HIDrogen.Backend.Linux
             if (hasNullValue && value == nullValue)
             {
                 return m_LastValue;
+            }
+
+            if (signBits > 0 && signBits < 32)
+            {
+                int shift = 32 - signBits;
+                value = (value << shift) >> shift;
             }
 
             float normalized = Normalize(value, minValue, maxValue, zeroPoint);

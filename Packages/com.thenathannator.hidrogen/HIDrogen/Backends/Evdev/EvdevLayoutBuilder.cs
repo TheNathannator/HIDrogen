@@ -31,6 +31,11 @@ namespace HIDrogen.Backend.Linux
         public string displayName;
         /// Applies to axes and axis buttons; ignored for keys, hats and sticks.
         public EvdevControlOptions options;
+        /// For axes whose driver passes a raw two's complement field through as an unsigned value (e.g.
+        /// hid-wiimote's turntable velocities): the field's width in bits. The axis is then sign-extended
+        /// and normalized over that width's full signed range, centred on 0, whatever range the driver
+        /// declares. 0 (the default) for ordinary axes. Applies to axes only.
+        public int signedBits;
 
         public static implicit operator EvdevControlMapping(string path)
         {
@@ -267,13 +272,21 @@ namespace HIDrogen.Backend.Linux
                 }
             }
 
+            bool signExtended = !isButton && mapping.signedBits > 0 && mapping.signedBits < 32;
+            if (signExtended)
+            {
+                // The declared range doesn't describe the raw values; use the field's own signed range
+                absInfo.minimum = -(1 << (mapping.signedBits - 1));
+                absInfo.maximum = (1 << (mapping.signedBits - 1)) - 1;
+            }
+
             // Buttons rest at one end of their range like unsigned axes, with no up or down
             var options = isButton ? mapping.options | EvdevControlOptions.Unsigned : mapping.options;
             int min = GetAbsMin(abs, absInfo, options);
             int max = GetAbsMax(abs, absInfo, options);
             int zero = (options & EvdevControlOptions.Unsigned) != 0
                 ? min // rests at the start of its range
-                : GetAbsZeroPoint(absInfo);
+                : signExtended ? 0 : GetAbsZeroPoint(absInfo);
 
             string layout = isButton ? "EvdevButton" : "EvdevAxis";
             string parameters = isButton
@@ -283,6 +296,10 @@ namespace HIDrogen.Backend.Linux
             {
                 // One step off the resting value
                 parameters += $",intPressPoint={(max > min ? min + 1 : min - 1)}";
+            }
+            if (signExtended)
+            {
+                parameters += $",signBits={mapping.signedBits}";
             }
 
             AddControl(builder, mapping)
