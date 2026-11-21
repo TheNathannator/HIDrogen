@@ -19,6 +19,10 @@ namespace HIDrogen.Backend.Linux
 
         // The axis is inverted relative to the default handling.
         Inverted = 1 << 1,
+
+        // For axis buttons: pressed as soon as the axis leaves its resting value, rather than at the
+        // default press point (e.g. drum pads that report how hard they were hit).
+        PressOnAnyValue = 1 << 2,
     }
 
     public struct EvdevControlMapping
@@ -263,9 +267,11 @@ namespace HIDrogen.Backend.Linux
                 }
             }
 
-            int min = GetAbsMin(abs, absInfo, mapping.options);
-            int max = GetAbsMax(abs, absInfo, mapping.options);
-            int zero = (mapping.options & EvdevControlOptions.Unsigned) != 0
+            // Buttons rest at one end of their range like unsigned axes, with no up or down
+            var options = isButton ? mapping.options | EvdevControlOptions.Unsigned : mapping.options;
+            int min = GetAbsMin(abs, absInfo, options);
+            int max = GetAbsMax(abs, absInfo, options);
+            int zero = (options & EvdevControlOptions.Unsigned) != 0
                 ? min // rests at the start of its range
                 : GetAbsZeroPoint(absInfo);
 
@@ -273,6 +279,11 @@ namespace HIDrogen.Backend.Linux
             string parameters = isButton
                 ? $"minValue={min},maxValue={max}"
                 : $"zeroPoint={zero},minValue={min},maxValue={max}";
+            if (isButton && (options & EvdevControlOptions.PressOnAnyValue) != 0)
+            {
+                // One step off the resting value
+                parameters += $",intPressPoint={(max > min ? min + 1 : min - 1)}";
+            }
 
             AddControl(builder, mapping)
                 .WithLayout(layout)
