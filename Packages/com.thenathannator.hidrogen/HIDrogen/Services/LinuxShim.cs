@@ -136,7 +136,11 @@ namespace HIDrogen.Services.Linux
             if (device != null && IsShimmed(device.description))
             {
                 Logging.Verbose($"Removing disallowed native device {device}");
-                InputSystem.RemoveDevice(device);
+
+                // Removing the device immediately may cause a queue race between other events,
+                // such as a SYNC, so we queue the removal instead
+                var removeEvent = DeviceRemoveEvent.Create(device.deviceId);
+                InputSystem.QueueEvent(ref removeEvent);
             }
         }
     }
