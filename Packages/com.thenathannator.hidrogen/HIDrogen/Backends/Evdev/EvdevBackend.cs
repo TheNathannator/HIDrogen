@@ -6,6 +6,7 @@ using HIDrogen.Imports.Linux;
 using HIDrogen.Imports.Posix;
 using HIDrogen.LowLevel;
 using HIDrogen.Services.Linux;
+using HIDrogen.Utilities;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Layouts;
@@ -220,6 +221,7 @@ namespace HIDrogen.Backend.Linux
                 return false;
             }
 
+            // Retrieve info from evdev first
             deviceInfo.busType = inputIds.bustype;
             deviceInfo.vendorId = inputIds.vendor;
             deviceInfo.productId = inputIds.product;
@@ -227,6 +229,17 @@ namespace HIDrogen.Backend.Linux
 
             deviceInfo.name = GetDeviceString(fd, EVIOCGNAME(0));
             deviceInfo.serial = GetDeviceString(fd, EVIOCGUNIQ(0));
+
+            // Then query udev for any fixups or missing properties
+
+            // The kernel doesn't report the revision correctly for all device types for whatever reason
+            // USB HID devices for example have bcdHID reported instead of bcdDevice
+            // udev seems to smooth this over, so trust its judgement over evdev's
+            var id_revision = evdev.get_property_value("ID_REVISION");
+            if (!id_revision.IsInvalid && NumberUtils.TryParseHexUInt32(id_revision.ToString(), out uint realRevision))
+            {
+                deviceInfo.revision = (ushort)realRevision;
+            }
 
             // Retrieve device driver from parents
             for (var parent = evdev.get_parent(); parent != null && !parent.IsInvalid; parent = parent.get_parent())
