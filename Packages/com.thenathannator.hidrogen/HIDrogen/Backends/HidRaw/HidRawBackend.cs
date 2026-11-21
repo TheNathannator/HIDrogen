@@ -257,7 +257,11 @@ namespace HIDrogen.Backend.Linux
                     {
                         if (dev != null)
                         {
-                            RemoveDeviceNow(dev.device);
+                            // The device may already be gone, if its read thread saw it disconnect first
+                            if (dev.device != null)
+                            {
+                                RemoveDeviceNow(dev.device);
+                            }
                             dev.Dispose();
                         }
                     }
