@@ -133,8 +133,10 @@ namespace HIDrogen.Services.Linux
             return (description.interfaceName == kLinuxInterface ||
                 description.interfaceName == kSDLInterface) &&
                 // Mouse and keyboard may be reported through these interfaces; don't shim them out
-                description.deviceClass != "Mouse" &&
-                description.deviceClass != "Keyboard";
+                description.deviceClass != nameof(Mouse) &&
+                description.deviceClass != nameof(Keyboard) &&
+                description.deviceClass != nameof(Pen) &&
+                description.deviceClass != nameof(Touchscreen);
         }
 
         private static void RemoveIfShimmed(InputDevice device)
