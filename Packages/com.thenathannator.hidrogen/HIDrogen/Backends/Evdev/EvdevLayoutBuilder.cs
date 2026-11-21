@@ -9,10 +9,24 @@ using UnityEngine.InputSystem.LowLevel;
 
 namespace HIDrogen.Backend.Linux
 {
+    [Flags]
+    public enum EvdevControlOptions
+    {
+        None = 0,
+
+        // The axis is treated as unsigned, resting at one end of its range rather than the middle.
+        Unsigned = 1 << 0,
+
+        // The axis is inverted relative to the default handling.
+        Inverted = 1 << 1,
+    }
+
     public struct EvdevControlMapping
     {
         public string path;
         public string displayName;
+        /// Applies to axes and axis buttons; ignored for keys, hats and sticks.
+        public EvdevControlOptions options;
 
         public static implicit operator EvdevControlMapping(string path)
         {
@@ -185,11 +199,7 @@ namespace HIDrogen.Backend.Linux
         {
             var key = descriptor.supportedKeys[keyIndex];
 
-            if (key == input_key_code.BTN_DPAD_UP &&
-                !IsKeyMapped(input_key_code.BTN_DPAD_UP) &&
-                !IsKeyMapped(input_key_code.BTN_DPAD_DOWN) &&
-                !IsKeyMapped(input_key_code.BTN_DPAD_LEFT) &&
-                !IsKeyMapped(input_key_code.BTN_DPAD_RIGHT))
+            if (IsDpadKey(key) && !AreDpadKeysMapped())
             {
                 // Group d-pad buttons
                 MakeDpadControl(builder, keyIndex);
@@ -234,12 +244,7 @@ namespace HIDrogen.Backend.Linux
 
             var absInfo = descriptor.absInfo[absIndex];
 
-            int zero = GetAbsZeroPoint(absInfo);
-            int min = GetAbsMin(abs, absInfo);
-            int max = GetAbsMax(abs, absInfo);
-
-            string layout = "EvdevAxis";
-            string parameters = $"zeroPoint={zero},minValue={min},maxValue={max}";
+            bool isButton = false;
             var mapping = new EvdevControlMapping()
             {
                 path = ToCamelCase(abs.ToString()),
@@ -254,10 +259,20 @@ namespace HIDrogen.Backend.Linux
                 else if (mappings.m_AbsButtons.TryGetValue(abs, out var buttonMapping))
                 {
                     mapping = buttonMapping;
-                    layout = "EvdevButton";
-                    parameters = $"minValue={min},maxValue={max}";
+                    isButton = true;
                 }
             }
+
+            int min = GetAbsMin(abs, absInfo, mapping.options);
+            int max = GetAbsMax(abs, absInfo, mapping.options);
+            int zero = (mapping.options & EvdevControlOptions.Unsigned) != 0
+                ? min // rests at the start of its range
+                : GetAbsZeroPoint(absInfo);
+
+            string layout = isButton ? "EvdevButton" : "EvdevAxis";
+            string parameters = isButton
+                ? $"minValue={min},maxValue={max}"
+                : $"zeroPoint={zero},minValue={min},maxValue={max}";
 
             AddControl(builder, mapping)
                 .WithLayout(layout)
@@ -269,41 +284,62 @@ namespace HIDrogen.Backend.Linux
 
         private void MakeDpadControl(InputControlLayout.Builder builder, int keyIndex)
         {
-            const int keyCount = 4;
+            // Group whichever d-pad keys the device has. Keys are sorted and the d-pad codes are
+            // consecutive, so the ones present follow each other starting at keyIndex. Devices may only
+            // have some of them (e.g. Wii guitars, whose strum bar is just up and down).
+            int keyCount = 0;
+            while (keyIndex + keyCount < descriptor.supportedKeys.Length &&
+                IsDpadKey(descriptor.supportedKeys[keyIndex + keyCount]))
+            {
+                keyCount++;
+            }
 
             AddHatControl(builder, out string dpadRoot)
                 .WithFormat(InputStateBlock.FormatBit)
                 .WithByteOffset(GetKeyByteOffset(keyIndex))
                 .WithBitOffset(GetKeyBitOffset(keyIndex))
-                .WithSizeInBits(keyCount);
+                .WithSizeInBits((uint)keyCount);
 
+            // Child offsets are relative to the parent's byte offset, but not its bit offset
+            int firstBit = (int)GetKeyBitOffset(keyIndex);
+            var present = new HashSet<input_key_code>();
             for (int i = 0; i < keyCount; i++)
             {
                 var key = descriptor.supportedKeys[keyIndex + i];
+                present.Add(key);
 
-                string path;
-                switch (key)
-                {
-                    case input_key_code.BTN_DPAD_UP: path = $"{dpadRoot}/up"; break;
-                    case input_key_code.BTN_DPAD_DOWN: path = $"{dpadRoot}/down"; break;
-                    case input_key_code.BTN_DPAD_LEFT: path = $"{dpadRoot}/left"; break;
-                    case input_key_code.BTN_DPAD_RIGHT: path = $"{dpadRoot}/right"; break;
-                    default: throw new Exception($"{key} is not a d-pad key");
-                }
-
-                builder.AddControl(path)
+                int bit = firstBit + i;
+                builder.AddControl(GetDpadPath(dpadRoot, key))
                     .WithLayout("Button")
-                    .WithFormat(InputStateBlock.FormatInt)
-                    .WithByteOffset(GetKeyByteOffset(i)) // no keyIndex, this is relative to the parent
-                    .WithBitOffset(GetKeyBitOffset(i)) // no keyIndex, this is relative to the parent
+                    .WithFormat(InputStateBlock.FormatBit)
+                    .WithByteOffset((uint)(bit / 8))
+                    .WithBitOffset((uint)(bit % 8))
                     .WithSizeInBits(1);
             }
 
+            // Directions the device doesn't have would otherwise read the Dpad layout's default bits,
+            // which belong to other keys here; point them at the first key and zero them out
+            foreach (var key in s_DpadKeys)
+            {
+                if (present.Contains(key))
+                {
+                    continue;
+                }
+
+                builder.AddControl(GetDpadPath(dpadRoot, key))
+                    .WithLayout("Button")
+                    .WithFormat(InputStateBlock.FormatBit)
+                    .WithByteOffset(0)
+                    .WithBitOffset((uint)firstBit)
+                    .WithSizeInBits(1)
+                    .WithProcessors("scale(factor=0)");
+            }
+
             // Consume key bits
-            m_AvailableKeys.Remove(input_key_code.BTN_DPAD_UP);
-            m_AvailableKeys.Remove(input_key_code.BTN_DPAD_DOWN);
-            m_AvailableKeys.Remove(input_key_code.BTN_DPAD_LEFT);
-            m_AvailableKeys.Remove(input_key_code.BTN_DPAD_RIGHT);
+            foreach (var key in s_DpadKeys)
+            {
+                m_AvailableKeys.Remove(key);
+            }
 
             // Both d-pad buttons and hat 0 may be specified as supported; prefer the buttons over the hat axes
             // (but make sure to respect mapping overrides)
@@ -315,6 +351,49 @@ namespace HIDrogen.Backend.Linux
             if (!IsAbsMapped(input_abs_code.ABS_HAT0Y))
             {
                 m_AvailableAbs.Remove(input_abs_code.ABS_HAT0Y);
+            }
+        }
+
+        private static readonly input_key_code[] s_DpadKeys =
+        {
+            input_key_code.BTN_DPAD_UP,
+            input_key_code.BTN_DPAD_DOWN,
+            input_key_code.BTN_DPAD_LEFT,
+            input_key_code.BTN_DPAD_RIGHT,
+        };
+
+        private bool AreDpadKeysMapped()
+        {
+            if (mappings == null)
+            {
+                return false;
+            }
+
+            foreach (var key in s_DpadKeys)
+            {
+                if (mappings.m_Keys.ContainsKey(key))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        internal static bool IsDpadKey(input_key_code key)
+        {
+            return key >= input_key_code.BTN_DPAD_UP && key <= input_key_code.BTN_DPAD_RIGHT;
+        }
+
+        private static string GetDpadPath(string dpadRoot, input_key_code key)
+        {
+            switch (key)
+            {
+                case input_key_code.BTN_DPAD_UP: return $"{dpadRoot}/up";
+                case input_key_code.BTN_DPAD_DOWN: return $"{dpadRoot}/down";
+                case input_key_code.BTN_DPAD_LEFT: return $"{dpadRoot}/left";
+                case input_key_code.BTN_DPAD_RIGHT: return $"{dpadRoot}/right";
+                default: throw new Exception($"{key} is not a d-pad key");
             }
         }
 
@@ -503,14 +582,29 @@ namespace HIDrogen.Backend.Linux
             return absInfo.minimum + (absInfo.maximum - absInfo.minimum) / 2;
         }
 
-        private int GetAbsMin(input_abs_code abs, input_absinfo absInfo)
+        private int GetAbsMin(input_abs_code abs, input_absinfo absInfo,
+            EvdevControlOptions options = EvdevControlOptions.None)
         {
-            return IsAbsY(abs) ? absInfo.maximum : absInfo.minimum;
+            return IsAbsInverted(abs, options) ? absInfo.maximum : absInfo.minimum;
         }
 
-        private int GetAbsMax(input_abs_code abs, input_absinfo absInfo)
+        private int GetAbsMax(input_abs_code abs, input_absinfo absInfo,
+            EvdevControlOptions options = EvdevControlOptions.None)
         {
-            return IsAbsY(abs) ? absInfo.minimum : absInfo.maximum;
+            return IsAbsInverted(abs, options) ? absInfo.minimum : absInfo.maximum;
+        }
+
+        private static bool IsAbsInverted(input_abs_code abs, EvdevControlOptions options)
+        {
+            bool inverted = (options & EvdevControlOptions.Inverted) != 0;
+            if ((options & EvdevControlOptions.Unsigned) != 0)
+            {
+                // No up or down for these, so no default inversion
+                return inverted;
+            }
+
+            // Y axes are inverted by default to convert from evdev's positive-down convention
+            return IsAbsY(abs) ^ inverted;
         }
 
         private static bool IsAbsX(input_abs_code abs)
