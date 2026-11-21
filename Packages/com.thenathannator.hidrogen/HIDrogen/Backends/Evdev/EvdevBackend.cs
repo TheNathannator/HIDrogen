@@ -2,6 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Runtime.InteropServices;
 using HIDrogen.Imports.Linux;
 using HIDrogen.Imports.Posix;
 using HIDrogen.LowLevel;
@@ -33,6 +35,9 @@ namespace HIDrogen.Backend.Linux
             public ushort vendorId;
             public ushort productId;
             public ushort revision;
+
+            public ushort santrollerSubtype;
+            public ushort xpadSubtype;
         }
 
         internal struct AddContext : IDisposable
@@ -242,8 +247,10 @@ namespace HIDrogen.Backend.Linux
             }
 
             // Retrieve device driver from parents
+            Logging.Verbose($"Looking for driver on evdev device: {Udev.MakeDeviceInfo(evdev)}");
             for (var parent = evdev.get_parent(); parent != null && !parent.IsInvalid; parent = parent.get_parent())
             {
+                Logging.Verbose($"Checking parent: {Udev.MakeDeviceInfo(parent)}");
                 if (parent.get_subsystem().ToString() != Udev.SubsystemInput)
                 {
                     deviceInfo.driver = parent.get_driver().ToString();
@@ -254,7 +261,145 @@ namespace HIDrogen.Backend.Linux
                 }
             }
 
+            bool xpad = deviceInfo.driver == "xpad";
+            bool santroller2 = deviceInfo.vendorId == 0x1209 && deviceInfo.productId == 0x2883;
+
+            // If the device is neither xpad nor santroller2, we don't need to collect further info.
+            if (!xpad && !santroller2)
+                return true;
+
+            if (santroller2)
+            {
+                if (deviceInfo.busType == input_bus_type.BLUETOOTH) {
+                    deviceInfo.santrollerSubtype = (byte)(deviceInfo.revision >> 8);
+                    return true;
+                }
+            }
+
+            // usb_interface: identifies which interface this evdev node belongs to
+            var usbInterface = evdev.get_parent_with_subsystem_devtype(Udev.SubsystemUsb, "usb_interface");
+            if (usbInterface == null || usbInterface.IsInvalid)
+                return true;
+
+            // bInterfaceNumber is formatted as hex, bAlternateSetting as space-padded decimal
+            if (!int.TryParse(usbInterface.get_sysattr_value("bInterfaceNumber").ToString()?.Trim(),
+                    NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int interfaceNumber) ||
+                !int.TryParse(usbInterface.get_sysattr_value("bAlternateSetting").ToString()?.Trim(),
+                    NumberStyles.Integer, CultureInfo.InvariantCulture, out int altSetting))
+            {
+                return true;
+            }
+            if (santroller2)
+            {
+                deviceInfo.name = usbInterface.get_sysattr_value("interface").ToString();
+            }
+
+            var usbDevice = evdev.get_parent_with_subsystem_devtype(Udev.SubsystemUsb, "usb_device");
+            if (usbDevice == null || usbDevice.IsInvalid)
+                return true;
+
+            string devicePath = usbDevice.get_syspath().ToString();
+            if (devicePath == null)
+                return true;
+            using (var fddesc = Fcntl.open(Path.Combine(devicePath, "descriptors"), Fcntl.O_RDONLY | Fcntl.O_CLOEXEC))
+            {
+                if (fddesc == null || fddesc.IsInvalid)
+                {
+                    Logging.LastError($"Failed to open USB descriptors for {devicePath}");
+                    return true;
+                }
+
+                ReadVendorSubtype(fddesc, interfaceNumber, altSetting, xpad, santroller2, ref deviceInfo);
+            }
+
             return true;
+        }
+
+        private const byte XINPUT_DT_VENDOR = 0x21;
+        private const byte SANTROLLER_DT_VENDOR = 0xFF;
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        private struct XInputVendorDescriptor
+        {
+            public usb_descriptor_header header;
+            public ushort bcdVersion;
+            public byte subtype;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        private unsafe struct SantrollerVendorDescriptor
+        {
+            public usb_descriptor_header header;
+            public fixed byte signature[4]; // "SANT"
+            public byte unknown;
+            public byte subtype;
+
+            public bool HasSignature => signature[0] == 'S' && signature[1] == 'A' &&
+                signature[2] == 'N' && signature[3] == 'T';
+        }
+
+        // Walk usb descriptor to fill the vendor subtype for the given interface
+        private static unsafe void ReadVendorSubtype(
+            fd fddesc,
+            int interfaceNumber,
+            int altSetting,
+            bool xpad,
+            bool santroller2,
+            ref DeviceInfo deviceInfo
+        )
+        {
+            // bLength is a single byte, so no descriptor can be larger than this
+            byte* buffer = stackalloc byte[byte.MaxValue];
+            var header = (usb_descriptor_header*)buffer;
+            bool foundInterface = false;
+
+            // Read one descriptor at a time: the header, then the body
+            while (Fcntl.read(fddesc, buffer, sizeof(usb_descriptor_header)) == sizeof(usb_descriptor_header))
+            {
+                int length = header->bLength;
+
+                // Malformed descriptor; bail instead of looping forever
+                if (length < sizeof(usb_descriptor_header))
+                    break;
+
+                int bodyLength = length - sizeof(usb_descriptor_header);
+                if (bodyLength > 0 &&
+                    Fcntl.read(fddesc, buffer + sizeof(usb_descriptor_header), bodyLength) != bodyLength)
+                    break;
+
+                switch (header->bDescriptorType)
+                {
+                    case UsbDescriptorType.USB_DT_INTERFACE when length >= sizeof(usb_interface_descriptor):
+                    {
+                        var iface = (usb_interface_descriptor*)buffer;
+                        foundInterface = iface->bInterfaceNumber == interfaceNumber &&
+                            iface->bAlternateSetting == altSetting;
+                        break;
+                    }
+                    case UsbDescriptorType.USB_DT_INTERFACE:
+                        foundInterface = false;
+                        break;
+
+                    case XINPUT_DT_VENDOR when foundInterface && xpad &&
+                        length >= sizeof(XInputVendorDescriptor):
+                    {
+                        deviceInfo.xpadSubtype = ((XInputVendorDescriptor*)buffer)->subtype;
+                        return;
+                    }
+
+                    case SANTROLLER_DT_VENDOR when foundInterface && santroller2 &&
+                        length >= sizeof(SantrollerVendorDescriptor):
+                    {
+                        var santroller = (SantrollerVendorDescriptor*)buffer;
+                        if (santroller->HasSignature)
+                        {
+                            deviceInfo.santrollerSubtype = santroller->subtype;
+                            return;
+                        }
+                        break;
+                    }
+                }
+            }
         }
 
         private static unsafe string GetDeviceString(fd fd, IoCode ioCode)
@@ -297,6 +442,8 @@ namespace HIDrogen.Backend.Linux
                 busType = deviceInfo.busType,
                 vendorId = deviceInfo.vendorId,
                 productId = deviceInfo.productId,
+                xpadSubtype = deviceInfo.xpadSubtype,
+                santrollerSubtype = deviceInfo.santrollerSubtype,
 
                 supportedKeys = Array.Empty<input_key_code>(),
                 supportedAbs = Array.Empty<input_abs_code>(),

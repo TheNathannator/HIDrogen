@@ -253,11 +253,16 @@ namespace HIDrogen.Backend.Linux
                 string hidrawPath = hidraw.get_devnode().ToString();
                 if (hidrawPath != null && m_DevicesByPath.TryGetValue(hidrawPath, out var backendDevices))
                 {
-                    foreach (var dev in backendDevices)
+                    // Removing a device also takes it out of this list (through OnDeviceRemoved), so go over a copy
+                    foreach (var dev in new List<HidRawDevice>(backendDevices))
                     {
                         if (dev != null)
                         {
-                            RemoveDeviceNow(dev.device);
+                            // The device may already be gone, if its read thread saw it disconnect first
+                            if (dev.device != null)
+                            {
+                                RemoveDeviceNow(dev.device);
+                            }
                             dev.Dispose();
                         }
                     }

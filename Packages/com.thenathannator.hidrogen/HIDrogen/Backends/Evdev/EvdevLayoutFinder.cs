@@ -140,11 +140,12 @@ namespace HIDrogen.Backend.Linux
                         continue;
                     }
 
+                    // Any d-pad keys can stand in for hat 0; missing directions just never activate
                     if (hat == 0 &&
-                        availableKeys.Contains(input_key_code.BTN_DPAD_UP) &&
-                        availableKeys.Contains(input_key_code.BTN_DPAD_DOWN) &&
-                        availableKeys.Contains(input_key_code.BTN_DPAD_LEFT) &&
-                        availableKeys.Contains(input_key_code.BTN_DPAD_RIGHT))
+                        (availableKeys.Contains(input_key_code.BTN_DPAD_UP) ||
+                        availableKeys.Contains(input_key_code.BTN_DPAD_DOWN) ||
+                        availableKeys.Contains(input_key_code.BTN_DPAD_LEFT) ||
+                        availableKeys.Contains(input_key_code.BTN_DPAD_RIGHT)))
                     {
                         // present
                         continue;
@@ -191,7 +192,9 @@ namespace HIDrogen.Backend.Linux
                 .WithCapability("driver", descriptor.driver)
                 .WithCapability("busType", (int)descriptor.busType)
                 .WithCapability("vendorId", descriptor.vendorId)
-                .WithCapability("productId", descriptor.productId);
+                .WithCapability("productId", descriptor.productId)
+                .WithCapability("xpadSubtype", descriptor.xpadSubtype)
+                .WithCapability("santrollerSubtype", descriptor.santrollerSubtype);
 
             var builder = new EvdevLayoutBuilder()
             {
