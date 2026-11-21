@@ -17,7 +17,9 @@ namespace HIDrogen.Services.Linux
 
         private Action<int, string> m_RealNativeDeviceDiscovered;
 
-        public void Start()
+        // Use constructor to ensure native devices are always shimmed when HIDrogen is initialized,
+        // regardless of when backends are actually started
+        public LinuxShim()
         {
             // Shim native device discovery, as shimming their descriptions is not enough
             // InputManager InputSystem.s_Manager;
@@ -78,6 +80,10 @@ namespace HIDrogen.Services.Linux
             {
                 RemoveIfShimmed(device);
             }
+        }
+
+        public void Start()
+        {
         }
 
         public void Stop()

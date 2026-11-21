@@ -15,7 +15,7 @@ namespace HIDrogen
 #if UNITY_EDITOR
         [UnityEditor.InitializeOnLoadMethod]
 #else
-        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.BeforeSceneLoad)]
+        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.BeforeSplashScreen)]
 #endif
         internal static void Initialize()
         {
@@ -29,13 +29,32 @@ namespace HIDrogen
             try
             {
                 Logging.Verbose("Initializing backends");
-
                 PlatformInitialize();
-                BackendManager.Start();
+
+                // Delay starting of backends until layouts have been registered
+                // Without this, devices get re-created when better-matching layouts get registered,
+                // which brings about trouble without special handling (e.g. "ghost" devices lingering
+                // in the editor, or evdev layouts not working at all)
+                UnityEngine.InputSystem.InputSystem.onAfterUpdate += DelayedStart;
             }
             catch (Exception ex)
             {
                 Logging.Exception("Failed to initialize backends", ex);
+            }
+        }
+
+        internal static void DelayedStart()
+        {
+            UnityEngine.InputSystem.InputSystem.onAfterUpdate -= DelayedStart;
+
+            try
+            {
+                Logging.Verbose("Starting backends");
+                BackendManager.Start();
+            }
+            catch (Exception ex)
+            {
+                Logging.Exception("Failed to start backends", ex);
             }
         }
 
@@ -53,9 +72,9 @@ namespace HIDrogen
                 Logging.Verbose("Uninitializing backends");
 
                 BackendManager.Stop();
+                BackendManager.Uninitialize();
 
                 PlatformUninitialize();
-                BackendManager.Uninitialize();
             }
             catch (Exception ex)
             {
