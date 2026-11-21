@@ -276,7 +276,9 @@ namespace HIDrogen.Backend.Linux
                 .WithByteOffset(GetKeyByteOffset(keyIndex))
                 .WithBitOffset(GetKeyBitOffset(keyIndex))
                 .WithSizeInBits(keyCount);
-
+            // Byte offsets are relative to the parent
+            // Bit offsets are not
+            int firstBit = (int)GetKeyBitOffset(keyIndex);
             for (int i = 0; i < keyCount; i++)
             {
                 var key = descriptor.supportedKeys[keyIndex + i];
@@ -291,11 +293,12 @@ namespace HIDrogen.Backend.Linux
                     default: throw new Exception($"{key} is not a d-pad key");
                 }
 
+                int bit = firstBit + i;
                 builder.AddControl(path)
                     .WithLayout("Button")
-                    .WithFormat(InputStateBlock.FormatInt)
-                    .WithByteOffset(GetKeyByteOffset(i)) // no keyIndex, this is relative to the parent
-                    .WithBitOffset(GetKeyBitOffset(i)) // no keyIndex, this is relative to the parent
+                    .WithFormat(InputStateBlock.FormatBit)
+                    .WithByteOffset((uint)(bit / 8))
+                    .WithBitOffset((uint)(bit % 8))
                     .WithSizeInBits(1);
             }
 
