@@ -182,9 +182,10 @@ namespace HIDrogen.Backend.Linux
             {
                 if (backendDevice != null)
                 {
-                    RemoveDeviceNow(backendDevice.device);
+                    QueueDeviceRemove(backendDevice.device);
                     backendDevice.Dispose();
                 }
+
                 m_DevicesByPath.Remove(evdevPath);
                 Logging.Verbose($"evdev device {evdevPath} removed");
             }

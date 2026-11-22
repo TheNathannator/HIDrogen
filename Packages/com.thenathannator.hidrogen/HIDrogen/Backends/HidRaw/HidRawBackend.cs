@@ -257,10 +257,11 @@ namespace HIDrogen.Backend.Linux
                     {
                         if (dev != null)
                         {
-                            RemoveDeviceNow(dev.device);
+                            QueueDeviceRemove(dev.device);
                             dev.Dispose();
                         }
                     }
+
                     backendDevices.Clear();
                     m_DevicesByPath.Remove(hidrawPath);
                     Logging.Verbose($"hidraw device {hidrawPath} removed");
