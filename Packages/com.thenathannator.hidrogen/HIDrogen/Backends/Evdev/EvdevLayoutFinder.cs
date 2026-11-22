@@ -117,15 +117,6 @@ namespace HIDrogen.Backend.Linux
                     }
                 }
 
-                foreach (var stick in mappings.m_Sticks.Keys)
-                {
-                    if (!availableAbs.Contains(stick) ||
-                        !availableAbs.Contains(stick + 1))
-                    {
-                        return null;
-                    }
-                }
-
                 foreach (var hat in mappings.m_Hats.Keys)
                 {
                     if (hat < 0 || hat > 3)
@@ -152,6 +143,22 @@ namespace HIDrogen.Backend.Linux
 
                     // missing
                     return null;
+                }
+
+                foreach (var abs in mappings.m_AbsButtons.Keys)
+                {
+                    if (!availableAbs.Contains(abs))
+                    {
+                        return null;
+                    }
+                }
+
+                foreach (var stick in mappings.m_Sticks.Keys)
+                {
+                    if (!availableAbs.Contains(stick))
+                    {
+                        return null;
+                    }
                 }
             }
 
