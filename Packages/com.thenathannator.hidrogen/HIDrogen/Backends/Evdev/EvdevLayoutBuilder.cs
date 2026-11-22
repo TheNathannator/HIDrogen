@@ -350,7 +350,7 @@ namespace HIDrogen.Backend.Linux
 
                 builder.AddControl(path)
                     .WithLayout("Button")
-                    .WithFormat(InputStateBlock.FormatInt)
+                    .WithFormat(InputStateBlock.FormatBit)
                     .WithByteOffset(GetKeyByteOffset(i)) // no keyIndex, this is relative to the parent
                     .WithBitOffset(GetKeyBitOffset(i)) // no keyIndex, this is relative to the parent
                     .WithSizeInBits(1);
