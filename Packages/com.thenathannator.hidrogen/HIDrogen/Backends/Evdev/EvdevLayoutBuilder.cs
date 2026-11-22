@@ -9,6 +9,38 @@ using UnityEngine.InputSystem.LowLevel;
 
 namespace HIDrogen.Backend.Linux
 {
+    [Flags]
+    public enum EvdevAxisOption
+    {
+        None = 0,
+
+        /// <summary>
+        /// The axis rests at its minimum value instead of its midpoint.
+        /// </summary>
+        Unsigned = 1 << 0,
+
+        /// <summary>
+        /// The axis range is inverted (i.e. swap min and max).
+        /// </summary>
+        Inverted = 1 << 1,
+    }
+
+    [Flags]
+    public enum EvdevStickOption
+    {
+        None = 0,
+
+        /// <summary>
+        /// The X axis range is inverted (i.e. swap min and max).
+        /// </summary>
+        InvertX = 1 << 0,
+
+        /// <summary>
+        /// The Y axis range is inverted (i.e. swap min and max).
+        /// </summary>
+        InvertY = 1 << 1,
+    }
+
     public struct EvdevControlMapping
     {
         public string path;
@@ -25,12 +57,17 @@ namespace HIDrogen.Backend.Linux
 
     public class EvdevDeviceMapping
     {
-        internal readonly Dictionary<input_key_code, EvdevControlMapping> m_Keys = new Dictionary<input_key_code, EvdevControlMapping>();
-        internal readonly Dictionary<input_abs_code, EvdevControlMapping> m_Abs = new Dictionary<input_abs_code, EvdevControlMapping>();
-        internal readonly Dictionary<int, EvdevControlMapping> m_Hats = new Dictionary<int, EvdevControlMapping>();
+        internal readonly Dictionary<input_key_code, EvdevControlMapping> m_Keys
+            = new Dictionary<input_key_code, EvdevControlMapping>();
+        internal readonly Dictionary<input_abs_code, (EvdevControlMapping mapping, EvdevAxisOption options)> m_Abs
+            = new Dictionary<input_abs_code, (EvdevControlMapping, EvdevAxisOption)>();
+        internal readonly Dictionary<int, EvdevControlMapping> m_Hats
+            = new Dictionary<int, EvdevControlMapping>();
 
-        internal readonly Dictionary<input_abs_code, EvdevControlMapping> m_AbsButtons = new Dictionary<input_abs_code, EvdevControlMapping>();
-        internal readonly Dictionary<input_abs_code, EvdevControlMapping> m_Sticks = new Dictionary<input_abs_code, EvdevControlMapping>();
+        internal readonly Dictionary<input_abs_code, EvdevControlMapping> m_AbsButtons
+            = new Dictionary<input_abs_code, EvdevControlMapping>();
+        internal readonly Dictionary<input_abs_code, (EvdevControlMapping mapping, EvdevStickOption options)> m_Sticks
+            = new Dictionary<input_abs_code, (EvdevControlMapping, EvdevStickOption)>();
 
         private void EnsureAbsUnique(input_abs_code abs)
         {
@@ -61,10 +98,14 @@ namespace HIDrogen.Backend.Linux
             return this;
         }
 
-        public EvdevDeviceMapping WithAbs(input_abs_code abs, EvdevControlMapping mapping)
+        public EvdevDeviceMapping WithAbs(
+            input_abs_code abs,
+            EvdevControlMapping mapping,
+            EvdevAxisOption options = EvdevAxisOption.None
+        )
         {
             EnsureAbsUnique(abs);
-            m_Abs.Add(abs, mapping);
+            m_Abs.Add(abs, (mapping, options));
             return this;
         }
 
@@ -86,12 +127,16 @@ namespace HIDrogen.Backend.Linux
             return this;
         }
 
-        public EvdevDeviceMapping WithStick(input_abs_code abs, EvdevControlMapping mapping)
+        public EvdevDeviceMapping WithStick(
+            input_abs_code abs,
+            EvdevControlMapping mapping,
+            EvdevStickOption options = EvdevStickOption.None
+        )
         {
             EnsureAbsUnique(abs);
             EnsureAbsUnique(abs + 1); // The next abs needs to be available, as they will be paired together
-            m_Sticks.Add(abs, mapping);
-            m_Sticks.Add(abs + 1, mapping);
+            m_Sticks.Add(abs, (mapping, options));
+            m_Sticks.Add(abs + 1, (mapping, options));
             return this;
         }
     }
@@ -247,9 +292,21 @@ namespace HIDrogen.Backend.Linux
             };
             if (mappings != null)
             {
-                if (mappings.m_Abs.TryGetValue(abs, out var axisMapping))
+                if (mappings.m_Abs.TryGetValue(abs, out var a))
                 {
-                    mapping = axisMapping;
+                    if ((a.options & EvdevAxisOption.Inverted) != 0)
+                    {
+                        (min, max) = (max, min);
+                    }
+
+                    // apply this *after* inversion to simplify logic
+                    if ((a.options & EvdevAxisOption.Unsigned) != 0)
+                    {
+                        zero = min;
+                    }
+
+                    mapping = a.mapping;
+                    parameters = $"zeroPoint={zero},minValue={min},maxValue={max}";
                 }
                 else if (mappings.m_AbsButtons.TryGetValue(abs, out var buttonMapping))
                 {
@@ -362,7 +419,7 @@ namespace HIDrogen.Backend.Linux
         {
             const int absCount = 2;
 
-            var mapping = mappings.m_Sticks[descriptor.supportedAbs[absIndex]];
+            var (mapping, options) = mappings.m_Sticks[descriptor.supportedAbs[absIndex]];
 
             string stickRoot = mapping.path;
             AddControl(builder, mapping)
@@ -382,6 +439,15 @@ namespace HIDrogen.Backend.Linux
                 int zero = GetAbsZeroPoint(absInfo);
                 int min = GetAbsMin(abs, absInfo);
                 int max = GetAbsMax(abs, absInfo);
+
+                bool inverted = i == 0
+                    ? (options & EvdevStickOption.InvertX) != 0
+                    : (options & EvdevStickOption.InvertY) != 0;
+
+                if (inverted)
+                {
+                    (min, max) = (max, min);
+                }
 
                 builder.AddControl($"{stickRoot}/{axis}")
                     .WithLayout("EvdevAxis")
