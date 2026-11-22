@@ -233,6 +233,11 @@ namespace HIDrogen
                 throw new InvalidOperationException("Devices must be removed on the main thread");
             }
 
+            if (device == null)
+            {
+                return true;
+            }
+
             try
             {
                 RemoveBackendDevice(device);
@@ -245,10 +250,10 @@ namespace HIDrogen
                 return false;
             }
         }
-        
+
         private void RemoveBackendDevice(InputDevice device)
         {
-            if (m_DeviceLookup.TryGetValue(device, out var backendDevice))
+            if (device != null && m_DeviceLookup.TryGetValue(device, out var backendDevice))
             {
                 OnDeviceRemoved(backendDevice);
                 m_DeviceLookup.Remove(device);
@@ -262,7 +267,10 @@ namespace HIDrogen
 
         public void QueueDeviceRemove(InputDevice device)
         {
-            m_RemovalQueue.Add(device);
+            if (device != null)
+            {
+                m_RemovalQueue.Add(device);
+            }
         }
 
         public void QueueEvent(InputEventPtr eventPtr)

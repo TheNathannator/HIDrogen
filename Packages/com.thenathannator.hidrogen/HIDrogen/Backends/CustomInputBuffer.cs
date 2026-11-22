@@ -113,6 +113,11 @@ namespace HIDrogen
         // Based on InputSystem.QueueStateEvent<T>
         public unsafe void QueueStateEvent(InputDevice device, FourCC format, void* stateBuffer, int stateLength)
         {
+            if (device == null)
+            {
+                throw new ArgumentNullException(nameof(device));
+            }
+
             if (stateBuffer == null)
             {
                 throw new ArgumentNullException(nameof(stateBuffer));
@@ -161,14 +166,18 @@ namespace HIDrogen
         // Based on InputSystem.QueueDeltaStateEvent<T>
         public unsafe void QueueDeltaStateEvent(InputControl control, void* stateBuffer, int stateLength)
         {
-            var stateBlock = control.stateBlock;
-            
-            if (stateBlock.bitOffset != 0)
+            if (control == null)
             {
-                throw new InvalidOperationException($"Cannot send delta state events against bitfield controls: {control}");
+                throw new ArgumentNullException(nameof(control));
             }
 
-            uint sizeInBytes = NumberUtils.AlignToMultiple(stateBlock.sizeInBits, 8) / 8;
+            var stateBlock = control.stateBlock;
+            if (stateBlock.bitOffset != 0 || (stateBlock.sizeInBits % 8) != 0)
+            {
+                throw new InvalidOperationException($"Cannot send delta state event for bitfield control '{control}'");
+            }
+
+            uint sizeInBytes = stateBlock.sizeInBits / 8;
             if (stateLength != sizeInBytes)
             {
                 throw new ArgumentException($"Size {stateLength} of delta state provided for control '{control}' does not match size {sizeInBytes} of control");
@@ -182,6 +191,11 @@ namespace HIDrogen
         // Based on InputSystem.QueueDeltaStateEvent<T>
         public unsafe void QueueDeltaStateEvent(InputDevice device, uint offset, void* stateBuffer, int stateLength)
         {
+            if (device == null)
+            {
+                throw new ArgumentNullException(nameof(device));
+            }
+
             if (stateBuffer == null)
             {
                 throw new ArgumentNullException(nameof(stateBuffer));
