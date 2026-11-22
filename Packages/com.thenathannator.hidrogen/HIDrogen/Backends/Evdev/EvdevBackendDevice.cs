@@ -123,6 +123,12 @@ namespace HIDrogen.Backend.Linux
             // Using delta-state events is incompatible with PlasticBand-Unity's state translation
             m_State = new NativeArray<byte>(m_RelEndByte, Allocator.Persistent);
 
+            // Clear deadzones
+            lock (m_Fd)
+            {
+                RemoveDeadzonesLocked();
+            }
+
             m_ReadThread = new Thread(ReadThread) { IsBackground = true };
             m_ReadThread.Start();
         }
@@ -404,6 +410,30 @@ namespace HIDrogen.Backend.Linux
             // }
 
             SendStateLocked();
+        }
+
+        private void RemoveDeadzonesLocked()
+        {
+            for (int i = 0; i < m_Descriptor.supportedAbs.Length; i++)
+            {
+                var absCode = m_Descriptor.supportedAbs[i];
+
+                var abs = new input_absinfo();
+                if (Ioctl.ioctl(m_Fd, EVIOCGABS(absCode), ref abs) < 0)
+                {
+                    Logging.LastError("Failed to get evdev absinfo");
+                    continue;
+                }
+
+                abs.fuzz = 0;
+                abs.flat = 0;
+
+                if (Ioctl.ioctl(m_Fd, EVIOCSABS(absCode), ref abs) < 0)
+                {
+                    Logging.LastError("Failed to set evdev absinfo");
+                    continue;
+                }
+            }
         }
 
         public unsafe long SyncState(InputDeviceCommand* _command)
