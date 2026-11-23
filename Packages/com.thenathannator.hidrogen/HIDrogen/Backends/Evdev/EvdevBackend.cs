@@ -331,6 +331,21 @@ namespace HIDrogen.Backend.Linux
 
                 // Device-specific fixups
 
+                // XUSB via xpad
+                if (deviceInfo.driver == "xpad")
+                {
+                    using (var xusbDescriptorBuffer = ReadUsbDescriptor(usb_device, usb_interface, 0x21))
+                    {
+                        if (xusbDescriptorBuffer.length >= sizeof(XUSBVendorDescriptorHeader))
+                        {
+                            var sanscriptor = (XUSBVendorDescriptorHeader*)xusbDescriptorBuffer.bufferPtr;
+                            deviceInfo.xusbSubtype = sanscriptor->bDeviceSubtype;
+                        }
+                    }
+
+                    return;
+                }
+
                 // Santroller 2
                 if (deviceInfo.vendorId == 0x1209 && deviceInfo.productId == 0x2883)
                 {
@@ -351,21 +366,6 @@ namespace HIDrogen.Backend.Linux
                                 deviceInfo.santrollerSubtype = sanscriptor->bSubtype;
                                 deviceInfo.santrollerCapabilities = sanscriptor->bCapabilities;
                             }
-                        }
-                    }
-
-                    return;
-                }
-
-                // XUSB via xpad
-                if (deviceInfo.driver == "xpad")
-                {
-                    using (var xusbDescriptorBuffer = ReadUsbDescriptor(usb_device, usb_interface, 0x21))
-                    {
-                        if (xusbDescriptorBuffer.length >= sizeof(XUSBVendorDescriptorHeader))
-                        {
-                            var sanscriptor = (XUSBVendorDescriptorHeader*)xusbDescriptorBuffer.bufferPtr;
-                            deviceInfo.xusbSubtype = sanscriptor->bDeviceSubtype;
                         }
                     }
 
