@@ -33,7 +33,7 @@ Dates are relative to UTC.
 
 - The `HIDROGEN_FORCE_REPORT_IDS` compile option has been removed.
 
-## [0.5.3]
+## [0.5.3] - 2026/02/03
 
 ### Added
 
@@ -44,7 +44,7 @@ Dates are relative to UTC.
 - Fix incorrect string return marshalling for libudev on Linux ([#12](https://github.com/TheNathannator/HIDrogen/pull/12)).
   - This fixes crashes that occurred when connecting devices that hidapi doesn't report a revision value for, most commonly Bluetooth controllers.
 
-## [0.5.2]
+## [0.5.2] - 2025/12/01
 
 ### Fixed
 
@@ -52,7 +52,7 @@ Dates are relative to UTC.
   - Backends are once again cleaned up properly.
   - XInput device additions are processed again.
 
-## [0.5.1]
+## [0.5.1] - 2025/12/01
 
 ### Fixed
 
@@ -60,7 +60,7 @@ Dates are relative to UTC.
 - GameInput raw report reading has been tweaked to help prevent issues with newer versions of GameInput.
 - SharpGameInput has been updated to v0.3.0 to fix crashes related to report callbacks.
 
-## [0.5.0]
+## [0.5.0] - 2025/10/05
 
 ### Added
 
