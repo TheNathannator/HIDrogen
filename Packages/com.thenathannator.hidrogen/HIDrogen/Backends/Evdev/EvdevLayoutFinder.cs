@@ -132,10 +132,12 @@ namespace HIDrogen.Backend.Linux
                     }
 
                     if (hat == 0 &&
-                        availableKeys.Contains(input_key_code.BTN_DPAD_UP) &&
-                        availableKeys.Contains(input_key_code.BTN_DPAD_DOWN) &&
-                        availableKeys.Contains(input_key_code.BTN_DPAD_LEFT) &&
-                        availableKeys.Contains(input_key_code.BTN_DPAD_RIGHT))
+                        // Not all d-pad keys may be available, but we still make a hat from them
+                        // so long as any of them are available
+                        (availableKeys.Contains(input_key_code.BTN_DPAD_UP) ||
+                        availableKeys.Contains(input_key_code.BTN_DPAD_DOWN) ||
+                        availableKeys.Contains(input_key_code.BTN_DPAD_LEFT) ||
+                        availableKeys.Contains(input_key_code.BTN_DPAD_RIGHT)))
                     {
                         // present
                         continue;
