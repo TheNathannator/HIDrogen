@@ -317,7 +317,10 @@ namespace HIDrogen.Backend.Linux
 
                 deviceInfo.product = hid_name.ToString();
                 deviceInfo.serial = hid_uniq.ToString();
-                deviceInfo.revision = (ushort)NumberUtils.ParseHexU32(hid_firmware_version.ToString() ?? "", 0);
+                if (!hid_firmware_version.IsInvalid)
+                {
+                    deviceInfo.revision = (ushort)NumberUtils.ParseHexU32(hid_firmware_version.ToString(), 0);
+                }
             }
 
             //  bus  vendor   product
