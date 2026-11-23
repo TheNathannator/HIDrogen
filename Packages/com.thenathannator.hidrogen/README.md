@@ -9,13 +9,11 @@ An add-on for the [Unity InputSystem](https://github.com/Unity-Technologies/Inpu
 - [Usage](#usage)
 - [Configuration](#configuration)
 - [Available Backends](#available-backends)
+  - [Replacement `evdev` Joystick Support on Linux](#replacement-evdev-joystick-support-on-linux)
   - [Raw HID Support on Linux](#raw-hid-support-on-linux)
-    - [Dependencies](#dependencies)
   - [Xbox One Controllers on Windows via GameInput](#xbox-one-controllers-on-windows-via-gameinput)
-    - [Dependencies](#dependencies-1)
-    - [Notes](#notes)
   - [XInput Backend on Windows for Unity 2022.2+](#xinput-backend-on-windows-for-unity-20222)
-    - [Notes](#notes-1)
+  - [Raw USB Support](#raw-usb-support)
 - [License](#license)
 
 ## Usage
@@ -30,13 +28,27 @@ Some configuration is available through compile-defines. These defines apply to 
 
 ## Available Backends
 
+### Replacement `evdev` Joystick Support on Linux
+
+Unity's native joystick support on Linux is rampantly buggy and incorrectly maps several controls on many devices. Moreover, even if its mappings functioned correctly, the device descriptions it reports are barren and don't provide any reliable information with which to match device layouts against (not even the device strings are consistently usable, as Unity 2019.4 reports completely bogus ones due to an incorrect lookup implementation).
+
+This replacement backend completely shims out the native joystick support and replaces it with a custom implementation that interfaces with `evdev` directly. The generic mappings for this backend have been ensured to be correct for all well-designed input devices, and it is additionally possible to create custom device layouts on top of these mappings.
+
+#### Dependencies
+
+This backend relies on `libudev` for device introspection and hotplug monitoring. By installing this package, your project will become dependent on it as well. On distributions that use `apt`, the following command should do the trick (if it isn't already installed on the system):
+
+```
+sudo apt install libudev1
+```
+
 ### Raw HID Support on Linux
 
 This backend provides raw HID support on Linux through the `hidraw` kernel driver. Raw input/output reports and device descriptor retrieval are implemented, which allows the built-in HID functionality of the input system to work as expected, including custom device layouts.
 
 #### Dependencies
 
-This backend relies on `libudev` for device connection/disconnection monitoring. By installing this package, your project will become dependent on it as well. On distributions that use `apt`, the following command should do the trick:
+This backend relies on `libudev` for device introspection and hotplug monitoring. By installing this package, your project will become dependent on it as well. On distributions that use `apt`, the following command should do the trick (if it isn't already installed on the system):
 
 ```
 sudo apt install libudev1

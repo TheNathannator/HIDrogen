@@ -8,16 +8,30 @@ Dates are relative to UTC.
 
 ## [Unreleased]
 
+### Added
+
+- A new evdev backend has been implemented, for devices which are not covered by hidraw or libusb.
+
 ### Changed
 
 - A device that gets removed and re-added in the same update (from e.g. refreshing devices from scratch) is now ensured to have its removal event fired before its addition event.
 - File paths and line numbers are no longer included in error messages.
 - The libusb backend is no longer added regardless of platform; it will now only be added on PC standalone platforms by default.
+- The hidapi backend has been replaced with a direct hidraw backend, to cut down on native dependencies a little bit.
+- The `SDL` interface on Linux is once again shimmed, as it has been superseded by the evdev backend.
+- HIDrogen is now ensured to initialize only after the input system has completed its first update.
+  - This should prevent ordering issues between HIDrogen and other packages that provide device layouts, and fix "ghost" devices appearing in the editor after a domain reload.
 
 ### Fixed
 
 - The XInput backend no longer attempts to add the same device multiple times.
 - The GameInput backend will no longer send empty state events, and instead converts these into device soft-reset events.
+- The GameInput backend no longer causes compile errors when cross-compiling a Windows build with a non-Windows editor.
+- Various other small things I can't be bothered to note down here and which were never issues in practice.
+
+### Removed
+
+- The `HIDROGEN_FORCE_REPORT_IDS` compile option has been removed.
 
 ## [0.5.3]
 
