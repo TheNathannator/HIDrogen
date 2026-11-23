@@ -360,6 +360,23 @@ namespace HIDrogen.Backend.Linux
                         {
                             deviceInfo.revision = (ushort)revision;
                         }
+                        if (deviceInfo.vendorId == 0x1209 && deviceInfo.productId == 0x2883)
+                        {
+                            using (var usb_interface = hidraw.get_parent_with_subsystem_devtype(Udev.SubsystemUsb, Udev.DevtypeUsbInterface))
+                            {
+                                if (usb_interface == null || usb_interface.IsInvalid)
+                                {
+                                    Logging.Verbose("Could not find usb_interface node for USB HID device");
+                                    break;
+                                }
+                                // Santroller 2 stores a user-configurable profile name here
+                                var interface_attr = usb_interface.get_sysattr_value("interface");
+                                if (!interface_attr.IsInvalid)
+                                {
+                                    deviceInfo.product = interface_attr.ToString();
+                                }
+                            }
+                        }
                     }
                     break;
                 }
