@@ -1083,7 +1083,7 @@ namespace HIDrogen.Imports.Linux
         public const string SubsystemHidRaw = "hidraw";
         public const string SubsystemInput = "input";
 
-        public const string DevtypeUsbInterface = "usb_device";
+        public const string DevtypeUsbInterface = "usb_interface";
         public const string DevtypeUsbDevice = "usb_device";
 
         public const string EventAdded = "add";

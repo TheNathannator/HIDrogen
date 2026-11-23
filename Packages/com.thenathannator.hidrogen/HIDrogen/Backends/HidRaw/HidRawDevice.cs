@@ -48,7 +48,7 @@ namespace HIDrogen.Backend.Linux
             m_Syspath = addContext.syspath;
             m_HidrawPath = addContext.hidrawPath;
 
-            m_Fd = Fcntl.open(hidrawPath, Fcntl.O_RDONLY | Fcntl.O_CLOEXEC);
+            m_Fd = Fcntl.open(hidrawPath, Fcntl.O_RDWR | Fcntl.O_CLOEXEC);
             if (m_Fd == null || m_Fd.IsInvalid)
             {
                 throw new Exception(Logging.MakeLastErrorMessage("Failed to open hidraw device"));

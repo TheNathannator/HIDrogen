@@ -109,6 +109,8 @@ namespace HIDrogen.Backend.Linux
 
         protected override void OnDeviceRemoved(HidRawDevice device)
         {
+            if (string.IsNullOrEmpty(device.syspath))
+                return;
             if (m_DevicesBySyspath.TryGetValue(device.syspath, out var devices))
             {
                 devices.Remove(device);
@@ -173,7 +175,7 @@ namespace HIDrogen.Backend.Linux
                     return false;
                 }
 
-                string syspath = device.get_syspath().ToString();
+                string syspath = hidraw.get_syspath().ToString();
                 if (m_DevicesBySyspath.ContainsKey(syspath))
                 {
                     // Signal claimage so that this device is not considered by other backends
@@ -317,7 +319,10 @@ namespace HIDrogen.Backend.Linux
 
                 deviceInfo.product = hid_name.ToString();
                 deviceInfo.serial = hid_uniq.ToString();
-                deviceInfo.revision = (ushort)NumberUtils.ParseHexU32(hid_firmware_version.ToString(), 0);
+                if (!hid_firmware_version.IsInvalid)
+                {
+                    deviceInfo.revision = (ushort)NumberUtils.ParseHexU32(hid_firmware_version.ToString(), 0);
+                }
             }
 
             //  bus  vendor   product
@@ -359,6 +364,23 @@ namespace HIDrogen.Backend.Linux
                         if (NumberUtils.TryParseHexU32(bcdDevice, out uint revision))
                         {
                             deviceInfo.revision = (ushort)revision;
+                        }
+                        if (deviceInfo.vendorId == 0x1209 && deviceInfo.productId == 0x2883)
+                        {
+                            using (var usb_interface = hidraw.get_parent_with_subsystem_devtype(Udev.SubsystemUsb, Udev.DevtypeUsbInterface))
+                            {
+                                if (usb_interface == null || usb_interface.IsInvalid)
+                                {
+                                    Logging.Verbose("Could not find usb_interface node for USB HID device");
+                                    break;
+                                }
+                                // Santroller 2 stores a user-configurable profile name here
+                                var interface_attr = usb_interface.get_sysattr_value("interface");
+                                if (!interface_attr.IsInvalid)
+                                {
+                                    deviceInfo.product = interface_attr.ToString();
+                                }
+                            }
                         }
                     }
                     break;
