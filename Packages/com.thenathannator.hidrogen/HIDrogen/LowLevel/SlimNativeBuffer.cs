@@ -20,19 +20,9 @@ namespace HIDrogen.LowLevel
         public int count => m_Count;
         public long length => m_Length;
 
-        public SlimNativeBuffer(int count, int alignment = 1)
+        public SlimNativeBuffer(int count)
         {
-            if (count < 1)
-                throw new ArgumentOutOfRangeException(nameof(count), count, "Must allocate at least one element!");
-            if (alignment < 1)
-                throw new ArgumentOutOfRangeException(nameof(alignment), alignment, "Must align to at least a byte boundary!");
-
-            m_Count = count;
-            m_Length = count * sizeof(T);
-            m_Buffer = (T*)UnsafeUtility.Malloc(m_Length, alignment, kAllocator);
-            if (m_Buffer == null)
-                throw new OutOfMemoryException("Failed to allocate memory for the buffer!");
-            UnsafeUtility.MemClear(m_Buffer, m_Length);
+            Alloc(kAllocator, count, out m_Count, out m_Length, out m_Buffer);
         }
 
         ~SlimNativeBuffer()
@@ -48,14 +38,73 @@ namespace HIDrogen.LowLevel
 
         private void Dispose(bool disposing)
         {
-            if (m_Buffer != null)
+            Free(kAllocator, ref m_Count, ref m_Length, ref m_Buffer);
+        }
+
+        public static void Alloc(
+            Allocator allocator,
+            int count,
+            out int countField,
+            out long lengthField,
+            out T* bufferField
+        )
+        {
+            if (count < 1)
             {
-                UnsafeUtility.Free(m_Buffer, kAllocator);
-                m_Buffer = null;
+                throw new ArgumentOutOfRangeException(nameof(count));
             }
 
-            m_Length = 0;
-            m_Count = 0;
+            countField = count;
+            lengthField = count * sizeof(T);
+
+            bufferField = (T*)UnsafeUtility.Malloc(lengthField, IntPtr.Size, allocator);
+            if (bufferField == null)
+            {
+                throw new OutOfMemoryException("Failed to allocate memory for the buffer!");
+            }
+
+            UnsafeUtility.MemClear(bufferField, lengthField);
+        }
+
+        public static void Free(
+            Allocator allocator,
+            ref int countField,
+            ref long lengthField,
+            ref T* bufferField
+        )
+        {
+            if (bufferField != null)
+            {
+                UnsafeUtility.Free(bufferField, allocator);
+                bufferField = null;
+            }
+
+            lengthField = 0;
+            countField = 0;
+        }
+    }
+
+    internal unsafe ref struct TempNativeBuffer<T>
+        where T : unmanaged
+    {
+        private const Allocator kAllocator = Allocator.Temp;
+
+        private T* m_Buffer;
+        private long m_Length;
+        private int m_Count;
+
+        public T* bufferPtr => m_Buffer;
+        public int count => m_Count;
+        public long length => m_Length;
+
+        public TempNativeBuffer(int count)
+        {
+            SlimNativeBuffer<T>.Alloc(kAllocator, count, out m_Count, out m_Length, out m_Buffer);
+        }
+
+        public void Dispose()
+        {
+            SlimNativeBuffer<T>.Free(kAllocator, ref m_Count, ref m_Length, ref m_Buffer);
         }
     }
 }
