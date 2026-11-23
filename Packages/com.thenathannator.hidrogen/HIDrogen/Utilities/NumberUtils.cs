@@ -52,7 +52,7 @@ namespace HIDrogen.Utilities
         public static bool TryParseHexI32(string str, out int value)
         {
             // Hex prefix is not accepted by parsing
-            if (str.StartsWith("0x"))
+            if (str != null && str.StartsWith("0x"))
             {
                 str = str.Substring("0x".Length);
             }
@@ -63,7 +63,7 @@ namespace HIDrogen.Utilities
         public static bool TryParseHexU32(string str, out uint value)
         {
             // Hex prefix is not accepted by parsing
-            if (str.StartsWith("0x"))
+            if (str != null && str.StartsWith("0x"))
             {
                 str = str.Substring("0x".Length);
             }
@@ -74,7 +74,7 @@ namespace HIDrogen.Utilities
         public static bool TryParseHexU64(string str, out ulong value)
         {
             // Hex prefix is not accepted by parsing
-            if (str.StartsWith("0x"))
+            if (str != null && str.StartsWith("0x"))
             {
                 str = str.Substring("0x".Length);
             }
