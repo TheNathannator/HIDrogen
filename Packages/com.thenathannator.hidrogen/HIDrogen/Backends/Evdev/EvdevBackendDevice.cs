@@ -420,8 +420,8 @@ namespace HIDrogen.Backend.Linux
             {
                 var absCode = m_Descriptor.supportedAbs[i];
 
-                var abs = new input_absinfo();
-                if (Ioctl.ioctl(m_Fd, EVIOCGABS(absCode), ref abs) < 0)
+                var absInfo = new input_absinfo();
+                if (Ioctl.ioctl(m_Fd, EVIOCGABS(absCode), ref absInfo) < 0)
                 {
                     if (WasDeviceDisconnected())
                     {
@@ -429,10 +429,10 @@ namespace HIDrogen.Backend.Linux
                     }
 
                     Logging.LastError("Failed to sync evdev abs value");
-                    abs.value = 0;
+                    absInfo.value = 0;
                 }
 
-                ApplyAbsLocked(absCode, abs.value);
+                ApplyAbsLocked(absCode, absInfo.value);
             }
 
             // Relative axes should not be synced; attempting to do so will just make them jitter briefly
@@ -448,7 +448,19 @@ namespace HIDrogen.Backend.Linux
             for (int i = 0; i < m_Descriptor.supportedAbs.Length; i++)
             {
                 var absCode = m_Descriptor.supportedAbs[i];
-                var absInfo = m_Descriptor.absInfo[i];
+
+                // Retrieve current state to avoid overwriting value/min/max
+                var absInfo = new input_absinfo();
+                if (Ioctl.ioctl(m_Fd, EVIOCGABS(absCode), ref absInfo) < 0)
+                {
+                    if (WasDeviceDisconnected())
+                    {
+                        return;
+                    }
+
+                    Logging.LastError("Failed to get evdev absinfo");
+                    continue;
+                }
 
                 absInfo.fuzz = 0;
                 absInfo.flat = 0;
@@ -471,9 +483,25 @@ namespace HIDrogen.Backend.Linux
             for (int i = 0; i < m_Descriptor.supportedAbs.Length; i++)
             {
                 var absCode = m_Descriptor.supportedAbs[i];
-                var absInfo = m_Descriptor.absInfo[i];
+                var originalAbsInfo = m_Descriptor.absInfo[i];
 
-                if (Ioctl.ioctl(m_Fd, EVIOCSABS(absCode), ref absInfo) < 0)
+                // Retrieve current state to avoid overwriting value/min/max
+                var newAbsInfo = new input_absinfo();
+                if (Ioctl.ioctl(m_Fd, EVIOCGABS(absCode), ref newAbsInfo) < 0)
+                {
+                    if (WasDeviceDisconnected())
+                    {
+                        return;
+                    }
+
+                    Logging.LastError("Failed to get evdev absinfo");
+                    continue;
+                }
+
+                newAbsInfo.fuzz = originalAbsInfo.fuzz;
+                newAbsInfo.flat = originalAbsInfo.flat;
+
+                if (Ioctl.ioctl(m_Fd, EVIOCSABS(absCode), ref newAbsInfo) < 0)
                 {
                     if (WasDeviceDisconnected())
                     {
