@@ -316,6 +316,9 @@ namespace HIDrogen.Backend.Linux
                 {
                     return;
                 }
+
+                deviceInfo.manufacturer = usb_device.get_sysattr_value("manufacturer").ToString();
+                deviceInfo.product = usb_device.get_sysattr_value("product").ToString();
             }
         }
 
