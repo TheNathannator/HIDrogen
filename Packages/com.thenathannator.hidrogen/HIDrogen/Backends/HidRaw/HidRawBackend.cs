@@ -173,7 +173,7 @@ namespace HIDrogen.Backend.Linux
                     return false;
                 }
 
-                string syspath = device.get_syspath().ToString();
+                string syspath = hidraw.get_syspath().ToString();
                 if (m_DevicesBySyspath.ContainsKey(syspath))
                 {
                     // Signal claimage so that this device is not considered by other backends
@@ -317,7 +317,7 @@ namespace HIDrogen.Backend.Linux
 
                 deviceInfo.product = hid_name.ToString();
                 deviceInfo.serial = hid_uniq.ToString();
-                deviceInfo.revision = (ushort)NumberUtils.ParseHexU32(hid_firmware_version.ToString(), 0);
+                deviceInfo.revision = (ushort)NumberUtils.ParseHexU32(hid_firmware_version.ToString() ?? "", 0);
             }
 
             //  bus  vendor   product
