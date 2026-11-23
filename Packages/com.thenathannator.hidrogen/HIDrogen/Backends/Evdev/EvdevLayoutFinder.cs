@@ -196,11 +196,8 @@ namespace HIDrogen.Backend.Linux
                 return s_StringBuilder.ToString();
             }
 
-            var matcher = InputDeviceMatcher.FromDeviceDescription(description)
-                .WithCapability("driver", descriptor.driver)
-                .WithCapability("busType", (int)descriptor.busType)
-                .WithCapability("vendorId", descriptor.vendorId)
-                .WithCapability("productId", descriptor.productId);
+            var matcher = InputDeviceMatcher.FromDeviceDescription(description);
+            matcher = descriptor.ApplyToMatcher(matcher);
 
             var builder = new EvdevLayoutBuilder()
             {

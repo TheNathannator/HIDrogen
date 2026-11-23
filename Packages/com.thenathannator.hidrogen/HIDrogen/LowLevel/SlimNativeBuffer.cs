@@ -84,7 +84,7 @@ namespace HIDrogen.LowLevel
         }
     }
 
-    internal unsafe ref struct TempNativeBuffer<T>
+    internal unsafe struct TempNativeBuffer<T> : IDisposable
         where T : unmanaged
     {
         private const Allocator kAllocator = Allocator.Temp;

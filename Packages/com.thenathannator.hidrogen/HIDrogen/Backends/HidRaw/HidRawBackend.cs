@@ -317,7 +317,7 @@ namespace HIDrogen.Backend.Linux
 
                 deviceInfo.product = hid_name.ToString();
                 deviceInfo.serial = hid_uniq.ToString();
-                deviceInfo.revision = (ushort)NumberUtils.ParseHexUInt32(hid_firmware_version.ToString(), 0);
+                deviceInfo.revision = (ushort)NumberUtils.ParseHexU32(hid_firmware_version.ToString(), 0);
             }
 
             //  bus  vendor   product
@@ -325,9 +325,9 @@ namespace HIDrogen.Backend.Linux
             var splits = hid_id.ToString().Split(':');
             if (splits == null ||
                 splits.Length < 3 ||
-                !NumberUtils.TryParseHexUInt32(splits[0], out uint _busType) ||
-                !NumberUtils.TryParseHexUInt32(splits[1], out uint vendorId) ||
-                !NumberUtils.TryParseHexUInt32(splits[2], out uint productId)
+                !NumberUtils.TryParseHexU32(splits[0], out uint _busType) ||
+                !NumberUtils.TryParseHexU32(splits[1], out uint vendorId) ||
+                !NumberUtils.TryParseHexU32(splits[2], out uint productId)
             )
             {
                 Logging.Verbose($"Encountered malformed HID_ID {hid_id.ToString()}");
@@ -343,7 +343,7 @@ namespace HIDrogen.Backend.Linux
             {
                 case input_bus_type.USB:
                 {
-                    using (var usb_device = hidraw.get_parent_with_subsystem_devtype("usb", "usb_device"))
+                    using (var usb_device = hidraw.get_parent_with_subsystem_devtype(Udev.SubsystemUsb, Udev.DevtypeUsbDevice))
                     {
                         if (usb_device == null || usb_device.IsInvalid)
                         {
@@ -356,7 +356,7 @@ namespace HIDrogen.Backend.Linux
                         deviceInfo.product = usb_device.get_sysattr_value("product").ToString();
 
                         string bcdDevice = usb_device.get_sysattr_value("bcdDevice").ToString();
-                        if (NumberUtils.TryParseHexUInt32(bcdDevice, out uint revision))
+                        if (NumberUtils.TryParseHexU32(bcdDevice, out uint revision))
                         {
                             deviceInfo.revision = (ushort)revision;
                         }
@@ -375,7 +375,7 @@ namespace HIDrogen.Backend.Linux
                         }
 
                         string id_version = input.get_sysattr_value("id/version").ToString();
-                        if (NumberUtils.TryParseHexUInt32(id_version, out uint revision))
+                        if (NumberUtils.TryParseHexU32(id_version, out uint revision))
                         {
                             deviceInfo.revision = (ushort)revision;
                         }

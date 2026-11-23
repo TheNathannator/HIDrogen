@@ -2,11 +2,14 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using HIDrogen.Imports;
 using HIDrogen.Imports.Linux;
 using HIDrogen.Imports.Posix;
 using HIDrogen.LowLevel;
 using HIDrogen.Services.Linux;
 using HIDrogen.Utilities;
+using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Layouts;
@@ -34,6 +37,9 @@ namespace HIDrogen.Backend.Linux
             public ushort vendorId;
             public ushort productId;
             public ushort revision;
+
+            public byte santrollerSubtype;
+            public byte santrollerCapabilities;
         }
 
         internal struct AddContext : IDisposable
@@ -241,7 +247,7 @@ namespace HIDrogen.Backend.Linux
             // USB HID devices for example have bcdHID reported instead of bcdDevice
             // udev seems to smooth this over, so trust its judgement over evdev's
             var id_revision = evdev.get_property_value("ID_REVISION");
-            if (!id_revision.IsInvalid && NumberUtils.TryParseHexUInt32(id_revision.ToString(), out uint realRevision))
+            if (!id_revision.IsInvalid && NumberUtils.TryParseHexU32(id_revision.ToString(), out uint realRevision))
             {
                 deviceInfo.revision = (ushort)realRevision;
             }
@@ -301,7 +307,7 @@ namespace HIDrogen.Backend.Linux
             }
         }
 
-        private static void FixupUsbInfo(
+        private static unsafe void FixupUsbInfo(
             udev_context udev,
             udev_device evdev,
             fd evdevFd,
@@ -319,7 +325,127 @@ namespace HIDrogen.Backend.Linux
 
                 deviceInfo.manufacturer = usb_device.get_sysattr_value("manufacturer").ToString();
                 deviceInfo.product = usb_device.get_sysattr_value("product").ToString();
+
+                // Device-specific fixups
+
+                // Santroller 2
+                if (deviceInfo.vendorId == 0x1209 && deviceInfo.productId == 0x2883)
+                {
+                    // Santroller 2 stores a user-configurable profile name here
+                    var interface_attr = usb_interface.get_sysattr_value("interface");
+                    if (!interface_attr.IsInvalid)
+                    {
+                        deviceInfo.product = interface_attr.ToString();
+                    }
+
+                    using (var sanscriptorBuffer = ReadUsbDescriptor(usb_device, usb_interface, 0xFF))
+                    {
+                        if (sanscriptorBuffer.length >= sizeof(Santroller2VendorDescriptor))
+                        {
+                            var sanscriptor = (Santroller2VendorDescriptor*)sanscriptorBuffer.bufferPtr;
+                            if (sanscriptor->IsValid)
+                            {
+                                deviceInfo.santrollerSubtype = sanscriptor->bSubtype;
+                                deviceInfo.santrollerCapabilities = sanscriptor->bCapabilities;
+                            }
+                        }
+                    }
+
+                    return;
+                }
             }
+        }
+
+        private static bool GetUsbInterfaceNumber(
+            udev_device usb_interface,
+            out uint bInterfaceNumber,
+            out uint bAlternateSetting
+        )
+        {
+            bInterfaceNumber = 0;
+            bAlternateSetting = 0;
+
+            var bInterfaceNumber_attr = usb_interface.get_sysattr_value("bInterfaceNumber").ToString();
+            var bAlternateSetting_attr = usb_interface.get_sysattr_value("bAlternateSetting").ToString();
+
+            // bInterfaceNumber is formatted as hex, bAlternateSetting as space-padded decimal
+            return NumberUtils.TryParseHexU32(bInterfaceNumber_attr, out bInterfaceNumber) &&
+                NumberUtils.TryParseIntegerU32(bAlternateSetting_attr, out bAlternateSetting);
+        }
+
+        private static unsafe TempNativeBuffer<byte> ReadUsbDescriptor(
+            udev_device usb_device,
+            udev_device usb_interface,
+            byte bDescriptorType
+        )
+        {
+            string syspath = usb_device.get_syspath().ToString();
+            if (syspath == null)
+            {
+                return default;
+            }
+
+            if (!GetUsbInterfaceNumber(usb_interface, out uint bInterfaceNumber, out uint bAlternateSetting))
+            {
+                return default;
+            }
+
+            using (var fddesc = Fcntl.open(Path.Combine(syspath, "descriptors"), Fcntl.O_RDONLY | Fcntl.O_CLOEXEC))
+            {
+                if (fddesc == null || fddesc.IsInvalid)
+                {
+                    Logging.LastError("Failed to open USB descriptors file");
+                    return default;
+                }
+
+                // bLength is a single byte, so no descriptor can be larger than this
+                byte* buffer = stackalloc byte[byte.MaxValue];
+                var header = (usb_descriptor_header*)buffer;
+
+                bool foundInterface = false;
+                while (Fcntl.read(fddesc, buffer, sizeof(usb_descriptor_header)) == sizeof(usb_descriptor_header))
+                {
+                    if (header->bLength < sizeof(usb_descriptor_header))
+                    {
+                        // Malformed descriptor
+                        return default;
+                    }
+
+                    int bodyLength = header->bLength - sizeof(usb_descriptor_header);
+                    if (bodyLength > 0)
+                    {
+                        int bytesRead = Fcntl.read(fddesc, buffer + sizeof(usb_descriptor_header), bodyLength);
+                        if (bytesRead != bodyLength)
+                        {
+                            // Bad read
+                            Logging.LastError("Failed to read USB descriptor body");
+                            return default;
+                        }
+                    }
+
+                    if (header->bDescriptorType == (byte)libusb_descriptor_type.INTERFACE)
+                    {
+                        if (header->bLength < sizeof(usb_interface_descriptor))
+                        {
+                            // Malformed descriptor
+                            return default;
+                        }
+
+                        var iface = (usb_interface_descriptor*)buffer;
+                        foundInterface =
+                            iface->bInterfaceNumber == bInterfaceNumber &&
+                            iface->bAlternateSetting == bAlternateSetting;
+                    }
+                    else if (foundInterface && header->bDescriptorType == bDescriptorType)
+                    {
+                        var ownedBuffer = new TempNativeBuffer<byte>(header->bLength);
+                        UnsafeUtility.MemCpy(ownedBuffer.bufferPtr, buffer, header->bLength);
+                        return ownedBuffer;
+                    }
+                }
+            }
+
+            return default;
         }
 
         private static void FixupBluetoothInfo(
@@ -329,6 +455,13 @@ namespace HIDrogen.Backend.Linux
             ref DeviceInfo deviceInfo
         )
         {
+            // No general fixups to perform, so we go straight to device-specific ones
+
+            // Santroller 2
+            if (deviceInfo.vendorId == 0x1209 && deviceInfo.productId == 0x2883)
+            {
+                deviceInfo.santrollerSubtype = (byte)(deviceInfo.revision >> 8);
+            }
         }
 
         private static unsafe bool CreateEvdevDescriptor(
@@ -346,6 +479,9 @@ namespace HIDrogen.Backend.Linux
                 busType = deviceInfo.busType,
                 vendorId = deviceInfo.vendorId,
                 productId = deviceInfo.productId,
+
+                santrollerSubtype = deviceInfo.santrollerSubtype,
+                santrollerCapabilities = deviceInfo.santrollerCapabilities,
 
                 supportedKeys = Array.Empty<input_key_code>(),
                 supportedAbs = Array.Empty<input_abs_code>(),
