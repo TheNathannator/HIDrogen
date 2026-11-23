@@ -18,6 +18,7 @@ namespace HIDrogen.Backend.Linux
 
         // not the biggest fan of stuffing device-specific data in here,
         // but there's also not really any harm in doing so
+        public byte xusbSubtype;
         public byte santrollerSubtype;
         public byte santrollerCapabilities;
 
@@ -34,6 +35,7 @@ namespace HIDrogen.Backend.Linux
                 .WithCapability("busType", (int)busType)
                 .WithCapability("vendorId", vendorId)
                 .WithCapability("productId", productId)
+                .WithCapability("xusbSubtype", xusbSubtype)
                 .WithCapability("santrollerSubtype", santrollerSubtype)
                 .WithCapability("santrollerCapabilities", santrollerCapabilities);
 
@@ -51,6 +53,14 @@ namespace HIDrogen.Backend.Linux
     // Non-public definitions from this point forward
 
     // Definitions for USB device fixups
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    internal struct XUSBVendorDescriptorHeader
+    {
+        public usb_descriptor_header header;
+        public ushort bcdXUSB;
+        public byte bDeviceSubtype;
+    }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     internal unsafe struct Santroller2VendorDescriptor

@@ -38,6 +38,7 @@ namespace HIDrogen.Backend.Linux
             public ushort productId;
             public ushort revision;
 
+            public byte xusbSubtype;
             public byte santrollerSubtype;
             public byte santrollerCapabilities;
         }
@@ -353,6 +354,21 @@ namespace HIDrogen.Backend.Linux
 
                     return;
                 }
+
+                // XUSB via xpad
+                if (deviceInfo.driver == "xpad")
+                {
+                    using (var xusbDescriptorBuffer = ReadUsbDescriptor(usb_device, usb_interface, 0x21))
+                    {
+                        if (xusbDescriptorBuffer.length >= sizeof(XUSBVendorDescriptorHeader))
+                        {
+                            var sanscriptor = (XUSBVendorDescriptorHeader*)xusbDescriptorBuffer.bufferPtr;
+                            deviceInfo.xusbSubtype = sanscriptor->bDeviceSubtype;
+                        }
+                    }
+
+                    return;
+                }
             }
         }
 
@@ -480,6 +496,7 @@ namespace HIDrogen.Backend.Linux
                 vendorId = deviceInfo.vendorId,
                 productId = deviceInfo.productId,
 
+                xusbSubtype = deviceInfo.xusbSubtype,
                 santrollerSubtype = deviceInfo.santrollerSubtype,
                 santrollerCapabilities = deviceInfo.santrollerCapabilities,
 
