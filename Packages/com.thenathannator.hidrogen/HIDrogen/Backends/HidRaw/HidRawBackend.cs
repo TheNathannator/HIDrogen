@@ -34,7 +34,8 @@ namespace HIDrogen.Backend.Linux
 
         internal struct AddContext : IDisposable
         {
-            public string path;
+            public string syspath;
+            public string hidrawPath;
             public HID.HIDDeviceDescriptor descriptor;
 
             public void Dispose()
@@ -71,7 +72,8 @@ namespace HIDrogen.Backend.Linux
             )
             .CreateDelegate(typeof(HIDParser_ParseReportDescriptor));
 
-        private readonly Dictionary<string, List<HidRawDevice>> m_DevicesByPath = new Dictionary<string, List<HidRawDevice>>();
+        private readonly Dictionary<string, List<HidRawDevice>> m_DevicesBySyspath
+            = new Dictionary<string, List<HidRawDevice>>();
 
         protected override void OnDispose()
         {
@@ -81,43 +83,38 @@ namespace HIDrogen.Backend.Linux
         {
             base.OnStop();
 
-            foreach (var p in m_DevicesByPath)
+            foreach (var p in m_DevicesBySyspath)
             {
                 foreach (var device in p.Value)
                 {
                     device?.Dispose();
                 }
             }
-            m_DevicesByPath.Clear();
+            m_DevicesBySyspath.Clear();
         }
 
         protected override HidRawDevice OnDeviceAdded(InputDevice device, AddContext context)
         {
-            var fd = Fcntl.open(context.path, Fcntl.O_RDWR | Fcntl.O_CLOEXEC);
-            if (fd == null || fd.IsInvalid)
-            {
-                throw new Exception(Logging.MakeLastErrorMessage("Failed to open hidraw device"));
-            }
+            var backendDevice = new HidRawDevice(this, context, device);
 
-            if (!m_DevicesByPath.TryGetValue(context.path, out var devices))
+            if (!m_DevicesBySyspath.TryGetValue(context.syspath, out var devices))
             {
                 devices = new List<HidRawDevice>();
-                m_DevicesByPath.Add(context.path, devices);
+                m_DevicesBySyspath.Add(context.syspath, devices);
             }
-
-            var backendDevice = new HidRawDevice(this, device, context.descriptor, context.path, fd);
             devices.Add(backendDevice);
+
             return backendDevice;
         }
 
         protected override void OnDeviceRemoved(HidRawDevice device)
         {
-            if (m_DevicesByPath.TryGetValue(device.path, out var devices))
+            if (m_DevicesBySyspath.TryGetValue(device.syspath, out var devices))
             {
                 devices.Remove(device);
                 if (devices.Count < 1)
                 {
-                    m_DevicesByPath.Remove(device.path);
+                    m_DevicesBySyspath.Remove(device.syspath);
                 }
             }
 
@@ -176,7 +173,8 @@ namespace HIDrogen.Backend.Linux
                     return false;
                 }
 
-                if (m_DevicesByPath.ContainsKey(hidrawPath))
+                string syspath = device.get_syspath().ToString();
+                if (m_DevicesBySyspath.ContainsKey(syspath))
                 {
                     // Signal claimage so that this device is not considered by other backends
                     return true;
@@ -223,14 +221,15 @@ namespace HIDrogen.Backend.Linux
                     };
                     var context = new AddContext()
                     {
-                        path = hidrawPath,
+                        syspath = syspath,
+                        hidrawPath = hidrawPath,
                         descriptor = collectionDescriptor,
                     };
 
                     AddDeviceNow(description, context);
                 }
 
-                if (!m_DevicesByPath.ContainsKey(hidrawPath))
+                if (!m_DevicesBySyspath.ContainsKey(syspath))
                 {
                     // Device addition failed
                     return false;
@@ -250,8 +249,11 @@ namespace HIDrogen.Backend.Linux
                     return;
                 }
 
+                string syspath = device.get_syspath().ToString();
                 string hidrawPath = hidraw.get_devnode().ToString();
-                if (hidrawPath != null && m_DevicesByPath.TryGetValue(hidrawPath, out var backendDevices))
+                if (syspath != null &&
+                    hidrawPath != null &&
+                    m_DevicesBySyspath.TryGetValue(syspath, out var backendDevices))
                 {
                     foreach (var dev in backendDevices)
                     {
@@ -263,7 +265,7 @@ namespace HIDrogen.Backend.Linux
                     }
 
                     backendDevices.Clear();
-                    m_DevicesByPath.Remove(hidrawPath);
+                    m_DevicesBySyspath.Remove(syspath);
                     Logging.Verbose($"hidraw device {hidrawPath} removed");
                 }
             }

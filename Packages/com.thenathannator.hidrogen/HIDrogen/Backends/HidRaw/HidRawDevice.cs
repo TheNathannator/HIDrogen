@@ -22,28 +22,37 @@ namespace HIDrogen.Backend.Linux
         private HidRawBackend m_Backend;
         private InputDevice m_Device;
         private HID.HIDDeviceDescriptor m_Descriptor;
-        private string m_Path;
+
+        private string m_Syspath;
+        private string m_HidrawPath;
         private fd m_Fd;
 
         private Thread m_ReadThread;
         private EventWaitHandle m_ThreadStop = new EventWaitHandle(false, EventResetMode.ManualReset);
 
-        public string path => m_Path;
+        public string syspath => m_Syspath;
+        public string hidrawPath => m_HidrawPath;
+
         public InputDevice device => m_Device;
 
         public HidRawDevice(
             HidRawBackend backend,
-            InputDevice device,
-            HID.HIDDeviceDescriptor descriptor,
-            string path,
-            fd fd
+            HidRawBackend.AddContext addContext,
+            InputDevice device
         )
         {
             m_Backend = backend;
             m_Device = device;
-            m_Descriptor = descriptor;
-            m_Path = path;
-            m_Fd = fd;
+
+            m_Descriptor = addContext.descriptor;
+            m_Syspath = addContext.syspath;
+            m_HidrawPath = addContext.hidrawPath;
+
+            m_Fd = Fcntl.open(hidrawPath, Fcntl.O_RDONLY | Fcntl.O_CLOEXEC);
+            if (m_Fd == null || m_Fd.IsInvalid)
+            {
+                throw new Exception(Logging.MakeLastErrorMessage("Failed to open hidraw device"));
+            }
 
             m_ReadThread = new Thread(ReadThread) { IsBackground = true };
             m_ReadThread.Start();
@@ -67,7 +76,8 @@ namespace HIDrogen.Backend.Linux
 
             m_Backend = null;
             m_Device = null;
-            m_Path = null;
+            m_Syspath = null;
+            m_HidrawPath = null;
         }
 
         private unsafe void ReadThread()

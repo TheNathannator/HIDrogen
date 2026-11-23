@@ -21,7 +21,9 @@ namespace HIDrogen.Backend.Linux
         private EvdevBackend m_Backend;
         private InputDevice m_Device;
         private EvdevCapabilities m_Descriptor;
-        private string m_Path;
+
+        private string m_Syspath;
+        private string m_EvdevPath;
         private fd m_Fd;
 
         // Offset notes:
@@ -44,26 +46,33 @@ namespace HIDrogen.Backend.Linux
 
         private bool m_EventDropped;
 
-        public string path => m_Path;
+        public string syspath => m_Syspath;
+        public string evdevPath => m_EvdevPath;
+
         public InputDevice device => m_Device;
 
         public EvdevBackendDevice(
             EvdevBackend backend,
-            InputDevice device,
-            EvdevCapabilities descriptor,
-            string path,
-            fd fd
+            EvdevBackend.AddContext addContext,
+            InputDevice device
         )
         {
             m_Backend = backend;
             m_Device = device;
-            m_Descriptor = descriptor;
-            m_Path = path;
-            m_Fd = fd;
+
+            m_Descriptor = addContext.descriptor;
+            m_Syspath = addContext.syspath;
+            m_EvdevPath = addContext.evdevPath;
+
+            m_Fd = Fcntl.open(addContext.evdevPath, Fcntl.O_RDONLY | Fcntl.O_CLOEXEC);
+            if (m_Fd == null || m_Fd.IsInvalid)
+            {
+                throw new Exception(Logging.MakeLastErrorMessage("Failed to open evdev device"));
+            }
 
             // Determine key bit offsets
             {
-                var supportedKeys = descriptor.supportedKeys;
+                var supportedKeys = m_Descriptor.supportedKeys;
                 m_KeyBitOffsets = new ushort[(int)input_key_code.KEY_CNT];
                 for (int i = 0; i < m_KeyBitOffsets.Length; i++)
                 {
@@ -83,7 +92,7 @@ namespace HIDrogen.Backend.Linux
 
             // Determine abs byte offsets
             {
-                var supportedAbs = descriptor.supportedAbs;
+                var supportedAbs = m_Descriptor.supportedAbs;
                 m_AbsOffsets = new ushort[(int)input_abs_code.ABS_CNT];
                 for (int i = 0; i < m_AbsOffsets.Length; i++)
                 {
@@ -102,7 +111,7 @@ namespace HIDrogen.Backend.Linux
 
             // Determine rel byte offsets
             {
-                var supportedRel = descriptor.supportedRel;
+                var supportedRel = m_Descriptor.supportedRel;
                 m_RelOffsets = new ushort[(int)input_rel_code.REL_CNT];
                 for (int i = 0; i < m_RelOffsets.Length; i++)
                 {
@@ -157,7 +166,8 @@ namespace HIDrogen.Backend.Linux
 
             m_Backend = null;
             m_Device = null;
-            m_Path = null;
+            m_Syspath = null;
+            m_EvdevPath = null;
         }
 
         private unsafe void ReadThread()

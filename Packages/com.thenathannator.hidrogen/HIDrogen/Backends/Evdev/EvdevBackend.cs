@@ -37,7 +37,8 @@ namespace HIDrogen.Backend.Linux
 
         internal struct AddContext : IDisposable
         {
-            public string path;
+            public string syspath;
+            public string evdevPath;
             public EvdevCapabilities descriptor;
 
             public void Dispose()
@@ -45,7 +46,8 @@ namespace HIDrogen.Backend.Linux
             }
         }
 
-        private readonly Dictionary<string, EvdevBackendDevice> m_DevicesByPath = new Dictionary<string, EvdevBackendDevice>();
+        private readonly Dictionary<string, EvdevBackendDevice> m_DevicesBySyspath
+            = new Dictionary<string, EvdevBackendDevice>();
 
         protected override void OnDispose()
         {
@@ -55,28 +57,23 @@ namespace HIDrogen.Backend.Linux
         {
             base.OnStop();
 
-            foreach (var p in m_DevicesByPath)
+            foreach (var p in m_DevicesBySyspath)
             {
                 p.Value?.Dispose();
             }
-            m_DevicesByPath.Clear();
+            m_DevicesBySyspath.Clear();
         }
 
         protected override EvdevBackendDevice OnDeviceAdded(InputDevice device, AddContext context)
         {
-            var fd = Fcntl.open(context.path, Fcntl.O_RDONLY | Fcntl.O_CLOEXEC);
-            if (fd == null || fd.IsInvalid)
-            {
-                throw new Exception(Logging.MakeLastErrorMessage("Failed to open evdev device"));
-            }
-
-            var backendDevice = new EvdevBackendDevice(this, device, context.descriptor, context.path, fd);
-            m_DevicesByPath.Add(context.path, backendDevice);
+            var backendDevice = new EvdevBackendDevice(this, context, device);
+            m_DevicesBySyspath.Add(context.syspath, backendDevice);
             return backendDevice;
         }
 
         protected override void OnDeviceRemoved(EvdevBackendDevice device)
         {
+            m_DevicesBySyspath.Remove(device.syspath);
             device.Dispose();
         }
 
@@ -106,13 +103,14 @@ namespace HIDrogen.Backend.Linux
                 return false;
             }
 
+            string syspath = device.get_syspath().ToString();
             string evdevPath = device.get_devnode().ToString();
-            if (evdevPath == null)
+            if (syspath == null || evdevPath == null)
             {
                 return false;
             }
 
-            if (m_DevicesByPath.ContainsKey(evdevPath))
+            if (m_DevicesBySyspath.ContainsKey(syspath))
             {
                 // Return true so that this device is not considered by other backends
                 return true;
@@ -157,7 +155,8 @@ namespace HIDrogen.Backend.Linux
             };
             var context = new AddContext()
             {
-                path = evdevPath,
+                syspath = syspath,
+                evdevPath = evdevPath,
                 descriptor = descriptor,
             };
 
@@ -177,8 +176,11 @@ namespace HIDrogen.Backend.Linux
                 return;
             }
 
+            string syspath = device.get_syspath().ToString();
             string evdevPath = device.get_devnode().ToString();
-            if (evdevPath != null && m_DevicesByPath.TryGetValue(evdevPath, out var backendDevice))
+            if (syspath != null &&
+                evdevPath != null &&
+                m_DevicesBySyspath.TryGetValue(syspath, out var backendDevice))
             {
                 if (backendDevice != null)
                 {
@@ -186,7 +188,7 @@ namespace HIDrogen.Backend.Linux
                     backendDevice.Dispose();
                 }
 
-                m_DevicesByPath.Remove(evdevPath);
+                m_DevicesBySyspath.Remove(syspath);
                 Logging.Verbose($"evdev device {evdevPath} removed");
             }
         }
