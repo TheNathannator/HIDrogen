@@ -155,8 +155,18 @@ namespace HIDrogen.Backend.Linux
             m_ThreadStop?.Dispose();
             m_ThreadStop = null;
 
-            m_Fd?.Dispose();
-            m_Fd = null;
+            if (m_Fd != null)
+            {
+                lock (m_Fd)
+                {
+                    // why is this global data, exactly...?
+                    RestoreDeadzonesLocked();
+                }
+
+                m_Fd?.Dispose();
+                m_Fd = null;
+            }
+
 
             if (m_State.IsCreated)
             {
@@ -213,6 +223,12 @@ namespace HIDrogen.Backend.Linux
             m_Backend.QueueDeviceRemove(m_Device);
         }
 
+        private bool WasDeviceDisconnected()
+        {
+            var errno = Posix.errno;
+            return errno == Errno.ENOENT || errno == Errno.ENODEV;
+        }
+
         private bool IsReadAvailable(ref int errorCount)
         {
             var poll = new pollfd(m_Fd, Fcntl.POLLIN);
@@ -242,14 +258,14 @@ namespace HIDrogen.Backend.Linux
                     return bytesRead / sizeof(input_event);
                 }
 
-                var errno = Posix.errno;
-                if (errno == Errno.ENOENT || errno == Errno.ENODEV)
+                if (WasDeviceDisconnected())
                 {
                     // Device has been disconnected
                     errorCount = kMaxReadErrors;
                     return -1;
                 }
 
+                var errno = Posix.errno;
                 if (errno == Errno.EINTR ||
                     errno == Errno.EAGAIN ||
                     errno == Errno.EINPROGRESS)
@@ -407,6 +423,11 @@ namespace HIDrogen.Backend.Linux
                 var abs = new input_absinfo();
                 if (Ioctl.ioctl(m_Fd, EVIOCGABS(absCode), ref abs) < 0)
                 {
+                    if (WasDeviceDisconnected())
+                    {
+                        return;
+                    }
+
                     Logging.LastError("Failed to sync evdev abs value");
                     abs.value = 0;
                 }
@@ -427,19 +448,38 @@ namespace HIDrogen.Backend.Linux
             for (int i = 0; i < m_Descriptor.supportedAbs.Length; i++)
             {
                 var absCode = m_Descriptor.supportedAbs[i];
+                var absInfo = m_Descriptor.absInfo[i];
 
-                var abs = new input_absinfo();
-                if (Ioctl.ioctl(m_Fd, EVIOCGABS(absCode), ref abs) < 0)
+                absInfo.fuzz = 0;
+                absInfo.flat = 0;
+
+                if (Ioctl.ioctl(m_Fd, EVIOCSABS(absCode), ref absInfo) < 0)
                 {
-                    Logging.LastError("Failed to get evdev absinfo");
+                    if (WasDeviceDisconnected())
+                    {
+                        return;
+                    }
+
+                    Logging.LastError("Failed to set evdev absinfo");
                     continue;
                 }
+            }
+        }
 
-                abs.fuzz = 0;
-                abs.flat = 0;
+        private void RestoreDeadzonesLocked()
+        {
+            for (int i = 0; i < m_Descriptor.supportedAbs.Length; i++)
+            {
+                var absCode = m_Descriptor.supportedAbs[i];
+                var absInfo = m_Descriptor.absInfo[i];
 
-                if (Ioctl.ioctl(m_Fd, EVIOCSABS(absCode), ref abs) < 0)
+                if (Ioctl.ioctl(m_Fd, EVIOCSABS(absCode), ref absInfo) < 0)
                 {
+                    if (WasDeviceDisconnected())
+                    {
+                        return;
+                    }
+
                     Logging.LastError("Failed to set evdev absinfo");
                     continue;
                 }
