@@ -408,7 +408,7 @@ namespace HIDrogen.Backend.Linux
                         .WithLayout("Button")
                         .WithParameters("scale,scaleFactor=0")
                         .WithFormat(InputStateBlock.FormatBit)
-                        .WithByteOffset(GetKeyByteOffset(keyIndex))
+                        .WithByteOffset(0)
                         .WithBitOffset(GetKeyBitOffset(keyIndex))
                         .WithSizeInBits(1);
                 }
