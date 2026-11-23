@@ -25,7 +25,8 @@ namespace HIDrogen.Backend.Linux
     {
         private struct DeviceInfo
         {
-            public string name;
+            public string manufacturer;
+            public string product;
             public string serial;
             public string driver;
 
@@ -125,9 +126,9 @@ namespace HIDrogen.Backend.Linux
 
             DeviceInfo deviceInfo;
             EvdevCapabilities descriptor;
-            using (var fd = Fcntl.open(evdevPath, Fcntl.O_RDONLY | Fcntl.O_CLOEXEC))
+            using (var evdevFd = Fcntl.open(evdevPath, Fcntl.O_RDONLY | Fcntl.O_CLOEXEC))
             {
-                if (fd == null || fd.IsInvalid)
+                if (evdevFd == null || evdevFd.IsInvalid)
                 {
                     // Ignore permission errors in logs
                     if (Posix.errno != Errno.EACCES && Posix.errno != Errno.EPERM)
@@ -137,9 +138,9 @@ namespace HIDrogen.Backend.Linux
                     return false;
                 }
 
-                if (!IsDeviceAllowed(udev, device, fd) ||
-                    !CollectDeviceInfo(udev, device, fd, out deviceInfo) ||
-                    !CreateEvdevDescriptor(udev, device, fd, deviceInfo, out descriptor))
+                if (!IsDeviceAllowed(udev, device, evdevFd) ||
+                    !CollectDeviceInfo(udev, device, evdevFd, out deviceInfo) ||
+                    !CreateEvdevDescriptor(udev, device, evdevFd, deviceInfo, out descriptor))
                 {
                     return false;
                 }
@@ -148,7 +149,8 @@ namespace HIDrogen.Backend.Linux
             var description = new InputDeviceDescription()
             {
                 interfaceName = EvdevDefinitions.InterfaceName,
-                product = deviceInfo.name,
+                manufacturer = deviceInfo.manufacturer,
+                product = deviceInfo.product,
                 serial = deviceInfo.serial,
                 version = deviceInfo.revision.ToString(CultureInfo.InvariantCulture),
                 capabilities = JsonUtility.ToJson(descriptor),
@@ -211,14 +213,14 @@ namespace HIDrogen.Backend.Linux
         private static bool CollectDeviceInfo(
             udev_context udev,
             udev_device evdev,
-            fd fd,
+            fd evdevFd,
             out DeviceInfo deviceInfo
         )
         {
             deviceInfo = new DeviceInfo();
 
             var inputIds = new input_id();
-            if (Ioctl.ioctl(fd, EVIOCGID, ref inputIds) < 0)
+            if (Ioctl.ioctl(evdevFd, EVIOCGID, ref inputIds) < 0)
             {
                 Logging.LastError("Failed to get input IDs");
                 return false;
@@ -230,8 +232,8 @@ namespace HIDrogen.Backend.Linux
             deviceInfo.productId = inputIds.product;
             deviceInfo.revision = inputIds.version;
 
-            deviceInfo.name = GetDeviceString(fd, EVIOCGNAME(0));
-            deviceInfo.serial = GetDeviceString(fd, EVIOCGUNIQ(0));
+            deviceInfo.product = GetDeviceString(evdevFd, EVIOCGNAME(0));
+            deviceInfo.serial = GetDeviceString(evdevFd, EVIOCGUNIQ(0));
 
             // Then query udev for any fixups or missing properties
 
@@ -254,6 +256,20 @@ namespace HIDrogen.Backend.Linux
                     {
                         break;
                     }
+                }
+            }
+
+            switch (deviceInfo.busType)
+            {
+                case input_bus_type.USB:
+                {
+                    FixupUsbInfo(udev, evdev, evdevFd, ref deviceInfo);
+                    break;
+                }
+                case input_bus_type.BLUETOOTH:
+                {
+                    FixupBluetoothInfo(udev, evdev, evdevFd, ref deviceInfo);
+                    break;
                 }
             }
 
@@ -283,6 +299,33 @@ namespace HIDrogen.Backend.Linux
             {
                 str.Dispose();
             }
+        }
+
+        private static void FixupUsbInfo(
+            udev_context udev,
+            udev_device evdev,
+            fd evdevFd,
+            ref DeviceInfo deviceInfo
+        )
+        {
+            using (var usb_device = evdev.get_parent_with_subsystem_devtype(Udev.SubsystemUsb, Udev.DevtypeUsbDevice))
+            using (var usb_interface = evdev.get_parent_with_subsystem_devtype(Udev.SubsystemUsb, Udev.DevtypeUsbInterface))
+            {
+                if (usb_device == null || usb_device.IsInvalid ||
+                    usb_interface == null || usb_interface.IsInvalid)
+                {
+                    return;
+                }
+            }
+        }
+
+        private static void FixupBluetoothInfo(
+            udev_context udev,
+            udev_device evdev,
+            fd evdevFd,
+            ref DeviceInfo deviceInfo
+        )
+        {
         }
 
         private static unsafe bool CreateEvdevDescriptor(
