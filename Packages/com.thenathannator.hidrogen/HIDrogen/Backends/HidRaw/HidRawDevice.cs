@@ -23,8 +23,8 @@ namespace HIDrogen.Backend.Linux
         private InputDevice m_Device;
         private HID.HIDDeviceDescriptor m_Descriptor;
 
-        private string m_Syspath;
-        private string m_HidrawPath;
+        private readonly string m_Syspath;
+        private readonly string m_HidrawPath;
         private fd m_Fd;
 
         private Thread m_ReadThread;
@@ -76,8 +76,6 @@ namespace HIDrogen.Backend.Linux
 
             m_Backend = null;
             m_Device = null;
-            m_Syspath = null;
-            m_HidrawPath = null;
         }
 
         private unsafe void ReadThread()

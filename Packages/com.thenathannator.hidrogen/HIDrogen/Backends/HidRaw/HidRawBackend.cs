@@ -109,8 +109,6 @@ namespace HIDrogen.Backend.Linux
 
         protected override void OnDeviceRemoved(HidRawDevice device)
         {
-            if (string.IsNullOrEmpty(device.syspath))
-                return;
             if (m_DevicesBySyspath.TryGetValue(device.syspath, out var devices))
             {
                 devices.Remove(device);

@@ -22,8 +22,8 @@ namespace HIDrogen.Backend.Linux
         private InputDevice m_Device;
         private EvdevCapabilities m_Capabilities;
 
-        private string m_Syspath;
-        private string m_EvdevPath;
+        private readonly string m_Syspath;
+        private readonly string m_EvdevPath;
         private fd m_Fd;
 
         private EvdevStateHandler m_StateHandlerLocked;
@@ -104,8 +104,6 @@ namespace HIDrogen.Backend.Linux
 
             m_Backend = null;
             m_Device = null;
-            m_Syspath = null;
-            m_EvdevPath = null;
         }
 
         private unsafe void ReadThread()

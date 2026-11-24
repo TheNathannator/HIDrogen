@@ -81,8 +81,6 @@ namespace HIDrogen.Backend.Linux
 
         protected override void OnDeviceRemoved(EvdevBackendDevice device)
         {
-            if (string.IsNullOrEmpty(device.syspath))
-                return;
             m_DevicesBySyspath.Remove(device.syspath);
             device.Dispose();
         }
