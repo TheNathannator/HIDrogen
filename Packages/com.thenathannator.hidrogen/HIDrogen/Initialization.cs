@@ -22,6 +22,8 @@ namespace HIDrogen
 #endif
         internal static void Initialize()
         {
+            RegisterLayouts();
+
 #if SAFE_TO_INITIALIZE
 #if UNITY_EDITOR
             UnityEditor.AssemblyReloadEvents.beforeAssemblyReload += Uninitialize;
