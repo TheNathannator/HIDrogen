@@ -389,8 +389,14 @@ namespace HIDrogen.Backend.Linux
             var absInfo = descriptor.absInfo[absIndex];
 
             int zero = GetAbsZeroPoint(absInfo);
-            int min = GetAbsMin(abs, absInfo);
-            int max = GetAbsMax(abs, absInfo);
+            int min = absInfo.minimum;
+            int max = absInfo.maximum;
+
+            // Invert Y axes, except for hats since their non-hat usages are typically not inverted
+            if (IsAxisY(abs) /* || IsHatY(abs) */)
+            {
+                (min, max) = (max, min);
+            }
 
             string layout = "EvdevAxis";
             string parameters = $"zeroPoint={zero},minValue={min},maxValue={max}";
@@ -559,8 +565,14 @@ namespace HIDrogen.Backend.Linux
                 string negative = i == 0 ? "left" : "down";
 
                 int zero = GetAbsZeroPoint(absInfo);
-                int min = GetAbsMin(abs, absInfo);
-                int max = GetAbsMax(abs, absInfo);
+                int min = absInfo.minimum;
+                int max = absInfo.maximum;
+
+                // Y axis is inverted
+                if (IsHatY(abs))
+                {
+                    (min, max) = (max, min);
+                }
 
                 builder.AddControl($"{hatRoot}/{positive}")
                     .WithLayout("EvdevButton")
@@ -604,14 +616,17 @@ namespace HIDrogen.Backend.Linux
                 string negative = i == 0 ? "left" : "down";
 
                 int zero = GetAbsZeroPoint(absInfo);
-                int min = GetAbsMin(abs, absInfo);
-                int max = GetAbsMax(abs, absInfo);
+                int min = absInfo.minimum;
+                int max = absInfo.maximum;
 
-                bool inverted = i == 0
+                // Invert Y axes naturally
+                bool naturallyInverted = IsAxisY(abs) || IsHatY(abs);
+
+                bool configuredInverted = i == 0
                     ? (options & EvdevStickOption.InvertX) != 0
                     : (options & EvdevStickOption.InvertY) != 0;
 
-                if (inverted)
+                if (naturallyInverted ^ configuredInverted)
                 {
                     (min, max) = (max, min);
                 }
@@ -727,46 +742,29 @@ namespace HIDrogen.Backend.Linux
             return absInfo.minimum + (absInfo.maximum - absInfo.minimum) / 2;
         }
 
-        private int GetAbsMin(input_abs_code abs, input_absinfo absInfo)
-        {
-            return IsAbsY(abs) ? absInfo.maximum : absInfo.minimum;
-        }
-
-        private int GetAbsMax(input_abs_code abs, input_absinfo absInfo)
-        {
-            return IsAbsY(abs) ? absInfo.minimum : absInfo.maximum;
-        }
-
         private static bool IsDpadKey(input_key_code key)
         {
-            return key == input_key_code.BTN_DPAD_UP ||
+            return
+                key == input_key_code.BTN_DPAD_UP ||
                 key == input_key_code.BTN_DPAD_DOWN ||
                 key == input_key_code.BTN_DPAD_LEFT ||
                 key == input_key_code.BTN_DPAD_RIGHT;
         }
 
-        private static bool IsAbsX(input_abs_code abs)
+        private static bool IsAxisX(input_abs_code abs)
         {
             return
                 abs == input_abs_code.ABS_X ||
                 abs == input_abs_code.ABS_RX ||
-                abs == input_abs_code.ABS_TILT_X ||
-                abs == input_abs_code.ABS_HAT0X ||
-                abs == input_abs_code.ABS_HAT1X ||
-                abs == input_abs_code.ABS_HAT2X ||
-                abs == input_abs_code.ABS_HAT3X;
+                abs == input_abs_code.ABS_TILT_X;
         }
 
-        private static bool IsAbsY(input_abs_code abs)
+        private static bool IsAxisY(input_abs_code abs)
         {
             return
                 abs == input_abs_code.ABS_Y ||
                 abs == input_abs_code.ABS_RY ||
-                abs == input_abs_code.ABS_TILT_Y ||
-                abs == input_abs_code.ABS_HAT0Y ||
-                abs == input_abs_code.ABS_HAT1Y ||
-                abs == input_abs_code.ABS_HAT2Y ||
-                abs == input_abs_code.ABS_HAT3Y;
+                abs == input_abs_code.ABS_TILT_Y;
         }
 
         private static bool IsHatX(input_abs_code abs)
