@@ -7,6 +7,17 @@ using UnityEngine.InputSystem.LowLevel;
 
 namespace HIDrogen.Devices.LowLevel
 {
+    [Flags]
+    public enum EvdevHatValue
+    {
+        None = 0,
+
+        Up = 1 << 0,
+        Down = 1 << 1,
+        Left = 1 << 2,
+        Right = 1 << 3,
+    }
+
     // Intentionally public and not platform guarded, for other packages to reference.
     public class EvdevStateHandler
     {
@@ -22,6 +33,8 @@ namespace HIDrogen.Devices.LowLevel
         private readonly int m_KeyEndByte = 0;
         private readonly int m_AbsEndByte = 0;
         private readonly int m_RelEndByte = 0;
+
+        private readonly bool m_HasDpad;
 
         public int byteLength => m_RelEndByte;
 
@@ -84,6 +97,12 @@ namespace HIDrogen.Devices.LowLevel
 
                 m_RelEndByte = m_AbsEndByte + (supportedRel.Length * sizeof(int));
             }
+
+            m_HasDpad =
+                GetKeyOffset(input_key_code.BTN_DPAD_UP).byteOffset < m_KeyEndByte ||
+                GetKeyOffset(input_key_code.BTN_DPAD_DOWN).byteOffset < m_KeyEndByte ||
+                GetKeyOffset(input_key_code.BTN_DPAD_LEFT).byteOffset < m_KeyEndByte ||
+                GetKeyOffset(input_key_code.BTN_DPAD_RIGHT).byteOffset < m_KeyEndByte;
         }
 
         public (uint byteOffset, uint bit) GetKeyOffset(input_key_code key)
@@ -152,6 +171,43 @@ namespace HIDrogen.Devices.LowLevel
             }
 
             return 0;
+        }
+
+        public unsafe EvdevHatValue ReadHat(StateEvent* stateEvent, int hat)
+        {
+            if (stateEvent == null)
+            {
+                throw new ArgumentNullException(nameof(stateEvent));
+            }
+
+            if (hat < 0 || hat > 3)
+            {
+                throw new ArgumentOutOfRangeException(nameof(hat));
+            }
+
+            var value = EvdevHatValue.None;
+
+            // Prefer d-pad buttons over analog hat
+            if (hat == 0 && m_HasDpad)
+            {
+                if (ReadKey(stateEvent, input_key_code.BTN_DPAD_UP)) value |= EvdevHatValue.Up;
+                if (ReadKey(stateEvent, input_key_code.BTN_DPAD_DOWN)) value |= EvdevHatValue.Down;
+                if (ReadKey(stateEvent, input_key_code.BTN_DPAD_LEFT)) value |= EvdevHatValue.Left;
+                if (ReadKey(stateEvent, input_key_code.BTN_DPAD_RIGHT)) value |= EvdevHatValue.Right;
+
+                return value;
+            }
+
+            int absX = ReadAbs(stateEvent, input_abs_code.ABS_HAT0X + (hat * 2));
+            // Y axis is inverted
+            int absY = -ReadAbs(stateEvent, input_abs_code.ABS_HAT0Y + (hat * 2));
+
+            if (absY > 0) value |= EvdevHatValue.Up;
+            if (absY < 0) value |= EvdevHatValue.Down;
+            if (absX < 0) value |= EvdevHatValue.Left;
+            if (absX > 0) value |= EvdevHatValue.Right;
+
+            return value;
         }
 
         public void WriteKey(NativeArray<byte> stateBuffer, input_key_code key, int value)
