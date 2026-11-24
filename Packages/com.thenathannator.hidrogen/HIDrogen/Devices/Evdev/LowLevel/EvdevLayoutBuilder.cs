@@ -11,6 +11,15 @@ using UnityEngine.InputSystem.LowLevel;
 namespace HIDrogen.Devices.LowLevel
 {
     [Flags]
+    public enum EvdevMappingOption
+    {
+        None = 0,
+
+        Noisy = 1 << 0,
+        Synthetic = 1 << 1,
+    }
+
+    [Flags]
     public enum EvdevAxisOption
     {
         None = 0,
@@ -57,12 +66,22 @@ namespace HIDrogen.Devices.LowLevel
     {
         public string path;
         public string displayName;
+        public EvdevMappingOption options;
 
         public static implicit operator EvdevControlMapping(string path)
         {
             return new EvdevControlMapping()
             {
                 path = path,
+            };
+        }
+
+        public static implicit operator EvdevControlMapping((string path, string displayName) m)
+        {
+            return new EvdevControlMapping()
+            {
+                path = m.path,
+                displayName = m.displayName,
             };
         }
     }
@@ -702,14 +721,10 @@ namespace HIDrogen.Devices.LowLevel
 
         private InputControlLayout.Builder.ControlBuilder AddControl(InputControlLayout.Builder builder, EvdevControlMapping mapping)
         {
-            var control = builder.AddControl(mapping.path);
-
-            if (!string.IsNullOrEmpty(mapping.displayName))
-            {
-                control = control.WithDisplayName(mapping.displayName);
-            }
-
-            return control;
+            return builder.AddControl(mapping.path)
+                .WithDisplayName(mapping.displayName)
+                .IsNoisy((mapping.options & EvdevMappingOption.Noisy) != 0)
+                .IsSynthetic((mapping.options & EvdevMappingOption.Synthetic) != 0);
         }
 
         private InputControlLayout.Builder.ControlBuilder AddHatControl(
