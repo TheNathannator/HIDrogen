@@ -4,15 +4,16 @@ using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
 using UnityEngine.InputSystem.LowLevel;
 
-namespace HIDrogen.Backend.Linux
+namespace HIDrogen.Controls
 {
-    // Not platform guarded
     // Freestanding copy of PlasticBand-Unity's IntegerAxisControl, for simplicity
-    internal class EvdevAxisControl : AxisControl
+    internal class IntegerAxisControl : AxisControl
     {
+        public const string LayoutName = "HIDrogenIntAxis";
+
         internal static void Initialize()
         {
-            InputSystem.RegisterLayout<EvdevAxisControl>("EvdevAxis");
+            InputSystem.RegisterLayout<IntegerAxisControl>(LayoutName);
         }
 
         public int minValue = 0;

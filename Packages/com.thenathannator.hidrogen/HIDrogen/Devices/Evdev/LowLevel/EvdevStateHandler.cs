@@ -5,7 +5,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine.InputSystem.LowLevel;
 
-namespace HIDrogen.Backend.Linux
+namespace HIDrogen.Devices.LowLevel
 {
     // Intentionally public and not platform guarded, for other packages to reference.
     public class EvdevStateHandler

@@ -1,9 +1,9 @@
 #if UNITY_STANDALONE_LINUX
 using System;
 using System.Threading;
+using HIDrogen.Devices.LowLevel;
 using HIDrogen.Imports.Linux;
 using HIDrogen.Imports.Posix;
-using HIDrogen.Utilities;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine.InputSystem;

@@ -1,11 +1,12 @@
+using HIDrogen.Devices.LowLevel;
 using HIDrogen.Imports.Linux;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Layouts;
 
-namespace HIDrogen.Backend.Linux
+namespace HIDrogen.Devices
 {
-    // NOTE: This layout is never directly matched;
-    // instead a derived layout is always built on-demand via EvdevLayoutFinder
+    // Not platform guarded
+
     [InputControlLayout(hideInUI = true)]
     internal class EvdevGamepad : Gamepad
     {
@@ -32,8 +33,8 @@ namespace HIDrogen.Backend.Linux
             // ABS_Z/ABS_RZ is the most common (as it is HID convention).
             //
             // We only support the following shoulder/trigger combinations generically:
-            // - BTN_TL/BTN_TR, BTN_TL2/BTN_TR2
-            // - BTN_TL/BTN_TR, ABS_Z/ABS_RZ
+            // - Fully digital (BTN_TL/BTN_TR, BTN_TL2/BTN_TR2)
+            // - Digital shoulders, analog triggers (BTN_TL/BTN_TR, ABS_Z/ABS_RZ)
             // If other combinations are common and do not cause conflicts with the other generic
             // combinations, they may be supported here in the future, but generally it is preferred
             // to specially match and map any devices which do not fall under these categories.
@@ -51,6 +52,7 @@ namespace HIDrogen.Backend.Linux
                 .WithKey(input_key_code.BTN_THUMB_L, "leftStickPress")
                 .WithKey(input_key_code.BTN_THUMB_R, "rightStickPress");
 
+            // Fully digital
             EvdevLayoutFinder.RegisterLayout<EvdevGamepad>(
                 baseMappings.Clone()
                     .WithKey(input_key_code.BTN_TL, "leftShoulder")
@@ -60,6 +62,7 @@ namespace HIDrogen.Backend.Linux
                 new EvdevDeviceMatcher()
             );
 
+            // Digital shoulders, analog triggers
             EvdevLayoutFinder.RegisterLayout<EvdevGamepad>(
                 baseMappings.Clone()
                     .WithKey(input_key_code.BTN_TL, "leftShoulder")

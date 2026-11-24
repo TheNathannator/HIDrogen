@@ -3,15 +3,16 @@ using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
 using UnityEngine.InputSystem.LowLevel;
 
-namespace HIDrogen.Backend.Linux
+namespace HIDrogen.Controls
 {
-    // Not platform guarded
     // Freestanding copy of PlasticBand-Unity's IntegerButtonControl, for simplicity
-    internal class EvdevButtonControl : ButtonControl
+    internal class IntegerButtonControl : ButtonControl
     {
+        public const string LayoutName = "HIDrogenIntButton";
+
         internal static void Initialize()
         {
-            InputSystem.RegisterLayout<EvdevButtonControl>("EvdevButton");
+            InputSystem.RegisterLayout<IntegerButtonControl>(LayoutName);
         }
 
         public int minValue = 0;
@@ -33,14 +34,14 @@ namespace HIDrogen.Backend.Linux
             int realMax = Math.Max(minValue, maxValue);
 
             if (pressPoint < 0 && intPressPoint > realMin && intPressPoint < realMax)
-                pressPoint = EvdevAxisControl.Normalize(intPressPoint, minValue, maxValue, minValue);
+                pressPoint = IntegerAxisControl.Normalize(intPressPoint, minValue, maxValue, minValue);
         }
 
         /// <inheritdoc/>
         public override unsafe float ReadUnprocessedValueFromState(void* statePtr)
         {
             int value = stateBlock.ReadInt(statePtr);
-            float normalized = EvdevAxisControl.Normalize(value, minValue, maxValue, minValue);
+            float normalized = IntegerAxisControl.Normalize(value, minValue, maxValue, minValue);
             return Preprocess(normalized);
         }
     }

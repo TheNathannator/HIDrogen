@@ -7,7 +7,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
 
-namespace HIDrogen.Backend.Linux
+namespace HIDrogen.Devices.LowLevel
 {
     // Intentionally public and not platform guarded, for other packages to reference.
 
@@ -79,11 +79,6 @@ namespace HIDrogen.Backend.Linux
 
         internal static void Initialize()
         {
-            EvdevAxisControl.Initialize();
-            EvdevButtonControl.Initialize();
-            EvdevDevice.Initialize();
-            EvdevGamepad.Initialize();
-
             InputSystem.onFindLayoutForDevice += FindDeviceLayout;
         }
 
@@ -133,7 +128,7 @@ namespace HIDrogen.Backend.Linux
                 }
             }
 
-            string baseLayout = nameof(EvdevDevice);
+            string baseLayout = nameof(EvdevJoystick);
             string layoutName = description.interfaceName;
             EvdevDeviceMapping mappings = null;
             if (bestMatchIndex >= 0)

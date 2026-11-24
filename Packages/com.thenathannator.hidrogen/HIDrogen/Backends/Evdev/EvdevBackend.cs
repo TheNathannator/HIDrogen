@@ -3,6 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Runtime.InteropServices;
+using HIDrogen.Devices.LowLevel;
 using HIDrogen.Imports;
 using HIDrogen.Imports.Linux;
 using HIDrogen.Imports.Posix;
@@ -306,6 +308,31 @@ namespace HIDrogen.Backend.Linux
             {
                 str.Dispose();
             }
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        internal struct XUSBVendorDescriptorHeader
+        {
+            public usb_descriptor_header header;
+            public ushort bcdXUSB;
+            public byte bDeviceSubtype;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        internal unsafe struct Santroller2VendorDescriptor
+        {
+            public usb_descriptor_header header;
+            public fixed byte signature[4]; // "SANT"
+            public byte bVersion; // 2
+            public byte bSubtype;
+            public byte bCapabilities;
+
+            public bool IsValid =>
+                signature[0] == 'S' &&
+                signature[1] == 'A' &&
+                signature[2] == 'N' &&
+                signature[3] == 'T' &&
+                bVersion == 2;
         }
 
         private static unsafe void FixupUsbInfo(

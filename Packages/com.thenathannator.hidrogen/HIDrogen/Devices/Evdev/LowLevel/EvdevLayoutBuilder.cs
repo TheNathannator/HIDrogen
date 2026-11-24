@@ -1,13 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using HIDrogen.Controls;
 using HIDrogen.Imports.Linux;
 using HIDrogen.Utilities;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
 
-namespace HIDrogen.Backend.Linux
+namespace HIDrogen.Devices.LowLevel
 {
     [Flags]
     public enum EvdevAxisOption
@@ -173,7 +174,7 @@ namespace HIDrogen.Backend.Linux
             return this;
         }
 
-        internal bool IsCompatible(EvdevCapabilities capabilities)
+        public bool IsCompatible(EvdevCapabilities capabilities)
         {
             // Both the supported inputs and the desired mappings are guaranteed to be sorted,
             // which we can take advantage of to avoid needless allocations of a hash set,
@@ -416,7 +417,7 @@ namespace HIDrogen.Backend.Linux
                 (min, max) = (max, min);
             }
 
-            string layout = "EvdevAxis";
+            string layout = IntegerAxisControl.LayoutName;
             string parameters = $"zeroPoint={zero},minValue={min},maxValue={max}";
             var mapping = new EvdevControlMapping()
             {
@@ -449,7 +450,7 @@ namespace HIDrogen.Backend.Linux
                     }
 
                     mapping = b.mapping;
-                    layout = "EvdevButton";
+                    layout = IntegerButtonControl.LayoutName;
                     parameters = $"minValue={min},maxValue={max}";
                 }
             }
@@ -593,14 +594,14 @@ namespace HIDrogen.Backend.Linux
                 }
 
                 builder.AddControl($"{hatRoot}/{positive}")
-                    .WithLayout("EvdevButton")
+                    .WithLayout(IntegerButtonControl.LayoutName)
                     .WithParameters($"minValue={zero},maxValue={max}")
                     .WithFormat(InputStateBlock.FormatInt)
                     .WithByteOffset(GetAbsByteOffset(0, i)) // no absStartByte or absIndex, this is relative to the parent
                     .WithBitOffset(0);
 
                 builder.AddControl($"{hatRoot}/{negative}")
-                    .WithLayout("EvdevButton")
+                    .WithLayout(IntegerButtonControl.LayoutName)
                     .WithParameters($"minValue={zero},maxValue={min}")
                     .WithFormat(InputStateBlock.FormatInt)
                     .WithByteOffset(GetAbsByteOffset(0, i)) // no absStartByte or absIndex, this is relative to the parent
@@ -650,21 +651,21 @@ namespace HIDrogen.Backend.Linux
                 }
 
                 builder.AddControl($"{stickRoot}/{axis}")
-                    .WithLayout("EvdevAxis")
+                    .WithLayout(IntegerAxisControl.LayoutName)
                     .WithParameters($"zeroPoint={zero},minValue={min},maxValue={max}")
                     .WithFormat(InputStateBlock.FormatInt)
                     .WithByteOffset(GetAbsByteOffset(0, i)) // no absStartByte or absIndex, this is relative to the parent
                     .WithBitOffset(0);
 
                 builder.AddControl($"{stickRoot}/{positive}")
-                    .WithLayout("EvdevButton")
+                    .WithLayout(IntegerButtonControl.LayoutName)
                     .WithParameters($"minValue={zero},maxValue={max}")
                     .WithFormat(InputStateBlock.FormatInt)
                     .WithByteOffset(GetAbsByteOffset(0, i)) // no absStartByte or absIndex, this is relative to the parent
                     .WithBitOffset(0);
 
                 builder.AddControl($"{stickRoot}/{negative}")
-                    .WithLayout("EvdevButton")
+                    .WithLayout(IntegerButtonControl.LayoutName)
                     .WithParameters($"minValue={zero},maxValue={min}")
                     .WithFormat(InputStateBlock.FormatInt)
                     .WithByteOffset(GetAbsByteOffset(0, i)) // no absStartByte or absIndex, this is relative to the parent

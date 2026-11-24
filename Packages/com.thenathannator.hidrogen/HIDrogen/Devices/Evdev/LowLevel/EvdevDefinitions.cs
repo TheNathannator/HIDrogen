@@ -1,10 +1,9 @@
 using System;
-using System.Runtime.InteropServices;
 using HIDrogen.Imports.Linux;
 using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.Utilities;
 
-namespace HIDrogen.Backend.Linux
+namespace HIDrogen.Devices.LowLevel
 {
     // Intentionally public and not platform guarded, for other packages to reference.
     [Serializable]
@@ -48,35 +47,4 @@ namespace HIDrogen.Backend.Linux
         public const string InterfaceName = "Evdev";
         public static readonly FourCC InputFormat = new FourCC('E', 'V', 'D', 'V');
     }
-
-#if UNITY_STANDALONE_LINUX
-    // Non-public definitions from this point forward
-
-    // Definitions for USB device fixups
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    internal struct XUSBVendorDescriptorHeader
-    {
-        public usb_descriptor_header header;
-        public ushort bcdXUSB;
-        public byte bDeviceSubtype;
-    }
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    internal unsafe struct Santroller2VendorDescriptor
-    {
-        public usb_descriptor_header header;
-        public fixed byte signature[4]; // "SANT"
-        public byte bVersion; // 2
-        public byte bSubtype;
-        public byte bCapabilities;
-
-        public bool IsValid =>
-            signature[0] == 'S' &&
-            signature[1] == 'A' &&
-            signature[2] == 'N' &&
-            signature[3] == 'T' &&
-            bVersion == 2;
-    }
-#endif
 }
