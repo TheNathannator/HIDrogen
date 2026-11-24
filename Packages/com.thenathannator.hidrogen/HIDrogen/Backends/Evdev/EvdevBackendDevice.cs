@@ -26,20 +26,8 @@ namespace HIDrogen.Backend.Linux
         private string m_EvdevPath;
         private fd m_Fd;
 
-        // Offset notes:
-        // keys: sizeof(byte) / 8, KEY_CNT == 0x300, max state size == 0x60
-        // abs: sizeof(int), ABS_CNT == 0x40, max state size == 0x100
-        // rel: sizeof(int), REL_CNT == 0x10, max state size == 0x40
-        // Total maximum offset: 0x1A0
-        private readonly ushort[] m_KeyBitOffsets;
-        private readonly ushort[] m_AbsOffsets;
-        private readonly ushort[] m_RelOffsets;
-
-        private readonly int m_KeyEndByte = 0;
-        private readonly int m_AbsEndByte = 0;
-        private readonly int m_RelEndByte = 0;
-
-        private NativeArray<byte> m_State;
+        private EvdevStateHandler m_StateHandlerLocked;
+        private NativeArray<byte> m_StateLocked;
 
         private Thread m_ReadThread;
         private EventWaitHandle m_ThreadStop = new EventWaitHandle(false, EventResetMode.ManualReset);
@@ -70,73 +58,15 @@ namespace HIDrogen.Backend.Linux
                 throw new Exception(Logging.MakeLastErrorMessage("Failed to open evdev device"));
             }
 
-            // Determine key bit offsets
-            {
-                var supportedKeys = m_Capabilities.supportedKeys;
-                m_KeyBitOffsets = new ushort[(int)input_key_code.KEY_CNT];
-                for (int i = 0; i < m_KeyBitOffsets.Length; i++)
-                {
-                    m_KeyBitOffsets[i] = ushort.MaxValue;
-                }
-
-                for (int i = 0; i < supportedKeys.Length; i++)
-                {
-                    var key = supportedKeys[i];
-                    m_KeyBitOffsets[(int)key] = (ushort)i;
-                }
-
-                int keyBits = NumberUtils.AlignToMultiple(supportedKeys.Length, 8);
-                // Align for axis values
-                m_KeyEndByte = NumberUtils.AlignToMultiple(keyBits / 8, sizeof(int));
-            }
-
-            // Determine abs byte offsets
-            {
-                var supportedAbs = m_Capabilities.supportedAbs;
-                m_AbsOffsets = new ushort[(int)input_abs_code.ABS_CNT];
-                for (int i = 0; i < m_AbsOffsets.Length; i++)
-                {
-                    m_AbsOffsets[i] = ushort.MaxValue;
-                }
-
-                for (int i = 0; i < supportedAbs.Length; i++)
-                {
-                    int abs = (int)supportedAbs[i];
-                    int byteOffset = i * sizeof(int);
-                    m_AbsOffsets[abs] = (ushort)(m_KeyEndByte + byteOffset);
-                }
-
-                m_AbsEndByte = m_KeyEndByte + (supportedAbs.Length * sizeof(int));
-            }
-
-            // Determine rel byte offsets
-            {
-                var supportedRel = m_Capabilities.supportedRel;
-                m_RelOffsets = new ushort[(int)input_rel_code.REL_CNT];
-                for (int i = 0; i < m_RelOffsets.Length; i++)
-                {
-                    m_RelOffsets[i] = ushort.MaxValue;
-                }
-
-                for (int i = 0; i < supportedRel.Length; i++)
-                {
-                    int rel = (int)supportedRel[i];
-                    int byteOffset = i * sizeof(int);
-                    m_RelOffsets[rel] = (ushort)(m_AbsEndByte + byteOffset);
-                }
-
-                m_RelEndByte = m_AbsEndByte + (supportedRel.Length * sizeof(int));
-            }
+            m_StateHandlerLocked = new EvdevStateHandler(addContext.capabilities);
 
             // State events will be accumulated and sent on SYN_REPORT
             // Using delta-state events is incompatible with PlasticBand-Unity's state translation
-            m_State = new NativeArray<byte>(m_RelEndByte, Allocator.Persistent);
+            m_StateLocked = new NativeArray<byte>(m_StateHandlerLocked.byteLength, Allocator.Persistent);
 
             // Clear deadzones
-            lock (m_Fd)
-            {
-                RemoveDeadzonesLocked();
-            }
+            // No need to lock yet since the read thread hasn't been started yet
+            RemoveDeadzonesLocked();
 
             m_ReadThread = new Thread(ReadThread) { IsBackground = true };
             m_ReadThread.Start();
@@ -157,21 +87,19 @@ namespace HIDrogen.Backend.Linux
 
             if (m_Fd != null)
             {
-                lock (m_Fd)
-                {
-                    // why is this global data, exactly...?
-                    RestoreDeadzonesLocked();
-                }
+                // why is this global data, exactly...?
+                RestoreDeadzonesLocked();
 
                 m_Fd?.Dispose();
                 m_Fd = null;
             }
 
+            m_StateHandlerLocked = null;
 
-            if (m_State.IsCreated)
+            if (m_StateLocked.IsCreated)
             {
-                m_State.Dispose();
-                m_State = default;
+                m_StateLocked.Dispose();
+                m_StateLocked = default;
             }
 
             m_Backend = null;
@@ -216,6 +144,7 @@ namespace HIDrogen.Backend.Linux
                         ref readonly var ev = ref eventBuffer[i];
                         ProcessEventLocked(ev);
                     }
+
                     errorCount = 0;
                 }
             }
@@ -304,17 +233,17 @@ namespace HIDrogen.Backend.Linux
                 }
                 case input_event_type.EV_KEY:
                 {
-                    ApplyKeyLocked((input_key_code)ev.code, ev.value);
+                    m_StateHandlerLocked.WriteKey(m_StateLocked, (input_key_code)ev.code, ev.value);
                     break;
                 }
                 case input_event_type.EV_ABS:
                 {
-                    ApplyAbsLocked((input_abs_code)ev.code, ev.value);
+                    m_StateHandlerLocked.WriteAbs(m_StateLocked, (input_abs_code)ev.code, ev.value);
                     break;
                 }
                 case input_event_type.EV_REL:
                 {
-                    ApplyRelLocked((input_rel_code)ev.code, ev.value);
+                    m_StateHandlerLocked.WriteRel(m_StateLocked, (input_rel_code)ev.code, ev.value);
                     break;
                 }
             }
@@ -338,70 +267,22 @@ namespace HIDrogen.Backend.Linux
             }
         }
 
-        private void ApplyKeyLocked(input_key_code code, int value)
-        {
-            // value == 2 is used to indicate key repeasts
-            if (value != 0 && value != 1)
-            {
-                return;
-            }
-
-            ushort bitOffset = m_KeyBitOffsets[(int)code];
-            uint byteOffset = bitOffset / 8u;
-            if (byteOffset < m_State.Length)
-            {
-                byte state = m_State[(int)byteOffset];
-
-                int bit = bitOffset % 8;
-                if (value == 1)
-                {
-                    state |= (byte)(1 << bit);
-                }
-                else
-                {
-                    state &= (byte)~(1 << bit);
-                }
-
-                m_State[(int)byteOffset] = state;
-            }
-        }
-
-        private void ApplyAbsLocked(input_abs_code code, int value)
-        {
-            uint byteOffset = m_AbsOffsets[(int)code];
-            if (byteOffset < m_State.Length)
-            {
-                m_State.ReinterpretStore((int)byteOffset, value);
-            }
-        }
-
-        private void ApplyRelLocked(input_rel_code code, int value)
-        {
-            uint byteOffset = m_RelOffsets[(int)code];
-            if (byteOffset < m_State.Length)
-            {
-                m_State.ReinterpretStore((int)byteOffset, value);
-            }
-        }
-
         private unsafe void SendStateLocked()
         {
             m_Backend.QueueStateEvent(
                 m_Device,
                 EvdevDefinitions.InputFormat,
-                m_State.GetUnsafeReadOnlyPtr(),
-                m_State.Length
+                m_StateLocked.GetUnsafeReadOnlyPtr(),
+                m_StateLocked.Length
             );
 
             // Clear rels, they don't have persistent state
-            int relsLength = m_RelEndByte - m_AbsEndByte;
-            var rels = m_State.GetSubArray(m_AbsEndByte, relsLength);
-            UnsafeUtility.MemClear(rels.GetUnsafePtr(), relsLength);
+            m_StateHandlerLocked.ClearRel(m_StateLocked);
         }
 
         private unsafe void SyncStateLocked()
         {
-            UnsafeUtility.MemClear(m_State.GetUnsafePtr(), m_State.Length);
+            UnsafeUtility.MemClear(m_StateLocked.GetUnsafePtr(), m_StateLocked.Length);
 
             // The entire keymask must be grabbed all at once
             var keyMaskPtr = stackalloc UIntPtr[KEY_MAX_LONGS];
@@ -413,7 +294,7 @@ namespace HIDrogen.Backend.Linux
             else for (int i = 0; i < m_Capabilities.supportedKeys.Length; i++)
             {
                 var keyCode = m_Capabilities.supportedKeys[i];
-                ApplyKeyLocked(keyCode, keyMask.TestBit(keyCode) ? 1 : 0);
+                m_StateHandlerLocked.WriteKey(m_StateLocked, keyCode, keyMask.TestBit(keyCode) ? 1 : 0);
             }
 
             for (int i = 0; i < m_Capabilities.supportedAbs.Length; i++)
@@ -432,7 +313,7 @@ namespace HIDrogen.Backend.Linux
                     absInfo.value = 0;
                 }
 
-                ApplyAbsLocked(absCode, absInfo.value);
+                m_StateHandlerLocked.WriteAbs(m_StateLocked, absCode, absInfo.value);
             }
 
             // Relative axes should not be synced; attempting to do so will just make them jitter briefly
