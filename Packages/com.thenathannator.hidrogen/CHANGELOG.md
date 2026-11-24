@@ -11,6 +11,7 @@ Dates are relative to UTC.
 ### Added
 
 - A new evdev backend has been implemented, for devices which are not covered by hidraw or libusb.
+  - This backend comes with built-in generic joystick and gamepad support, along with dedicated support for a few specific common gamepads that are not covered by the generic support.
 
 ### Changed
 
@@ -27,6 +28,8 @@ Dates are relative to UTC.
 - The XInput backend no longer attempts to add the same device multiple times.
 - The GameInput backend will no longer send empty state events, and instead converts these into device soft-reset events.
 - The GameInput backend no longer causes compile errors when cross-compiling a Windows build with a non-Windows editor.
+- Native joystick devices on Linux are no longer even attempted to be registered in the input system.
+  - This should prevent games like YARG from showing these devices as connected and then immediately disconnected.
 - Various other small things I can't be bothered to note down here and which were never issues in practice.
 
 ### Removed
