@@ -169,13 +169,13 @@ namespace HIDrogen.Backend.Linux
                     return false;
                 }
 
+                string syspath = hidraw.get_syspath().ToString();
                 string hidrawPath = hidraw.get_devnode().ToString();
-                if (hidrawPath == null)
+                if (syspath == null || hidrawPath == null)
                 {
                     return false;
                 }
 
-                string syspath = hidraw.get_syspath().ToString();
                 if (m_DevicesBySyspath.ContainsKey(syspath))
                 {
                     // Signal claimage so that this device is not considered by other backends
@@ -251,7 +251,7 @@ namespace HIDrogen.Backend.Linux
                     return;
                 }
 
-                string syspath = device.get_syspath().ToString();
+                string syspath = hidraw.get_syspath().ToString();
                 string hidrawPath = hidraw.get_devnode().ToString();
                 if (syspath != null &&
                     hidrawPath != null &&
