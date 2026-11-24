@@ -99,30 +99,49 @@ namespace HIDrogen.Devices.LowLevel
             return new EvdevDeviceMapping(this);
         }
 
-        private void EnsureAbsUnique(input_abs_code abs)
+        private void ValidateKey(input_key_code key)
         {
-            if (m_Abs.ContainsKey(abs))
+            if (m_Keys.ContainsKey(key))
             {
-                throw new ArgumentException($"An axis mapping for {abs} has already been added.");
+                throw new ArgumentException($"A mapping for {key} has already been added.", nameof(key));
+            }
+        }
+
+        private void ValidateAbs(input_abs_code abs)
+        {
+            if (m_Abs.ContainsKey(abs) ||
+                m_AbsButtons.ContainsKey(abs) ||
+                m_AbsSticks.ContainsKey(abs))
+            {
+                throw new ArgumentException($"An axis mapping for {abs} has already been added.", nameof(abs));
+            }
+        }
+
+        private void ValidateHat(int hat)
+        {
+            if (hat < 0 || hat > 3)
+            {
+                throw new ArgumentOutOfRangeException(nameof(hat));
             }
 
-            if (m_AbsButtons.ContainsKey(abs))
+            if (m_Hats.ContainsKey(hat))
             {
-                throw new ArgumentException($"A button mapping for {abs} has already been added.");
+                throw new ArgumentException($"A mapping for {hat} has already been added.", nameof(hat));
             }
+        }
 
-            if (m_AbsSticks.ContainsKey(abs))
+        private void ValidateMapping(EvdevControlMapping mapping)
+        {
+            if (string.IsNullOrEmpty(mapping.path))
             {
-                throw new ArgumentException($"A stick mapping for {abs} has already been added.");
+                throw new ArgumentException(nameof(mapping), "Mapping must have a control path set.");
             }
         }
 
         public EvdevDeviceMapping WithKey(input_key_code key, EvdevControlMapping mapping)
         {
-            if (m_Keys.ContainsKey(key))
-            {
-                throw new ArgumentException($"A mapping for {key} has already been added.");
-            }
+            ValidateKey(key);
+            ValidateMapping(mapping);
 
             m_Keys.Add(key, mapping);
             return this;
@@ -134,19 +153,19 @@ namespace HIDrogen.Devices.LowLevel
             EvdevAxisOption options = EvdevAxisOption.None
         )
         {
-            EnsureAbsUnique(abs);
+            ValidateAbs(abs);
+            ValidateMapping(mapping);
+
             m_Abs.Add(abs, (mapping, options));
             return this;
         }
 
-        public EvdevDeviceMapping WithHat(int index, EvdevControlMapping mapping)
+        public EvdevDeviceMapping WithHat(int hat, EvdevControlMapping mapping)
         {
-            if (m_Hats.ContainsKey(index))
-            {
-                throw new ArgumentException($"A mapping for hat {index} has already been added.");
-            }
+            ValidateHat(hat);
+            ValidateMapping(mapping);
 
-            m_Hats.Add(index, mapping);
+            m_Hats.Add(hat, mapping);
             return this;
         }
 
@@ -156,7 +175,9 @@ namespace HIDrogen.Devices.LowLevel
             EvdevButtonAxisOption options = EvdevButtonAxisOption.None
         )
         {
-            EnsureAbsUnique(abs);
+            ValidateAbs(abs);
+            ValidateMapping(mapping);
+
             m_AbsButtons.Add(abs, (mapping, options));
             return this;
         }
@@ -167,8 +188,10 @@ namespace HIDrogen.Devices.LowLevel
             EvdevStickOption options = EvdevStickOption.None
         )
         {
-            EnsureAbsUnique(abs);
-            EnsureAbsUnique(abs + 1); // The next abs needs to be available, as they will be paired together
+            ValidateAbs(abs);
+            ValidateAbs(abs + 1); // The next abs needs to be available, as they will be paired together
+            ValidateMapping(mapping);
+
             m_AbsSticks.Add(abs, (mapping, options));
             m_AbsSticks.Add(abs + 1, (mapping, options));
             return this;
@@ -679,11 +702,6 @@ namespace HIDrogen.Devices.LowLevel
 
         private InputControlLayout.Builder.ControlBuilder AddControl(InputControlLayout.Builder builder, EvdevControlMapping mapping)
         {
-            if (string.IsNullOrEmpty(mapping.path))
-            {
-                throw new InvalidOperationException($"No control path has been specified for this mapping!");
-            }
-
             var control = builder.AddControl(mapping.path);
 
             if (!string.IsNullOrEmpty(mapping.displayName))
