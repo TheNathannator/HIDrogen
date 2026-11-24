@@ -269,7 +269,7 @@ namespace HIDrogen.Backend.Linux
         public string layoutName;
         public string layoutDisplayName;
         public string baseLayout;
-        public EvdevCapabilities descriptor;
+        public EvdevCapabilities capabilities;
         public EvdevDeviceMapping mappings;
 
         private readonly HashSet<input_key_code> m_AvailableKeys = new HashSet<input_key_code>();
@@ -292,12 +292,12 @@ namespace HIDrogen.Backend.Linux
                 stateFormat = EvdevDefinitions.InputFormat,
             };
 
-            foreach (var key in descriptor.supportedKeys)
+            foreach (var key in capabilities.supportedKeys)
             {
                 m_AvailableKeys.Add(key);
             }
 
-            foreach (var abs in descriptor.supportedAbs)
+            foreach (var abs in capabilities.supportedAbs)
             {
                 m_AvailableAbs.Add(abs);
             }
@@ -307,9 +307,9 @@ namespace HIDrogen.Backend.Linux
             // - Abs
             // - Rel
 
-            for (int keyIndex = 0; keyIndex < descriptor.supportedKeys.Length; keyIndex++)
+            for (int keyIndex = 0; keyIndex < capabilities.supportedKeys.Length; keyIndex++)
             {
-                var key = descriptor.supportedKeys[keyIndex];
+                var key = capabilities.supportedKeys[keyIndex];
                 if (m_AvailableKeys.Contains(key))
                 {
                     MakeKeyControl(builder, keyIndex);
@@ -317,13 +317,13 @@ namespace HIDrogen.Backend.Linux
                 }
             }
 
-            int keyEndBit = NumberUtils.AlignToMultiple(descriptor.supportedKeys.Length, 8);
+            int keyEndBit = NumberUtils.AlignToMultiple(capabilities.supportedKeys.Length, 8);
             // Align for axis values
             int absStartByte = NumberUtils.AlignToMultiple(keyEndBit / 8, sizeof(int));
 
-            for (int absIndex = 0; absIndex < descriptor.supportedAbs.Length; absIndex++)
+            for (int absIndex = 0; absIndex < capabilities.supportedAbs.Length; absIndex++)
             {
-                var abs = descriptor.supportedAbs[absIndex];
+                var abs = capabilities.supportedAbs[absIndex];
                 if (m_AvailableAbs.Contains(abs))
                 {
                     MakeAbsControl(builder, absIndex, absStartByte);
@@ -338,7 +338,7 @@ namespace HIDrogen.Backend.Linux
 
         private void MakeKeyControl(InputControlLayout.Builder builder, int keyIndex)
         {
-            var key = descriptor.supportedKeys[keyIndex];
+            var key = capabilities.supportedKeys[keyIndex];
 
             // D-pad buttons are grouped together regardless of if they're all available,
             // but only when encountering the first one that isn't explicitly mapped
@@ -368,7 +368,7 @@ namespace HIDrogen.Backend.Linux
 
         private void MakeAbsControl(InputControlLayout.Builder builder, int absIndex, int absStartByte)
         {
-            var abs = descriptor.supportedAbs[absIndex];
+            var abs = capabilities.supportedAbs[absIndex];
 
             if (IsHatX(abs) &&
                 // Only group abs hats if both axes are available
@@ -386,7 +386,7 @@ namespace HIDrogen.Backend.Linux
                 return;
             }
 
-            var absInfo = descriptor.absInfo[absIndex];
+            var absInfo = capabilities.absInfo[absIndex];
 
             int zero = GetAbsZeroPoint(absInfo);
             int min = absInfo.minimum;
@@ -449,10 +449,10 @@ namespace HIDrogen.Backend.Linux
             const int totalKeyCount = 4;
 
             uint keyCount = 0;
-            for (int i = keyIndex; i < descriptor.supportedKeys.Length; i++)
+            for (int i = keyIndex; i < capabilities.supportedKeys.Length; i++)
             {
                 // D-pad keys are sequential; bail when we see something else
-                if (!IsDpadKey(descriptor.supportedKeys[i]))
+                if (!IsDpadKey(capabilities.supportedKeys[i]))
                 {
                     break;
                 }
@@ -473,9 +473,9 @@ namespace HIDrogen.Backend.Linux
                 int dpadKeyIndex = -1;
                 if (IsKeyAvailable(dpadKey))
                 {
-                    for (int i = keyIndex; i < descriptor.supportedKeys.Length; i++)
+                    for (int i = keyIndex; i < capabilities.supportedKeys.Length; i++)
                     {
-                        var key = descriptor.supportedKeys[i];
+                        var key = capabilities.supportedKeys[i];
                         if (!IsDpadKey(key))
                         {
                             break;
@@ -558,8 +558,8 @@ namespace HIDrogen.Backend.Linux
 
             for (int i = 0; i < absCount; i++)
             {
-                var abs = descriptor.supportedAbs[absIndex + i];
-                var absInfo = descriptor.absInfo[absIndex + i];
+                var abs = capabilities.supportedAbs[absIndex + i];
+                var absInfo = capabilities.absInfo[absIndex + i];
 
                 string positive = i == 0 ? "right" : "up";
                 string negative = i == 0 ? "left" : "down";
@@ -590,15 +590,15 @@ namespace HIDrogen.Backend.Linux
             }
 
             // Consume abs bits
-            m_AvailableAbs.Remove(descriptor.supportedAbs[absIndex]);
-            m_AvailableAbs.Remove(descriptor.supportedAbs[absIndex + 1]);
+            m_AvailableAbs.Remove(capabilities.supportedAbs[absIndex]);
+            m_AvailableAbs.Remove(capabilities.supportedAbs[absIndex + 1]);
         }
 
         private void MakeStickControl(InputControlLayout.Builder builder, int absIndex, int absStartByte)
         {
             const int absCount = 2;
 
-            var (mapping, options) = mappings.m_AbsSticks[descriptor.supportedAbs[absIndex]];
+            var (mapping, options) = mappings.m_AbsSticks[capabilities.supportedAbs[absIndex]];
 
             string stickRoot = mapping.path;
             AddControl(builder, mapping)
@@ -608,8 +608,8 @@ namespace HIDrogen.Backend.Linux
 
             for (int i = 0; i < 2; i++)
             {
-                var abs = descriptor.supportedAbs[absIndex + i];
-                var absInfo = descriptor.absInfo[absIndex + i];
+                var abs = capabilities.supportedAbs[absIndex + i];
+                var absInfo = capabilities.absInfo[absIndex + i];
 
                 string axis = i == 0 ? "x" : "y";
                 string positive = i == 0 ? "right" : "up";
@@ -654,8 +654,8 @@ namespace HIDrogen.Backend.Linux
             }
 
             // Consume abs bits
-            m_AvailableAbs.Remove(descriptor.supportedAbs[absIndex]);
-            m_AvailableAbs.Remove(descriptor.supportedAbs[absIndex + 1]);
+            m_AvailableAbs.Remove(capabilities.supportedAbs[absIndex]);
+            m_AvailableAbs.Remove(capabilities.supportedAbs[absIndex + 1]);
         }
 
         private InputControlLayout.Builder.ControlBuilder AddControl(InputControlLayout.Builder builder, EvdevControlMapping mapping)

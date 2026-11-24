@@ -47,7 +47,7 @@ namespace HIDrogen.Backend.Linux
         {
             public string syspath;
             public string evdevPath;
-            public EvdevCapabilities descriptor;
+            public EvdevCapabilities capabilities;
 
             public void Dispose()
             {
@@ -134,7 +134,7 @@ namespace HIDrogen.Backend.Linux
             }
 
             DeviceInfo deviceInfo;
-            EvdevCapabilities descriptor;
+            EvdevCapabilities capabilities;
             using (var evdevFd = Fcntl.open(evdevPath, Fcntl.O_RDONLY | Fcntl.O_CLOEXEC))
             {
                 if (evdevFd == null || evdevFd.IsInvalid)
@@ -149,7 +149,7 @@ namespace HIDrogen.Backend.Linux
 
                 if (!IsDeviceAllowed(udev, device, evdevFd) ||
                     !CollectDeviceInfo(udev, device, evdevFd, out deviceInfo) ||
-                    !CreateEvdevDescriptor(udev, device, evdevFd, deviceInfo, out descriptor))
+                    !CreateEvdevCapabilities(udev, device, evdevFd, deviceInfo, out capabilities))
                 {
                     return false;
                 }
@@ -162,13 +162,13 @@ namespace HIDrogen.Backend.Linux
                 product = deviceInfo.product,
                 serial = deviceInfo.serial,
                 version = deviceInfo.revision.ToString(CultureInfo.InvariantCulture),
-                capabilities = JsonUtility.ToJson(descriptor),
+                capabilities = JsonUtility.ToJson(capabilities),
             };
             var context = new AddContext()
             {
                 syspath = syspath,
                 evdevPath = evdevPath,
-                descriptor = descriptor,
+                capabilities = capabilities,
             };
 
             if (!AddDeviceNow(description, context))
@@ -482,15 +482,15 @@ namespace HIDrogen.Backend.Linux
             }
         }
 
-        private static unsafe bool CreateEvdevDescriptor(
+        private static unsafe bool CreateEvdevCapabilities(
             udev_context udev,
             udev_device evdev,
             fd fd,
             DeviceInfo deviceInfo,
-            out EvdevCapabilities descriptor
+            out EvdevCapabilities capabilities
         )
         {
-            descriptor = new EvdevCapabilities()
+            capabilities = new EvdevCapabilities()
             {
                 driver = deviceInfo.driver,
 
@@ -553,16 +553,16 @@ namespace HIDrogen.Backend.Linux
                 }
             }
 
-            descriptor.supportedKeys = supportedKeys.ToArray();
-            descriptor.supportedAbs = supportedAbs.ToArray();
-            descriptor.supportedRel = supportedRel.ToArray();
+            capabilities.supportedKeys = supportedKeys.ToArray();
+            capabilities.supportedAbs = supportedAbs.ToArray();
+            capabilities.supportedRel = supportedRel.ToArray();
 
             // Collect abs calibration info
-            descriptor.absInfo = new input_absinfo[descriptor.supportedAbs.Length];
+            capabilities.absInfo = new input_absinfo[capabilities.supportedAbs.Length];
 
-            for (int i = 0; i < descriptor.supportedAbs.Length; i++)
+            for (int i = 0; i < capabilities.supportedAbs.Length; i++)
             {
-                var abs = descriptor.supportedAbs[i];
+                var abs = capabilities.supportedAbs[i];
                 var absInfo = new input_absinfo();
                 if (Ioctl.ioctl(fd, EVIOCGABS(abs), ref absInfo) < 0)
                 {
@@ -571,7 +571,7 @@ namespace HIDrogen.Backend.Linux
                 }
 
                 absInfo.value = 0; // we don't care about the retrieved state here
-                descriptor.absInfo[i] = absInfo;
+                capabilities.absInfo[i] = absInfo;
             }
 
             return true;

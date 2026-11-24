@@ -20,7 +20,7 @@ namespace HIDrogen.Backend.Linux
 
         private EvdevBackend m_Backend;
         private InputDevice m_Device;
-        private EvdevCapabilities m_Descriptor;
+        private EvdevCapabilities m_Capabilities;
 
         private string m_Syspath;
         private string m_EvdevPath;
@@ -31,9 +31,9 @@ namespace HIDrogen.Backend.Linux
         // abs: sizeof(int), ABS_CNT == 0x40, max state size == 0x100
         // rel: sizeof(int), REL_CNT == 0x10, max state size == 0x40
         // Total maximum offset: 0x1A0
-        readonly ushort[] m_KeyBitOffsets;
-        readonly ushort[] m_AbsOffsets;
-        readonly ushort[] m_RelOffsets;
+        private readonly ushort[] m_KeyBitOffsets;
+        private readonly ushort[] m_AbsOffsets;
+        private readonly ushort[] m_RelOffsets;
 
         private readonly int m_KeyEndByte = 0;
         private readonly int m_AbsEndByte = 0;
@@ -60,7 +60,7 @@ namespace HIDrogen.Backend.Linux
             m_Backend = backend;
             m_Device = device;
 
-            m_Descriptor = addContext.descriptor;
+            m_Capabilities = addContext.capabilities;
             m_Syspath = addContext.syspath;
             m_EvdevPath = addContext.evdevPath;
 
@@ -72,7 +72,7 @@ namespace HIDrogen.Backend.Linux
 
             // Determine key bit offsets
             {
-                var supportedKeys = m_Descriptor.supportedKeys;
+                var supportedKeys = m_Capabilities.supportedKeys;
                 m_KeyBitOffsets = new ushort[(int)input_key_code.KEY_CNT];
                 for (int i = 0; i < m_KeyBitOffsets.Length; i++)
                 {
@@ -92,7 +92,7 @@ namespace HIDrogen.Backend.Linux
 
             // Determine abs byte offsets
             {
-                var supportedAbs = m_Descriptor.supportedAbs;
+                var supportedAbs = m_Capabilities.supportedAbs;
                 m_AbsOffsets = new ushort[(int)input_abs_code.ABS_CNT];
                 for (int i = 0; i < m_AbsOffsets.Length; i++)
                 {
@@ -111,7 +111,7 @@ namespace HIDrogen.Backend.Linux
 
             // Determine rel byte offsets
             {
-                var supportedRel = m_Descriptor.supportedRel;
+                var supportedRel = m_Capabilities.supportedRel;
                 m_RelOffsets = new ushort[(int)input_rel_code.REL_CNT];
                 for (int i = 0; i < m_RelOffsets.Length; i++)
                 {
@@ -410,15 +410,15 @@ namespace HIDrogen.Backend.Linux
             {
                 Logging.LastError("Failed to sync evdev key mask");
             }
-            else for (int i = 0; i < m_Descriptor.supportedKeys.Length; i++)
+            else for (int i = 0; i < m_Capabilities.supportedKeys.Length; i++)
             {
-                var keyCode = m_Descriptor.supportedKeys[i];
+                var keyCode = m_Capabilities.supportedKeys[i];
                 ApplyKeyLocked(keyCode, keyMask.TestBit(keyCode) ? 1 : 0);
             }
 
-            for (int i = 0; i < m_Descriptor.supportedAbs.Length; i++)
+            for (int i = 0; i < m_Capabilities.supportedAbs.Length; i++)
             {
-                var absCode = m_Descriptor.supportedAbs[i];
+                var absCode = m_Capabilities.supportedAbs[i];
 
                 var absInfo = new input_absinfo();
                 if (Ioctl.ioctl(m_Fd, EVIOCGABS(absCode), ref absInfo) < 0)
@@ -436,7 +436,7 @@ namespace HIDrogen.Backend.Linux
             }
 
             // Relative axes should not be synced; attempting to do so will just make them jitter briefly
-            // for (int i = 0; i < m_Descriptor.supportedRel.Length; i++)
+            // for (int i = 0; i < m_Capabilities.supportedRel.Length; i++)
             // {
             // }
 
@@ -445,9 +445,9 @@ namespace HIDrogen.Backend.Linux
 
         private void RemoveDeadzonesLocked()
         {
-            for (int i = 0; i < m_Descriptor.supportedAbs.Length; i++)
+            for (int i = 0; i < m_Capabilities.supportedAbs.Length; i++)
             {
-                var absCode = m_Descriptor.supportedAbs[i];
+                var absCode = m_Capabilities.supportedAbs[i];
 
                 // Retrieve current state to avoid overwriting value/min/max
                 var absInfo = new input_absinfo();
@@ -480,10 +480,10 @@ namespace HIDrogen.Backend.Linux
 
         private void RestoreDeadzonesLocked()
         {
-            for (int i = 0; i < m_Descriptor.supportedAbs.Length; i++)
+            for (int i = 0; i < m_Capabilities.supportedAbs.Length; i++)
             {
-                var absCode = m_Descriptor.supportedAbs[i];
-                var originalAbsInfo = m_Descriptor.absInfo[i];
+                var absCode = m_Capabilities.supportedAbs[i];
+                var originalAbsInfo = m_Capabilities.absInfo[i];
 
                 // Retrieve current state to avoid overwriting value/min/max
                 var newAbsInfo = new input_absinfo();

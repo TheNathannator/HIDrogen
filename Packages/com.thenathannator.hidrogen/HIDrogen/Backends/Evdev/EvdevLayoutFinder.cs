@@ -127,7 +127,7 @@ namespace HIDrogen.Backend.Linux
                 layoutName = layoutName,
                 layoutDisplayName = description.product,
                 baseLayout = baseLayout,
-                descriptor = capabilities,
+                capabilities = capabilities,
                 mappings = mappings,
             };
             InputSystem.RegisterLayoutBuilder(
@@ -149,7 +149,7 @@ namespace HIDrogen.Backend.Linux
             InputSystem.RegisterLayout<TDevice>();
 
             // evdev layouts are mapped based on input codes, not raw bytes,
-            // so we have to wait for layout finding so that we can get the evdev descriptor
+            // so we have to wait for layout finding so that we can get the evdev capabilities
             s_Registry.Add(new RegisteredLayout()
             {
                 layoutName = typeof(TDevice).Name,
