@@ -71,6 +71,7 @@ namespace HIDrogen.Devices.LowLevel
             public string layoutName;
             public InputDeviceMatcher matcher;
             public EvdevDeviceMapping mappings;
+            public bool isStatic;
         }
 
         private static readonly StringBuilder s_StringBuilder = new StringBuilder();
@@ -134,6 +135,12 @@ namespace HIDrogen.Devices.LowLevel
             if (bestMatchIndex >= 0)
             {
                 var registration = s_Registry[bestMatchIndex];
+                if (registration.isStatic)
+                {
+                    // This layout is statically-mapped, skip dynamic layout creation
+                    return registration.layoutName;
+                }
+
                 layoutName = registration.layoutName;
                 baseLayout = registration.layoutName;
                 mappings = registration.mappings;
@@ -206,7 +213,27 @@ namespace HIDrogen.Devices.LowLevel
             {
                 layoutName = typeof(TDevice).Name,
                 mappings = mappings,
-                matcher = matcher.ToMatcher()
+                matcher = matcher.ToMatcher(),
+                isStatic = false,
+            });
+        }
+
+        public static void RegisterStaticLayout<TDevice>(
+            EvdevDeviceMapping mappings,
+            EvdevDeviceMatcher matcher
+        )
+            where TDevice : InputDevice
+        {
+            InputSystem.RegisterLayout<TDevice>();
+
+            // While static layouts are not mapped based on input codes, we still need to wait for
+            // layout finding so we can validate that all expected inputs are available
+            s_Registry.Add(new RegisteredLayout()
+            {
+                layoutName = typeof(TDevice).Name,
+                mappings = mappings,
+                matcher = matcher.ToMatcher(),
+                isStatic = true,
             });
         }
     }
