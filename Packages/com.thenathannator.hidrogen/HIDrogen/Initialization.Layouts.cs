@@ -18,6 +18,7 @@ namespace HIDrogen
             // Devices
             EvdevJoystick.Initialize();
             EvdevGamepad.Initialize();
+            EvdevSteamController.Initialize();
         }
     }
 }
