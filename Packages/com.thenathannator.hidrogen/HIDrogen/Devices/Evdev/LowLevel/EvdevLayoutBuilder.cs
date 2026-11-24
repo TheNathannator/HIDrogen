@@ -792,9 +792,10 @@ namespace HIDrogen.Devices.LowLevel
 
         private int GetAbsZeroPoint(input_absinfo absInfo)
         {
-            // ? what was i thinking with this?
-            // return absInfo.minimum + (absInfo.maximum - absInfo.minimum) / 2;
-            return 0;
+            // Some devices have axes with a non-zero midpoint but a minimum value of 0
+            // (e.g. PlayStation controllers with a range of 0-255 and rest point at 128),
+            // so we have to assume the midpoint is the correct zero point
+            return absInfo.minimum + (absInfo.maximum - absInfo.minimum) / 2;
         }
 
         // Based on SDL's digital hat guesses
