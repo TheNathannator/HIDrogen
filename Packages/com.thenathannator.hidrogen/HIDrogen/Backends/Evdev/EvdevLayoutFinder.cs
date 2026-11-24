@@ -28,6 +28,8 @@ namespace HIDrogen.Backend.Linux
             EvdevAxisControl.Initialize();
             EvdevButtonControl.Initialize();
             EvdevDevice.Initialize();
+            EvdevGamepad.Initialize();
+
             InputSystem.onFindLayoutForDevice += FindDeviceLayout;
         }
 
