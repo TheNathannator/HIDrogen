@@ -65,7 +65,13 @@ namespace HIDrogen.Backend.Linux
             float bestMatch = 0;
             for (int i = 0; i < s_Registry.Count; i++)
             {
-                float match = s_Registry[i].matcher.MatchPercentage(description);
+                var registration = s_Registry[i];
+                if (!registration.mappings.IsCompatible(capabilities))
+                {
+                    continue;
+                }
+
+                float match = registration.matcher.MatchPercentage(description);
                 if (match > bestMatch)
                 {
                     bestMatch = match;
@@ -79,12 +85,9 @@ namespace HIDrogen.Backend.Linux
             if (bestMatchIndex >= 0)
             {
                 var registration = s_Registry[bestMatchIndex];
-                if (registration.mappings.IsCompatible(capabilities))
-                {
-                    layoutName = registration.layoutName;
-                    baseLayout = registration.layoutName;
-                    mappings = registration.mappings;
-                }
+                layoutName = registration.layoutName;
+                baseLayout = registration.layoutName;
+                mappings = registration.mappings;
             }
 
             layoutName += $"::{(int)capabilities.busType}-{capabilities.vendorId}-{capabilities.productId}";
