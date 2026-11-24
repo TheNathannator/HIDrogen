@@ -348,65 +348,79 @@ namespace HIDrogen.Backend.Linux
             {
                 case input_bus_type.USB:
                 {
-                    using (var usb_device = hidraw.get_parent_with_subsystem_devtype(Udev.SubsystemUsb, Udev.DevtypeUsbDevice))
-                    {
-                        if (usb_device == null || usb_device.IsInvalid)
-                        {
-                            Logging.Verbose("Could not find usb_device node for USB HID device");
-                            // Continue onwards with the info we already have
-                            break;
-                        }
-
-                        deviceInfo.manufacturer = usb_device.get_sysattr_value("manufacturer").ToString();
-                        deviceInfo.product = usb_device.get_sysattr_value("product").ToString();
-
-                        string bcdDevice = usb_device.get_sysattr_value("bcdDevice").ToString();
-                        if (NumberUtils.TryParseHexU32(bcdDevice, out uint revision))
-                        {
-                            deviceInfo.revision = (ushort)revision;
-                        }
-                        if (deviceInfo.vendorId == 0x1209 && deviceInfo.productId == 0x2883)
-                        {
-                            using (var usb_interface = hidraw.get_parent_with_subsystem_devtype(Udev.SubsystemUsb, Udev.DevtypeUsbInterface))
-                            {
-                                if (usb_interface == null || usb_interface.IsInvalid)
-                                {
-                                    Logging.Verbose("Could not find usb_interface node for USB HID device");
-                                    break;
-                                }
-                                // Santroller 2 stores a user-configurable profile name here
-                                var interface_attr = usb_interface.get_sysattr_value("interface");
-                                if (!interface_attr.IsInvalid)
-                                {
-                                    deviceInfo.product = interface_attr.ToString();
-                                }
-                            }
-                        }
-                    }
+                    FixupUsbInfo(udev, hidraw, ref deviceInfo);
                     break;
                 }
                 case input_bus_type.BLUETOOTH:
                 {
-                    using (var input = FindSibling(udev, hidraw, Udev.SubsystemInput))
-                    {
-                        if (input == null || input.IsInvalid)
-                        {
-                            Logging.Verbose("Could not find input node for Bluetooth HID device");
-                            // Continue onwards with the info we already have
-                            break;
-                        }
-
-                        string id_version = input.get_sysattr_value("id/version").ToString();
-                        if (NumberUtils.TryParseHexU32(id_version, out uint revision))
-                        {
-                            deviceInfo.revision = (ushort)revision;
-                        }
-                    }
+                    FixupBluetoothInfo(udev, hidraw, ref deviceInfo);
                     break;
                 }
             }
 
             return true;
+        }
+
+        private static void FixupUsbInfo(
+            udev_context udev,
+            udev_device hidraw,
+            ref DeviceInfo deviceInfo
+        )
+        {
+            using (var usb_device = hidraw.get_parent_with_subsystem_devtype(Udev.SubsystemUsb, Udev.DevtypeUsbDevice))
+            using (var usb_interface = hidraw.get_parent_with_subsystem_devtype(Udev.SubsystemUsb, Udev.DevtypeUsbInterface))
+            {
+                if (usb_device == null || usb_device.IsInvalid ||
+                    usb_interface == null || usb_interface.IsInvalid)
+                {
+                    Logging.Verbose("Could not find USB nodes for USB HID device");
+                    // Continue onwards with the info we already have
+                    return;
+                }
+
+                deviceInfo.manufacturer = usb_device.get_sysattr_value("manufacturer").ToString();
+                deviceInfo.product = usb_device.get_sysattr_value("product").ToString();
+
+                string bcdDevice = usb_device.get_sysattr_value("bcdDevice").ToString();
+                if (NumberUtils.TryParseHexU32(bcdDevice, out uint revision))
+                {
+                    deviceInfo.revision = (ushort)revision;
+                }
+
+                // Santroller 2
+                if (deviceInfo.vendorId == 0x1209 && deviceInfo.productId == 0x2883)
+                {
+                    // Santroller 2 stores a user-configurable profile name here
+                    var interface_attr = usb_interface.get_sysattr_value("interface");
+                    if (!interface_attr.IsInvalid)
+                    {
+                        deviceInfo.product = interface_attr.ToString();
+                    }
+                }
+            }
+        }
+
+        private static void FixupBluetoothInfo(
+            udev_context udev,
+            udev_device hidraw,
+            ref DeviceInfo deviceInfo
+        )
+        {
+            using (var input = FindSibling(udev, hidraw, Udev.SubsystemInput))
+            {
+                if (input == null || input.IsInvalid)
+                {
+                    Logging.Verbose("Could not find input node for Bluetooth HID device");
+                    // Continue onwards with the info we already have
+                    return;
+                }
+
+                string id_version = input.get_sysattr_value("id/version").ToString();
+                if (NumberUtils.TryParseHexU32(id_version, out uint revision))
+                {
+                    deviceInfo.revision = (ushort)revision;
+                }
+            }
         }
 
         private static unsafe bool ParseReportDescriptor(
