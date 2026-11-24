@@ -342,8 +342,6 @@ namespace HIDrogen.Backend.Linux
                             deviceInfo.xusbSubtype = sanscriptor->bDeviceSubtype;
                         }
                     }
-
-                    return;
                 }
 
                 // Santroller 2
@@ -356,20 +354,22 @@ namespace HIDrogen.Backend.Linux
                         deviceInfo.product = interface_attr.ToString();
                     }
 
-                    using (var sanscriptorBuffer = ReadUsbDescriptor(usb_device, usb_interface, 0xFF))
+                    // XInput mode does not include the Santroller descriptor
+                    if (deviceInfo.driver != "xpad")
                     {
-                        if (sanscriptorBuffer.length >= sizeof(Santroller2VendorDescriptor))
+                        using (var sanscriptorBuffer = ReadUsbDescriptor(usb_device, usb_interface, 0xFF))
                         {
-                            var sanscriptor = (Santroller2VendorDescriptor*)sanscriptorBuffer.bufferPtr;
-                            if (sanscriptor->IsValid)
+                            if (sanscriptorBuffer.length >= sizeof(Santroller2VendorDescriptor))
                             {
-                                deviceInfo.santrollerSubtype = sanscriptor->bSubtype;
-                                deviceInfo.santrollerCapabilities = sanscriptor->bCapabilities;
+                                var sanscriptor = (Santroller2VendorDescriptor*)sanscriptorBuffer.bufferPtr;
+                                if (sanscriptor->IsValid)
+                                {
+                                    deviceInfo.santrollerSubtype = sanscriptor->bSubtype;
+                                    deviceInfo.santrollerCapabilities = sanscriptor->bCapabilities;
+                                }
                             }
                         }
                     }
-
-                    return;
                 }
             }
         }
