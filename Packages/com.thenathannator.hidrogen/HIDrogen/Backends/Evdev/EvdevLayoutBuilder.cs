@@ -80,6 +80,24 @@ namespace HIDrogen.Backend.Linux
         internal readonly SortedDictionary<input_abs_code, (EvdevControlMapping mapping, EvdevStickOption options)> m_AbsSticks
             = new SortedDictionary<input_abs_code, (EvdevControlMapping, EvdevStickOption)>();
 
+        public EvdevDeviceMapping()
+        {
+        }
+
+        private EvdevDeviceMapping(EvdevDeviceMapping other)
+        {
+            m_Keys = new SortedDictionary<input_key_code, EvdevControlMapping>(other.m_Keys);
+            m_Abs = new SortedDictionary<input_abs_code, (EvdevControlMapping, EvdevAxisOption)>(other.m_Abs);
+            m_Hats = new SortedDictionary<int, EvdevControlMapping>(other.m_Hats);
+            m_AbsButtons = new SortedDictionary<input_abs_code, (EvdevControlMapping, EvdevButtonAxisOption)>(other.m_AbsButtons);
+            m_AbsSticks = new SortedDictionary<input_abs_code, (EvdevControlMapping, EvdevStickOption)>(other.m_AbsSticks);
+        }
+
+        public EvdevDeviceMapping Clone()
+        {
+            return new EvdevDeviceMapping(this);
+        }
+
         private void EnsureAbsUnique(input_abs_code abs)
         {
             if (m_Abs.ContainsKey(abs))
