@@ -1086,6 +1086,12 @@ namespace HIDrogen.Imports.Linux
         public const string DevtypeUsbInterface = "usb_interface";
         public const string DevtypeUsbDevice = "usb_device";
 
+        public const string DriverHidGeneric = "hid-generic";
+        public const string DriverPlaystation = "playstation";
+        public const string DriverSony = "sony";
+        public const string DriverWiimote = "wiimote";
+        public const string DriverXpad = "xpad";
+
         public const string EventAdded = "add";
         public const string EventRemoved = "remove";
         #endregion

@@ -357,7 +357,7 @@ namespace HIDrogen.Backend.Linux
                 // Device-specific fixups
 
                 // XUSB via xpad
-                if (deviceInfo.driver == "xpad")
+                if (deviceInfo.driver == Udev.DriverXpad)
                 {
                     using (var xusbDescriptorBuffer = ReadUsbDescriptor(usb_device, usb_interface, 0x21))
                     {
@@ -380,7 +380,7 @@ namespace HIDrogen.Backend.Linux
                     }
 
                     // XInput mode does not include the Santroller descriptor
-                    if (deviceInfo.driver != "xpad")
+                    if (deviceInfo.driver != Udev.DriverXpad)
                     {
                         using (var sanscriptorBuffer = ReadUsbDescriptor(usb_device, usb_interface, 0xFF))
                         {
