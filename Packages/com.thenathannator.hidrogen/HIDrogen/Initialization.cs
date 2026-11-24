@@ -1,3 +1,8 @@
+// Ignore initialization if in editor and current build platform doesn't match editor runtime platform
+#if !UNITY_EDITOR || (UNITY_STANDALONE_WIN && UNITY_EDITOR_WIN) || (UNITY_STANDALONE_OSX && UNITY_EDITOR_OSX) || (UNITY_STANDALONE_LINUX && UNITY_EDITOR_LINUX)
+    #define SAFE_TO_INITIALIZE
+#endif
+
 using System;
 
 namespace HIDrogen
@@ -7,8 +12,6 @@ namespace HIDrogen
     /// </summary>
     internal static partial class Initialization
     {
-// Ignore initialization if in editor and current build platform doesn't match editor runtime platform
-#if !UNITY_EDITOR || (UNITY_STANDALONE_WIN && UNITY_EDITOR_WIN) || (UNITY_STANDALONE_OSX && UNITY_EDITOR_OSX) || (UNITY_STANDALONE_LINUX && UNITY_EDITOR_LINUX)
         /// <summary>
         /// Initializes everything.
         /// </summary>
@@ -19,6 +22,7 @@ namespace HIDrogen
 #endif
         internal static void Initialize()
         {
+#if SAFE_TO_INITIALIZE
 #if UNITY_EDITOR
             UnityEditor.AssemblyReloadEvents.beforeAssemblyReload += Uninitialize;
             UnityEditor.EditorApplication.quitting += Uninitialize;
@@ -41,10 +45,12 @@ namespace HIDrogen
             {
                 Logging.Exception("Failed to initialize backends", ex);
             }
+#endif
         }
 
         internal static void DelayedStart()
         {
+#if SAFE_TO_INITIALIZE
             UnityEngine.InputSystem.InputSystem.onAfterUpdate -= DelayedStart;
 
             try
@@ -56,10 +62,12 @@ namespace HIDrogen
             {
                 Logging.Exception("Failed to start backends", ex);
             }
+#endif
         }
 
         internal static void Uninitialize()
         {
+#if SAFE_TO_INITIALIZE
 #if UNITY_EDITOR
             UnityEditor.AssemblyReloadEvents.beforeAssemblyReload -= Uninitialize;
             UnityEditor.EditorApplication.quitting -= Uninitialize;
@@ -80,8 +88,8 @@ namespace HIDrogen
             {
                 Logging.Exception("Failed to uninitialize backends", ex);
             }
-        }
 #endif
+        }
 
         static partial void PlatformInitialize();
         static partial void PlatformUninitialize();
