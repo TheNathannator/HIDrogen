@@ -2,6 +2,7 @@
 using System;
 using System.Reflection;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.HID;
 using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
 
@@ -60,11 +61,30 @@ namespace HIDrogen.Services.Linux
             var sdlLayoutFinder = (InputDeviceFindControlLayoutDelegate) sdlLayoutFinderMethod.CreateDelegate(
                 typeof(InputDeviceFindControlLayoutDelegate)
             );
-
             InputSystem.onFindLayoutForDevice -= sdlLayoutFinder;
-            // Devices that would have been handled by the layout finder before will still
-            // match the Joystick layout naturally, so we need to do another hack to ensure
-            // an error will occur during matching
+
+            // Also remove HID layout finder; devices without explicit HID layouts should fall back to evdev
+            var hidLayoutFinderMethod = typeof(HID).GetMethod(
+                "OnFindLayoutForDevice",
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
+                null,
+                new Type[]
+                {
+                    typeof(InputDeviceDescription).MakeByRefType(),
+                    typeof(string),
+                    typeof(InputDeviceExecuteCommandDelegate)
+                },
+                null
+            );
+            var hidLayoutFinder = (InputDeviceFindControlLayoutDelegate) hidLayoutFinderMethod.CreateDelegate(
+                typeof(InputDeviceFindControlLayoutDelegate)
+            );
+            InputSystem.onFindLayoutForDevice -= sdlLayoutFinder;
+
+            // Just in case, plan B:
+            // Devices that would have been handled by the SDL layout finder before will still
+            // match the Joystick layout naturally due to the description specifying a device class,
+            // so we need to do another hack to ensure an error will occur during matching
             InputSystem.onFindLayoutForDevice += OnFindLayoutForDevice;
 
             // Additional last-ditch effort to remove native devices
