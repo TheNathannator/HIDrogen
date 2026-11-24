@@ -26,6 +26,17 @@ namespace HIDrogen.Backend.Linux
     }
 
     [Flags]
+    public enum EvdevButtonAxisOption
+    {
+        None = 0,
+
+        /// <summary>
+        /// The axis range is inverted (i.e. swap min and max).
+        /// </summary>
+        Inverted = 1 << 0,
+    }
+
+    [Flags]
     public enum EvdevStickOption
     {
         None = 0,
@@ -64,8 +75,8 @@ namespace HIDrogen.Backend.Linux
         internal readonly SortedDictionary<int, EvdevControlMapping> m_Hats
             = new SortedDictionary<int, EvdevControlMapping>();
 
-        internal readonly SortedDictionary<input_abs_code, EvdevControlMapping> m_AbsButtons
-            = new SortedDictionary<input_abs_code, EvdevControlMapping>();
+        internal readonly SortedDictionary<input_abs_code, (EvdevControlMapping mapping, EvdevButtonAxisOption options)> m_AbsButtons
+            = new SortedDictionary<input_abs_code, (EvdevControlMapping, EvdevButtonAxisOption)>();
         internal readonly SortedDictionary<input_abs_code, (EvdevControlMapping mapping, EvdevStickOption options)> m_AbsSticks
             = new SortedDictionary<input_abs_code, (EvdevControlMapping, EvdevStickOption)>();
 
@@ -120,10 +131,14 @@ namespace HIDrogen.Backend.Linux
             return this;
         }
 
-        public EvdevDeviceMapping WithAbsButton(input_abs_code abs, EvdevControlMapping mapping)
+        public EvdevDeviceMapping WithAbsButton(
+            input_abs_code abs,
+            EvdevControlMapping mapping,
+            EvdevButtonAxisOption options = EvdevButtonAxisOption.None
+        )
         {
             EnsureAbsUnique(abs);
-            m_AbsButtons.Add(abs, mapping);
+            m_AbsButtons.Add(abs, (mapping, options));
             return this;
         }
 
@@ -402,9 +417,14 @@ namespace HIDrogen.Backend.Linux
                     mapping = a.mapping;
                     parameters = $"zeroPoint={zero},minValue={min},maxValue={max}";
                 }
-                else if (mappings.m_AbsButtons.TryGetValue(abs, out var buttonMapping))
+                else if (mappings.m_AbsButtons.TryGetValue(abs, out var b))
                 {
-                    mapping = buttonMapping;
+                    if ((b.options & EvdevButtonAxisOption.Inverted) != 0)
+                    {
+                        (min, max) = (max, min);
+                    }
+
+                    mapping = b.mapping;
                     layout = "EvdevButton";
                     parameters = $"minValue={min},maxValue={max}";
                 }
