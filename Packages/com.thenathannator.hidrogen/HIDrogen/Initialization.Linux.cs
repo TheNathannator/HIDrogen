@@ -11,7 +11,8 @@ namespace HIDrogen
         {
             BackendManager.TryCreateBackend<EvdevBackend>();
             BackendManager.TryCreateBackend<HidRawBackend>();
-            BackendManager.TryCreateService<USBService>();
+            // TODO: Temporarily disabled until it can be integrated with UdevDeviceMonitor
+            // BackendManager.TryCreateService<USBService>();
             BackendManager.TryCreateService<UdevDeviceMonitor>();
             BackendManager.TryCreateService<LinuxShim>();
         }
