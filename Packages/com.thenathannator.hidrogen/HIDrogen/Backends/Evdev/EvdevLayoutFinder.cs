@@ -43,10 +43,10 @@ namespace HIDrogen.Backend.Linux
                 return null;
             }
             
-            EvdevCapabilities descriptor;
+            EvdevCapabilities capabilities;
             try
             {
-                descriptor = JsonUtility.FromJson<EvdevCapabilities>(description.capabilities);
+                capabilities = JsonUtility.FromJson<EvdevCapabilities>(description.capabilities);
             }
             catch (Exception ex)
             {
@@ -54,7 +54,7 @@ namespace HIDrogen.Backend.Linux
                 return null;
             }
 
-            if (descriptor.vendorId == 0 && descriptor.productId == 0)
+            if (capabilities.vendorId == 0 && capabilities.productId == 0)
             {
                 return null;
             }
@@ -71,100 +71,21 @@ namespace HIDrogen.Backend.Linux
                 }
             }
 
-            string layoutName;
-            string baseLayout;
-            EvdevDeviceMapping mappings;
-            if (bestMatchIndex < 0)
-            {
-                baseLayout = nameof(EvdevDevice);
-                layoutName = description.interfaceName;
-                mappings = null;
-            }
-            else
+            string baseLayout = nameof(EvdevDevice);
+            string layoutName = description.interfaceName;
+            EvdevDeviceMapping mappings = null;
+            if (bestMatchIndex >= 0)
             {
                 var registration = s_Registry[bestMatchIndex];
-                layoutName = registration.layoutName;
-                baseLayout = registration.layoutName;
-                mappings = registration.mappings;
-
-                // Validate that all required mappings are available
-                var availableKeys = new HashSet<input_key_code>();
-                var availableAbs = new HashSet<input_abs_code>();
-
-                foreach (var key in descriptor.supportedKeys)
+                if (registration.mappings.IsCompatible(capabilities))
                 {
-                    availableKeys.Add(key);
-                }
-
-                foreach (var abs in descriptor.supportedAbs)
-                {
-                    availableAbs.Add(abs);
-                }
-
-                foreach (var key in mappings.m_Keys.Keys)
-                {
-                    if (!availableKeys.Contains(key))
-                    {
-                        return null;
-                    }
-                }
-
-                foreach (var abs in mappings.m_Abs.Keys)
-                {
-                    if (!availableAbs.Contains(abs))
-                    {
-                        return null;
-                    }
-                }
-
-                foreach (var hat in mappings.m_Hats.Keys)
-                {
-                    if (hat < 0 || hat > 3)
-                    {
-                        return null;
-                    }
-
-                    if (availableAbs.Contains(input_abs_code.ABS_HAT0X + (hat * 2)) &&
-                        availableAbs.Contains(input_abs_code.ABS_HAT0Y + (hat * 2)))
-                    {
-                        // present
-                        continue;
-                    }
-
-                    if (hat == 0 &&
-                        // Not all d-pad keys may be available, but we still make a hat from them
-                        // so long as any of them are available
-                        (availableKeys.Contains(input_key_code.BTN_DPAD_UP) ||
-                        availableKeys.Contains(input_key_code.BTN_DPAD_DOWN) ||
-                        availableKeys.Contains(input_key_code.BTN_DPAD_LEFT) ||
-                        availableKeys.Contains(input_key_code.BTN_DPAD_RIGHT)))
-                    {
-                        // present
-                        continue;
-                    }
-
-                    // missing
-                    return null;
-                }
-
-                foreach (var abs in mappings.m_AbsButtons.Keys)
-                {
-                    if (!availableAbs.Contains(abs))
-                    {
-                        return null;
-                    }
-                }
-
-                foreach (var stick in mappings.m_Sticks.Keys)
-                {
-                    if (!availableAbs.Contains(stick))
-                    {
-                        return null;
-                    }
+                    layoutName = registration.layoutName;
+                    baseLayout = registration.layoutName;
+                    mappings = registration.mappings;
                 }
             }
 
-            layoutName += $"::{(int)descriptor.busType}-{descriptor.vendorId}-{descriptor.productId}";
+            layoutName += $"::{(int)capabilities.busType}-{capabilities.vendorId}-{capabilities.productId}";
 
             if (!string.IsNullOrEmpty(description.manufacturer))
             {
@@ -197,14 +118,14 @@ namespace HIDrogen.Backend.Linux
             }
 
             var matcher = InputDeviceMatcher.FromDeviceDescription(description);
-            matcher = descriptor.ApplyToMatcher(matcher);
+            matcher = capabilities.ApplyToMatcher(matcher);
 
             var builder = new EvdevLayoutBuilder()
             {
                 layoutName = layoutName,
                 layoutDisplayName = description.product,
                 baseLayout = baseLayout,
-                descriptor = descriptor,
+                descriptor = capabilities,
                 mappings = mappings,
             };
             InputSystem.RegisterLayoutBuilder(

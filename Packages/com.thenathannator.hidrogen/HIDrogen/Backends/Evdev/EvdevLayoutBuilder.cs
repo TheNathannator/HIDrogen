@@ -57,17 +57,17 @@ namespace HIDrogen.Backend.Linux
 
     public class EvdevDeviceMapping
     {
-        internal readonly Dictionary<input_key_code, EvdevControlMapping> m_Keys
-            = new Dictionary<input_key_code, EvdevControlMapping>();
-        internal readonly Dictionary<input_abs_code, (EvdevControlMapping mapping, EvdevAxisOption options)> m_Abs
-            = new Dictionary<input_abs_code, (EvdevControlMapping, EvdevAxisOption)>();
-        internal readonly Dictionary<int, EvdevControlMapping> m_Hats
-            = new Dictionary<int, EvdevControlMapping>();
+        internal readonly SortedDictionary<input_key_code, EvdevControlMapping> m_Keys
+            = new SortedDictionary<input_key_code, EvdevControlMapping>();
+        internal readonly SortedDictionary<input_abs_code, (EvdevControlMapping mapping, EvdevAxisOption options)> m_Abs
+            = new SortedDictionary<input_abs_code, (EvdevControlMapping, EvdevAxisOption)>();
+        internal readonly SortedDictionary<int, EvdevControlMapping> m_Hats
+            = new SortedDictionary<int, EvdevControlMapping>();
 
-        internal readonly Dictionary<input_abs_code, EvdevControlMapping> m_AbsButtons
-            = new Dictionary<input_abs_code, EvdevControlMapping>();
-        internal readonly Dictionary<input_abs_code, (EvdevControlMapping mapping, EvdevStickOption options)> m_Sticks
-            = new Dictionary<input_abs_code, (EvdevControlMapping, EvdevStickOption)>();
+        internal readonly SortedDictionary<input_abs_code, EvdevControlMapping> m_AbsButtons
+            = new SortedDictionary<input_abs_code, EvdevControlMapping>();
+        internal readonly SortedDictionary<input_abs_code, (EvdevControlMapping mapping, EvdevStickOption options)> m_AbsSticks
+            = new SortedDictionary<input_abs_code, (EvdevControlMapping, EvdevStickOption)>();
 
         private void EnsureAbsUnique(input_abs_code abs)
         {
@@ -81,7 +81,7 @@ namespace HIDrogen.Backend.Linux
                 throw new ArgumentException($"A button mapping for {abs} has already been added.");
             }
 
-            if (m_Sticks.ContainsKey(abs))
+            if (m_AbsSticks.ContainsKey(abs))
             {
                 throw new ArgumentException($"A stick mapping for {abs} has already been added.");
             }
@@ -135,9 +135,104 @@ namespace HIDrogen.Backend.Linux
         {
             EnsureAbsUnique(abs);
             EnsureAbsUnique(abs + 1); // The next abs needs to be available, as they will be paired together
-            m_Sticks.Add(abs, (mapping, options));
-            m_Sticks.Add(abs + 1, (mapping, options));
+            m_AbsSticks.Add(abs, (mapping, options));
+            m_AbsSticks.Add(abs + 1, (mapping, options));
             return this;
+        }
+
+        internal bool IsCompatible(EvdevCapabilities capabilities)
+        {
+            // Both the supported inputs and the desired mappings are guaranteed to be sorted,
+            // which we can take advantage of to avoid needless allocations of a hash set,
+            // at the cost of less convenient checking of whether a mapping is supported.
+
+            bool FindValue<T>(T target, T[] values, ref int index)
+            {
+                // enums are not IComparable<TSelf>...
+                var comparer = Comparer<T>.Default;
+
+                while (index < values.Length && comparer.Compare(values[index], target) < 0)
+                {
+                    index++;
+                }
+
+                return comparer.Compare(values[index], target) == 0;
+            }
+
+            int keyIndex = 0;
+            foreach (var key in m_Keys.Keys)
+            {
+                if (!FindValue(key, capabilities.supportedKeys, ref keyIndex))
+                {
+                    return false;
+                }
+            }
+
+            int absIndex = 0;
+            foreach (var abs in m_Abs.Keys)
+            {
+                if (!FindValue(abs, capabilities.supportedAbs, ref absIndex))
+                {
+                    return false;
+                }
+            }
+
+            keyIndex = 0;
+            absIndex = 0;
+            foreach (int hat in m_Hats.Keys)
+            {
+                if (hat < 0 || hat > 3)
+                {
+                    // invalid hat
+                    return false;
+                }
+
+                var absX = input_abs_code.ABS_HAT0X + (hat * 2);
+                var absY = input_abs_code.ABS_HAT0Y + (hat * 2);
+
+                if (FindValue(absX, capabilities.supportedAbs, ref absIndex) &&
+                    FindValue(absY, capabilities.supportedAbs, ref absIndex))
+                {
+                    // present
+                    continue;
+                }
+
+                if (hat == 0 &&
+                    // Not all d-pad keys may be available, but we still
+                    // make a hat from them so long as any of them are available
+                    (FindValue(input_key_code.BTN_DPAD_UP, capabilities.supportedKeys, ref keyIndex) ||
+                    FindValue(input_key_code.BTN_DPAD_DOWN, capabilities.supportedKeys, ref keyIndex) ||
+                    FindValue(input_key_code.BTN_DPAD_LEFT, capabilities.supportedKeys, ref keyIndex) ||
+                    FindValue(input_key_code.BTN_DPAD_RIGHT, capabilities.supportedKeys, ref keyIndex))
+                )
+                {
+                    // present
+                    continue;
+                }
+
+                // missing
+                return false;
+            }
+
+            absIndex = 0;
+            foreach (var abs in m_AbsButtons.Keys)
+            {
+                if (!FindValue(abs, capabilities.supportedAbs, ref absIndex))
+                {
+                    return false;
+                }
+            }
+
+            absIndex = 0;
+            foreach (var abs in m_AbsSticks.Keys)
+            {
+                if (!FindValue(abs, capabilities.supportedAbs, ref absIndex))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
     }
 
@@ -270,7 +365,7 @@ namespace HIDrogen.Backend.Linux
                 return;
             }
 
-            if (mappings != null && mappings.m_Sticks.ContainsKey(abs))
+            if (mappings != null && mappings.m_AbsSticks.ContainsKey(abs))
             {
                 MakeStickControl(builder, absIndex, absStartByte);
                 return;
@@ -471,7 +566,7 @@ namespace HIDrogen.Backend.Linux
         {
             const int absCount = 2;
 
-            var (mapping, options) = mappings.m_Sticks[descriptor.supportedAbs[absIndex]];
+            var (mapping, options) = mappings.m_AbsSticks[descriptor.supportedAbs[absIndex]];
 
             string stickRoot = mapping.path;
             AddControl(builder, mapping)
@@ -584,7 +679,7 @@ namespace HIDrogen.Backend.Linux
             if (mappings != null &&
                 (mappings.m_Abs.ContainsKey(abs) ||
                 mappings.m_AbsButtons.ContainsKey(abs) ||
-                mappings.m_Sticks.ContainsKey(abs)))
+                mappings.m_AbsSticks.ContainsKey(abs)))
             {
                 return false;
             }
