@@ -10,6 +10,60 @@ using UnityEngine.InputSystem.LowLevel;
 namespace HIDrogen.Backend.Linux
 {
     // Intentionally public and not platform guarded, for other packages to reference.
+
+    public struct EvdevDeviceMatcher
+    {
+        private InputDeviceMatcher m_Matcher;
+
+        public EvdevDeviceMatcher WithDriver(string driver)
+        {
+            m_Matcher = m_Matcher.WithCapability("driver", driver);
+            return this;
+        }
+
+        public EvdevDeviceMatcher WithBusType(input_bus_type busType)
+        {
+            m_Matcher = m_Matcher.WithCapability("busType", (int)busType);
+            return this;
+        }
+
+        public EvdevDeviceMatcher WithHardwareIds(ushort vendorId, ushort productId)
+        {
+            m_Matcher = m_Matcher.WithCapability("vendorId", (int)vendorId);
+            m_Matcher = m_Matcher.WithCapability("productId", (int)productId);
+            return this;
+        }
+
+        public EvdevDeviceMatcher WithRevision(ushort revision)
+        {
+            m_Matcher = m_Matcher.WithVersion(revision.ToString());
+            return this;
+        }
+
+        public EvdevDeviceMatcher WithXusbSubtype(byte xusbSubtype)
+        {
+            m_Matcher = m_Matcher.WithCapability("xusbSubtype", xusbSubtype);
+            return this;
+        }
+
+        public EvdevDeviceMatcher WithSantrollerSubtype(byte santrollerSubtype)
+        {
+            m_Matcher = m_Matcher.WithCapability("santrollerSubtype", santrollerSubtype);
+            return this;
+        }
+
+        public EvdevDeviceMatcher WithSantrollerCapabilities(byte santrollerCapabilities)
+        {
+            m_Matcher = m_Matcher.WithCapability("santrollerCapabilities", santrollerCapabilities);
+            return this;
+        }
+
+        internal InputDeviceMatcher ToMatcher()
+        {
+            return m_Matcher.WithInterface(EvdevDefinitions.InterfaceName);
+        }
+    }
+
     public static class EvdevLayoutFinder
     {
         private struct RegisteredLayout
@@ -145,7 +199,7 @@ namespace HIDrogen.Backend.Linux
 
         public static void RegisterLayout<TDevice>(
             EvdevDeviceMapping mappings,
-            InputDeviceMatcher matcher
+            EvdevDeviceMatcher matcher
         )
             where TDevice : InputDevice
         {
@@ -157,80 +211,8 @@ namespace HIDrogen.Backend.Linux
             {
                 layoutName = typeof(TDevice).Name,
                 mappings = mappings,
-                matcher = matcher
+                matcher = matcher.ToMatcher()
             });
-        }
-
-        public static void RegisterLayout<TDevice>(
-            EvdevDeviceMapping mapping,
-            ushort vendorId,
-            ushort productId
-        )
-            where TDevice : InputDevice
-        {
-            RegisterLayout<TDevice>(mapping, GetMatcher(vendorId, productId));
-        }
-
-        public static void RegisterLayout<TDevice>(
-            EvdevDeviceMapping mapping,
-            ushort vendorId,
-            ushort productId,
-            ushort revision
-        )
-            where TDevice : InputDevice
-        {
-            RegisterLayout<TDevice>(mapping, GetMatcher(vendorId, productId, revision));
-        }
-
-        public static void RegisterLayout<TDevice>(
-            EvdevDeviceMapping mapping,
-            input_bus_type busType,
-            ushort vendorId,
-            ushort productId,
-            ushort revision
-        )
-            where TDevice : InputDevice
-        {
-            RegisterLayout<TDevice>(mapping, GetMatcher(busType, vendorId, productId, revision));
-        }
-
-        private static InputDeviceMatcher GetMatcher(
-            ushort vendorId,
-            ushort productId
-        )
-        {
-            return new InputDeviceMatcher()
-                .WithInterface(EvdevDefinitions.InterfaceName)
-                .WithCapability("vendorId", (int)vendorId)
-                .WithCapability("productId", (int)productId);
-        }
-
-        private static InputDeviceMatcher GetMatcher(
-            ushort vendorId,
-            ushort productId,
-            ushort revision
-        )
-        {
-            return new InputDeviceMatcher()
-                .WithInterface(EvdevDefinitions.InterfaceName)
-                .WithVersion(revision.ToString())
-                .WithCapability("vendorId", (int)vendorId)
-                .WithCapability("productId", (int)productId);
-        }
-
-        private static InputDeviceMatcher GetMatcher(
-            input_bus_type busType,
-            ushort vendorId,
-            ushort productId,
-            ushort revision
-        )
-        {
-            return new InputDeviceMatcher()
-                .WithInterface(EvdevDefinitions.InterfaceName)
-                .WithVersion(revision.ToString())
-                .WithCapability("busType", (int)busType)
-                .WithCapability("vendorId", (int)vendorId)
-                .WithCapability("productId", (int)productId);
         }
     }
 }

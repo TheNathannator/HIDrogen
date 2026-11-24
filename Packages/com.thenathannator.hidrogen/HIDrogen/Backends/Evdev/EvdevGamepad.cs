@@ -28,8 +28,7 @@ namespace HIDrogen.Backend.Linux
                     .WithStick(input_abs_code.ABS_RX, "rightStick")
                     .WithAbsButton(input_abs_code.ABS_Z, "leftTrigger")
                     .WithAbsButton(input_abs_code.ABS_RZ, "rightTrigger"),
-                new InputDeviceMatcher()
-                    .WithInterface(EvdevDefinitions.InterfaceName)
+                new EvdevDeviceMatcher()
             );
         }
     }
