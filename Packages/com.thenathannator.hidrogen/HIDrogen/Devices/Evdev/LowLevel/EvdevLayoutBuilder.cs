@@ -432,7 +432,8 @@ namespace HIDrogen.Devices.LowLevel
             var abs = capabilities.supportedAbs[absIndex];
 
             if (abs.IsHatX() &&
-                // Only group abs hats if both axes are available
+                IsDigitalHat(absIndex) &&
+                // Only group hats if both axes are available
                 IsAbsAvailable(abs) &&
                 IsAbsAvailable(abs + 1))
             {
@@ -794,6 +795,39 @@ namespace HIDrogen.Devices.LowLevel
             // ? what was i thinking with this?
             // return absInfo.minimum + (absInfo.maximum - absInfo.minimum) / 2;
             return 0;
+        }
+
+        // Based on SDL's digital hat guesses
+        // https://github.com/libsdl-org/SDL/blob/9e9051c17cb2d6f8436687036e56e435733723a3/src/joystick/linux/SDL_sysjoystick.c#L1178
+        private bool IsDigitalHat(int absIndex)
+        {
+            var absX = capabilities.supportedAbs[absIndex];
+            var absY = capabilities.supportedAbs[absIndex + 1];
+
+            if (!absX.IsHatX() || !absY.IsHatY())
+            {
+                return false;
+            }
+
+            var absInfoX = capabilities.absInfo[absIndex];
+            var absInfoY = capabilities.absInfo[absIndex + 1];
+
+            // If both axes are constrained to [-1, 1], they're definitely digital
+            if (absInfoX.minimum == -1 && absInfoX.maximum == 1 &&
+                absInfoY.minimum == -1 && absInfoY.maximum == 1)
+            {
+                return true;
+            }
+
+            // If both axes lack fuzz, flat, and resolution, they're probably digital
+            if (absInfoX.fuzz == 0 && absInfoX.flat == 0 && absInfoX.resolution == 0 &&
+                absInfoY.fuzz == 0 && absInfoY.flat == 0 && absInfoY.resolution == 0)
+            {
+                return true;
+            }
+
+            // Otherwise, treat them as analog
+            return false;
         }
 
         private static string ToCamelCase(string name)
