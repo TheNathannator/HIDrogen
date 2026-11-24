@@ -403,7 +403,7 @@ namespace HIDrogen.Devices.LowLevel
 
             // D-pad buttons are grouped together regardless of if they're all available,
             // but only when encountering the first one that isn't explicitly mapped
-            if (IsDpadKey(key) && IsKeyAvailable(key))
+            if (key.IsDpadKey() && IsKeyAvailable(key))
             {
                 // Group d-pad buttons
                 MakeDpadControl(builder, keyIndex);
@@ -431,7 +431,7 @@ namespace HIDrogen.Devices.LowLevel
         {
             var abs = capabilities.supportedAbs[absIndex];
 
-            if (IsHatX(abs) &&
+            if (abs.IsHatX() &&
                 // Only group abs hats if both axes are available
                 IsAbsAvailable(abs) &&
                 IsAbsAvailable(abs + 1))
@@ -454,7 +454,7 @@ namespace HIDrogen.Devices.LowLevel
             int max = absInfo.maximum;
 
             // Invert Y axes, except for hats since their non-hat usages are typically not inverted
-            if (IsAxisY(abs) /* || IsHatY(abs) */)
+            if (abs.IsAxisY() /* || abs.IsHatY() */)
             {
                 (min, max) = (max, min);
             }
@@ -513,7 +513,7 @@ namespace HIDrogen.Devices.LowLevel
             for (int i = keyIndex; i < capabilities.supportedKeys.Length; i++)
             {
                 // D-pad keys are sequential; bail when we see something else
-                if (!IsDpadKey(capabilities.supportedKeys[i]))
+                if (!capabilities.supportedKeys[i].IsDpadKey())
                 {
                     break;
                 }
@@ -537,7 +537,7 @@ namespace HIDrogen.Devices.LowLevel
                     for (int i = keyIndex; i < capabilities.supportedKeys.Length; i++)
                     {
                         var key = capabilities.supportedKeys[i];
-                        if (!IsDpadKey(key))
+                        if (!key.IsDpadKey())
                         {
                             break;
                         }
@@ -630,7 +630,7 @@ namespace HIDrogen.Devices.LowLevel
                 int max = absInfo.maximum;
 
                 // Y axis is inverted
-                if (IsHatY(abs))
+                if (abs.IsHatY())
                 {
                     (min, max) = (max, min);
                 }
@@ -681,7 +681,7 @@ namespace HIDrogen.Devices.LowLevel
                 int max = absInfo.maximum;
 
                 // Invert Y axes naturally
-                bool naturallyInverted = IsAxisY(abs) || IsHatY(abs);
+                bool naturallyInverted = abs.IsAxisY() || abs.IsHatY();
 
                 bool configuredInverted = i == 0
                     ? (options & EvdevStickOption.InvertX) != 0
@@ -794,49 +794,6 @@ namespace HIDrogen.Devices.LowLevel
             // ? what was i thinking with this?
             // return absInfo.minimum + (absInfo.maximum - absInfo.minimum) / 2;
             return 0;
-        }
-
-        private static bool IsDpadKey(input_key_code key)
-        {
-            return
-                key == input_key_code.BTN_DPAD_UP ||
-                key == input_key_code.BTN_DPAD_DOWN ||
-                key == input_key_code.BTN_DPAD_LEFT ||
-                key == input_key_code.BTN_DPAD_RIGHT;
-        }
-
-        private static bool IsAxisX(input_abs_code abs)
-        {
-            return
-                abs == input_abs_code.ABS_X ||
-                abs == input_abs_code.ABS_RX ||
-                abs == input_abs_code.ABS_TILT_X;
-        }
-
-        private static bool IsAxisY(input_abs_code abs)
-        {
-            return
-                abs == input_abs_code.ABS_Y ||
-                abs == input_abs_code.ABS_RY ||
-                abs == input_abs_code.ABS_TILT_Y;
-        }
-
-        private static bool IsHatX(input_abs_code abs)
-        {
-            return
-                abs == input_abs_code.ABS_HAT0X ||
-                abs == input_abs_code.ABS_HAT1X ||
-                abs == input_abs_code.ABS_HAT2X ||
-                abs == input_abs_code.ABS_HAT3X;
-        }
-
-        private static bool IsHatY(input_abs_code abs)
-        {
-            return
-                abs == input_abs_code.ABS_HAT0Y ||
-                abs == input_abs_code.ABS_HAT1Y ||
-                abs == input_abs_code.ABS_HAT2Y ||
-                abs == input_abs_code.ABS_HAT3Y;
         }
 
         private static string ToCamelCase(string name)

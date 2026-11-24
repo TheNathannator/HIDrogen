@@ -1,4 +1,5 @@
 using System;
+using HIDrogen.Controls;
 using HIDrogen.Imports.Linux;
 using HIDrogen.Utilities;
 using Unity.Collections;
@@ -154,6 +155,32 @@ namespace HIDrogen.Devices.LowLevel
             }
 
             return 0;
+        }
+
+        public unsafe float ReadAbsNormalized(
+            StateEvent* stateEvent,
+            input_abs_code abs,
+            in input_absinfo absInfo,
+            EvdevAxisOption option
+        )
+        {
+            var (min, max) = (absInfo.minimum, absInfo.maximum);
+
+            bool naturallyInverted = abs.IsAxisY();
+            bool inverted = (option & EvdevAxisOption.Inverted) != 0;
+            if (naturallyInverted ^ inverted)
+            {
+                (min, max) = (max, min);
+            }
+
+            int zero = 0;
+            if ((option & EvdevAxisOption.Unsigned) != 0)
+            {
+                zero = min;
+            }
+
+            int value = ReadAbs(stateEvent, abs);
+            return IntegerAxisControl.Normalize(value, min, max, zero);
         }
 
         public unsafe int ReadRel(StateEvent* stateEvent, input_rel_code rel)

@@ -927,4 +927,51 @@ namespace HIDrogen.Imports.Linux
         SND_PROFILE_VIBRATE = 0x01,
         SND_PROFILE_RING = 0x02,
     }
+
+    // intentionally public
+    public static class EvdevExtensions
+    {
+        public static bool IsDpadKey(this input_key_code key)
+        {
+            return
+                key == input_key_code.BTN_DPAD_UP ||
+                key == input_key_code.BTN_DPAD_DOWN ||
+                key == input_key_code.BTN_DPAD_LEFT ||
+                key == input_key_code.BTN_DPAD_RIGHT;
+        }
+
+        public static bool IsAxisX(this input_abs_code abs)
+        {
+            return
+                abs == input_abs_code.ABS_X ||
+                abs == input_abs_code.ABS_RX ||
+                abs == input_abs_code.ABS_TILT_X;
+        }
+
+        public static bool IsAxisY(this input_abs_code abs)
+        {
+            return
+                abs == input_abs_code.ABS_Y ||
+                abs == input_abs_code.ABS_RY ||
+                abs == input_abs_code.ABS_TILT_Y;
+        }
+
+        public static bool IsHatX(this input_abs_code abs)
+        {
+            return
+                abs == input_abs_code.ABS_HAT0X ||
+                abs == input_abs_code.ABS_HAT1X ||
+                abs == input_abs_code.ABS_HAT2X ||
+                abs == input_abs_code.ABS_HAT3X;
+        }
+
+        public static bool IsHatY(this input_abs_code abs)
+        {
+            return
+                abs == input_abs_code.ABS_HAT0Y ||
+                abs == input_abs_code.ABS_HAT1Y ||
+                abs == input_abs_code.ABS_HAT2Y ||
+                abs == input_abs_code.ABS_HAT3Y;
+        }
+    }
 }
