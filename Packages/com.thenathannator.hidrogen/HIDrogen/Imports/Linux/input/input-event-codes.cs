@@ -12,6 +12,7 @@ namespace HIDrogen.Imports.Linux
         PROP_TOPBUTTONPAD = 0x04,
         PROP_POINTING_STICK = 0x05,
         PROP_ACCELEROMETER = 0x06,
+        INPUT_PROP_PRESSUREPAD = 0x07,
 
         PROP_MAX = 0x1f,
         PROP_COUNT = PROP_MAX + 1,
@@ -348,8 +349,8 @@ namespace HIDrogen.Imports.Linux
         BTN_Z = 0x135,
         BTN_TL = 0x136,
         BTN_TR = 0x137,
-        BTN_TL2 = 0x138,
-        BTN_TR2 = 0x139,
+        BTN_TL_2 = 0x138,
+        BTN_TR_2 = 0x139,
         BTN_SELECT = 0x13a,
         BTN_START = 0x13b,
         BTN_MODE = 0x13c,
@@ -402,7 +403,7 @@ namespace HIDrogen.Imports.Linux
         KEY_ASPECT_RATIO = 0x177,
         KEY_PC = 0x178,
         KEY_TV = 0x179,
-        KEY_TV2 = 0x17a,
+        KEY_TV_2 = 0x17a,
         KEY_VCR = 0x17b,
         KEY_VCR_2 = 0x17c,
         KEY_SAT = 0x17d,
@@ -456,8 +457,8 @@ namespace HIDrogen.Imports.Linux
         KEY_ADDRESS_BOOK = 0x1ad,
         KEY_MESSENGER = 0x1ae,
         KEY_DISPLAY_TOGGLE = 0x1af,
-        KEY_SPELL_CHECK = 0x1b0,  
-        KEY_LOGOFF = 0x1b1,  
+        KEY_SPELL_CHECK = 0x1b0,
+        KEY_LOGOFF = 0x1b1,
 
         KEY_DOLLAR = 0x1b2,
         KEY_EURO = 0x1b3,
@@ -472,6 +473,7 @@ namespace HIDrogen.Imports.Linux
         KEY_NOTIFICATION_CENTER = 0x1bc,
         KEY_PICKUP_PHONE = 0x1bd,
         KEY_HANGUP_PHONE = 0x1be,
+        KEY_LINK_PHONE = 0x1bf,
 
         KEY_DEL_EOL = 0x1c0,
         KEY_DEL_EOS = 0x1c1,
@@ -501,16 +503,16 @@ namespace HIDrogen.Imports.Linux
         KEY_FN_B = 0x1e4,
         KEY_FN_RIGHT_SHIFT = 0x1e5,
 
-        KEY_BRL_DOT1 = 0x1f1,
-        KEY_BRL_DOT2 = 0x1f2,
-        KEY_BRL_DOT3 = 0x1f3,
-        KEY_BRL_DOT4 = 0x1f4,
-        KEY_BRL_DOT5 = 0x1f5,
-        KEY_BRL_DOT6 = 0x1f6,
-        KEY_BRL_DOT7 = 0x1f7,
-        KEY_BRL_DOT8 = 0x1f8,
-        KEY_BRL_DOT9 = 0x1f9,
-        KEY_BRL_DOT10 = 0x1fa,
+        KEY_BRL_DOT_1 = 0x1f1,
+        KEY_BRL_DOT_2 = 0x1f2,
+        KEY_BRL_DOT_3 = 0x1f3,
+        KEY_BRL_DOT_4 = 0x1f4,
+        KEY_BRL_DOT_5 = 0x1f5,
+        KEY_BRL_DOT_6 = 0x1f6,
+        KEY_BRL_DOT_7 = 0x1f7,
+        KEY_BRL_DOT_8 = 0x1f8,
+        KEY_BRL_DOT_9 = 0x1f9,
+        KEY_BRL_DOT_10 = 0x1fa,
 
         KEY_NUMERIC_0 = 0x200,
         KEY_NUMERIC_1 = 0x201,
@@ -553,8 +555,14 @@ namespace HIDrogen.Imports.Linux
         BTN_DPAD_LEFT = 0x222,
         BTN_DPAD_RIGHT = 0x223,
 
+        BTN_GRIP_L = 0x224,
+        BTN_GRIP_R = 0x225,
+        BTN_GRIP_L_2 = 0x226,
+        BTN_GRIP_R_2 = 0x227,
+
         KEY_ALS_TOGGLE = 0x230,
         KEY_ROTATE_LOCK_TOGGLE = 0x231,
+        KEY_REFRESH_RATE_TOGGLE = 0x232,
 
         KEY_BUTTON_CONFIG = 0x240,
         KEY_TASK_MANAGER = 0x241,
@@ -567,9 +575,21 @@ namespace HIDrogen.Imports.Linux
         KEY_KBD_LAYOUT_NEXT = 0x248,
         KEY_EMOJI_PICKER = 0x249,
         KEY_DICTATE = 0x24a,
+        KEY_CAMERA_ACCESS_ENABLE = 0x24b,
+        KEY_CAMERA_ACCESS_DISABLE = 0x24c,
+        KEY_CAMERA_ACCESS_TOGGLE = 0x24d,
+        KEY_ACCESSIBILITY = 0x24e,
+        KEY_DO_NOT_DISTURB = 0x24f,
 
         KEY_BRIGHTNESS_MIN = 0x250,
         KEY_BRIGHTNESS_MAX = 0x251,
+
+        KEY_EPRIVACY_SCREEN_ON = 0x252,
+        KEY_EPRIVACY_SCREEN_OFF = 0x253,
+
+        KEY_ACTION_ON_SELECTION = 0x254,
+        KEY_CONTEXTUAL_INSERT = 0x255,
+        KEY_CONTEXTUAL_QUERY = 0x256,
 
         KEY_KBD_INPUT_ASSIST_PREV = 0x260,
         KEY_KBD_INPUT_ASSIST_NEXT = 0x261,
@@ -587,7 +607,6 @@ namespace HIDrogen.Imports.Linux
         KEY_MEDIA_TOP_MENU = 0x26b,
         KEY_NUMERIC_11 = 0x26c,
         KEY_NUMERIC_12 = 0x26d,
-
         KEY_AUDIO_DESC = 0x26e,
         KEY_3D_MODE = 0x26f,
         KEY_NEXT_FAVORITE = 0x270,
@@ -597,99 +616,151 @@ namespace HIDrogen.Imports.Linux
         KEY_UNMUTE = 0x274,
         KEY_FAST_REVERSE = 0x275,
         KEY_SLOW_REVERSE = 0x276,
-
         KEY_DATA = 0x277,
         KEY_ONSCREEN_KEYBOARD = 0x278,
         KEY_PRIVACY_SCREEN_TOGGLE = 0x279,
+
         KEY_SELECTIVE_SCREENSHOT = 0x27a,
 
-        KEY_MACRO1 = 0x290,
-        KEY_MACRO2 = 0x291,
-        KEY_MACRO3 = 0x292,
-        KEY_MACRO4 = 0x293,
-        KEY_MACRO5 = 0x294,
-        KEY_MACRO6 = 0x295,
-        KEY_MACRO7 = 0x296,
-        KEY_MACRO8 = 0x297,
-        KEY_MACRO9 = 0x298,
-        KEY_MACRO10 = 0x299,
-        KEY_MACRO11 = 0x29a,
-        KEY_MACRO12 = 0x29b,
-        KEY_MACRO13 = 0x29c,
-        KEY_MACRO14 = 0x29d,
-        KEY_MACRO15 = 0x29e,
-        KEY_MACRO16 = 0x29f,
-        KEY_MACRO17 = 0x2a0,
-        KEY_MACRO18 = 0x2a1,
-        KEY_MACRO19 = 0x2a2,
-        KEY_MACRO20 = 0x2a3,
-        KEY_MACRO21 = 0x2a4,
-        KEY_MACRO22 = 0x2a5,
-        KEY_MACRO23 = 0x2a6,
-        KEY_MACRO24 = 0x2a7,
-        KEY_MACRO25 = 0x2a8,
-        KEY_MACRO26 = 0x2a9,
-        KEY_MACRO27 = 0x2aa,
-        KEY_MACRO28 = 0x2ab,
-        KEY_MACRO29 = 0x2ac,
-        KEY_MACRO30 = 0x2ad,
+        KEY_NEXT_ELEMENT = 0x27b,
+        KEY_PREVIOUS_ELEMENT = 0x27c,
+
+        KEY_AUTOPILOT_ENGAGE_TOGGLE = 0x27d,
+
+        KEY_MARK_WAYPOINT = 0x27e,
+        KEY_SOS = 0x27f,
+        KEY_NAV_CHART = 0x280,
+        KEY_FISHING_CHART = 0x281,
+        KEY_SINGLE_RANGE_RADAR = 0x282,
+        KEY_DUAL_RANGE_RADAR = 0x283,
+        KEY_RADAR_OVERLAY = 0x284,
+        KEY_TRADITIONAL_SONAR = 0x285,
+        KEY_CLEARVU_SONAR = 0x286,
+        KEY_SIDEVU_SONAR = 0x287,
+        KEY_NAV_INFO = 0x288,
+        KEY_BRIGHTNESS_MENU = 0x289,
+
+        KEY_MACRO_1 = 0x290,
+        KEY_MACRO_2 = 0x291,
+        KEY_MACRO_3 = 0x292,
+        KEY_MACRO_4 = 0x293,
+        KEY_MACRO_5 = 0x294,
+        KEY_MACRO_6 = 0x295,
+        KEY_MACRO_7 = 0x296,
+        KEY_MACRO_8 = 0x297,
+        KEY_MACRO_9 = 0x298,
+        KEY_MACRO_10 = 0x299,
+        KEY_MACRO_11 = 0x29a,
+        KEY_MACRO_12 = 0x29b,
+        KEY_MACRO_13 = 0x29c,
+        KEY_MACRO_14 = 0x29d,
+        KEY_MACRO_15 = 0x29e,
+        KEY_MACRO_16 = 0x29f,
+        KEY_MACRO_17 = 0x2a0,
+        KEY_MACRO_18 = 0x2a1,
+        KEY_MACRO_19 = 0x2a2,
+        KEY_MACRO_20 = 0x2a3,
+        KEY_MACRO_21 = 0x2a4,
+        KEY_MACRO_22 = 0x2a5,
+        KEY_MACRO_23 = 0x2a6,
+        KEY_MACRO_24 = 0x2a7,
+        KEY_MACRO_25 = 0x2a8,
+        KEY_MACRO_26 = 0x2a9,
+        KEY_MACRO_27 = 0x2aa,
+        KEY_MACRO_28 = 0x2ab,
+        KEY_MACRO_29 = 0x2ac,
+        KEY_MACRO_30 = 0x2ad,
 
         KEY_MACRO_RECORD_START = 0x2b0,
         KEY_MACRO_RECORD_STOP = 0x2b1,
         KEY_MACRO_PRESET_CYCLE = 0x2b2,
-        KEY_MACRO_PRESET1 = 0x2b3,
-        KEY_MACRO_PRESET2 = 0x2b4,
-        KEY_MACRO_PRESET3 = 0x2b5,
+        KEY_MACRO_PRESET_1 = 0x2b3,
+        KEY_MACRO_PRESET_2 = 0x2b4,
+        KEY_MACRO_PRESET_3 = 0x2b5,
 
-        KEY_KBD_LCD_MENU1 = 0x2b8,
-        KEY_KBD_LCD_MENU2 = 0x2b9,
-        KEY_KBD_LCD_MENU3 = 0x2ba,
-        KEY_KBD_LCD_MENU4 = 0x2bb,
-        KEY_KBD_LCD_MENU5 = 0x2bc,
+        KEY_KBD_LCD_MENU_1 = 0x2b8,
+        KEY_KBD_LCD_MENU_2 = 0x2b9,
+        KEY_KBD_LCD_MENU_3 = 0x2ba,
+        KEY_KBD_LCD_MENU_4 = 0x2bb,
+        KEY_KBD_LCD_MENU_5 = 0x2bc,
 
-        BTN_TRIGGER_HAPPY1 = 0x2c0,
-        BTN_TRIGGER_HAPPY2 = 0x2c1,
-        BTN_TRIGGER_HAPPY3 = 0x2c2,
-        BTN_TRIGGER_HAPPY4 = 0x2c3,
-        BTN_TRIGGER_HAPPY5 = 0x2c4,
-        BTN_TRIGGER_HAPPY6 = 0x2c5,
-        BTN_TRIGGER_HAPPY7 = 0x2c6,
-        BTN_TRIGGER_HAPPY8 = 0x2c7,
-        BTN_TRIGGER_HAPPY9 = 0x2c8,
-        BTN_TRIGGER_HAPPY10 = 0x2c9,
-        BTN_TRIGGER_HAPPY11 = 0x2ca,
-        BTN_TRIGGER_HAPPY12 = 0x2cb,
-        BTN_TRIGGER_HAPPY13 = 0x2cc,
-        BTN_TRIGGER_HAPPY14 = 0x2cd,
-        BTN_TRIGGER_HAPPY15 = 0x2ce,
-        BTN_TRIGGER_HAPPY16 = 0x2cf,
-        BTN_TRIGGER_HAPPY17 = 0x2d0,
-        BTN_TRIGGER_HAPPY18 = 0x2d1,
-        BTN_TRIGGER_HAPPY19 = 0x2d2,
-        BTN_TRIGGER_HAPPY20 = 0x2d3,
-        BTN_TRIGGER_HAPPY21 = 0x2d4,
-        BTN_TRIGGER_HAPPY22 = 0x2d5,
-        BTN_TRIGGER_HAPPY23 = 0x2d6,
-        BTN_TRIGGER_HAPPY24 = 0x2d7,
-        BTN_TRIGGER_HAPPY25 = 0x2d8,
-        BTN_TRIGGER_HAPPY26 = 0x2d9,
-        BTN_TRIGGER_HAPPY27 = 0x2da,
-        BTN_TRIGGER_HAPPY28 = 0x2db,
-        BTN_TRIGGER_HAPPY29 = 0x2dc,
-        BTN_TRIGGER_HAPPY30 = 0x2dd,
-        BTN_TRIGGER_HAPPY31 = 0x2de,
-        BTN_TRIGGER_HAPPY32 = 0x2df,
-        BTN_TRIGGER_HAPPY33 = 0x2e0,
-        BTN_TRIGGER_HAPPY34 = 0x2e1,
-        BTN_TRIGGER_HAPPY35 = 0x2e2,
-        BTN_TRIGGER_HAPPY36 = 0x2e3,
-        BTN_TRIGGER_HAPPY37 = 0x2e4,
-        BTN_TRIGGER_HAPPY38 = 0x2e5,
-        BTN_TRIGGER_HAPPY39 = 0x2e6,
-        BTN_TRIGGER_HAPPY40 = 0x2e7,
+        KEY_PERFORMANCE = 0x2bd,
+
+        BTN_TRIGGER_HAPPY_1 = 0x2c0,
+        BTN_TRIGGER_HAPPY_2 = 0x2c1,
+        BTN_TRIGGER_HAPPY_3 = 0x2c2,
+        BTN_TRIGGER_HAPPY_4 = 0x2c3,
+        BTN_TRIGGER_HAPPY_5 = 0x2c4,
+        BTN_TRIGGER_HAPPY_6 = 0x2c5,
+        BTN_TRIGGER_HAPPY_7 = 0x2c6,
+        BTN_TRIGGER_HAPPY_8 = 0x2c7,
+        BTN_TRIGGER_HAPPY_9 = 0x2c8,
+        BTN_TRIGGER_HAPPY_10 = 0x2c9,
+        BTN_TRIGGER_HAPPY_11 = 0x2ca,
+        BTN_TRIGGER_HAPPY_12 = 0x2cb,
+        BTN_TRIGGER_HAPPY_13 = 0x2cc,
+        BTN_TRIGGER_HAPPY_14 = 0x2cd,
+        BTN_TRIGGER_HAPPY_15 = 0x2ce,
+        BTN_TRIGGER_HAPPY_16 = 0x2cf,
+        BTN_TRIGGER_HAPPY_17 = 0x2d0,
+        BTN_TRIGGER_HAPPY_18 = 0x2d1,
+        BTN_TRIGGER_HAPPY_19 = 0x2d2,
+        BTN_TRIGGER_HAPPY_20 = 0x2d3,
+        BTN_TRIGGER_HAPPY_21 = 0x2d4,
+        BTN_TRIGGER_HAPPY_22 = 0x2d5,
+        BTN_TRIGGER_HAPPY_23 = 0x2d6,
+        BTN_TRIGGER_HAPPY_24 = 0x2d7,
+        BTN_TRIGGER_HAPPY_25 = 0x2d8,
+        BTN_TRIGGER_HAPPY_26 = 0x2d9,
+        BTN_TRIGGER_HAPPY_27 = 0x2da,
+        BTN_TRIGGER_HAPPY_28 = 0x2db,
+        BTN_TRIGGER_HAPPY_29 = 0x2dc,
+        BTN_TRIGGER_HAPPY_30 = 0x2dd,
+        BTN_TRIGGER_HAPPY_31 = 0x2de,
+        BTN_TRIGGER_HAPPY_32 = 0x2df,
+        BTN_TRIGGER_HAPPY_33 = 0x2e0,
+        BTN_TRIGGER_HAPPY_34 = 0x2e1,
+        BTN_TRIGGER_HAPPY_35 = 0x2e2,
+        BTN_TRIGGER_HAPPY_36 = 0x2e3,
+        BTN_TRIGGER_HAPPY_37 = 0x2e4,
+        BTN_TRIGGER_HAPPY_38 = 0x2e5,
+        BTN_TRIGGER_HAPPY_39 = 0x2e6,
+        BTN_TRIGGER_HAPPY_40 = 0x2e7,
 
         KEY_MAX = 0x2ff,
         KEY_CNT = KEY_MAX + 1,
+    }
+
+    // intentionally public
+    /// <summary>
+    /// Aliases and alternative forms for key codes.
+    /// </summary>
+    public static class input_key_code_alt
+    {
+        public const input_key_code KEY_HANGUEL = input_key_code.KEY_HANGEUL;
+        public const input_key_code KEY_COFFEE = input_key_code.KEY_SCREEN_LOCK;
+        public const input_key_code KEY_DIRECTION = input_key_code.KEY_ROTATE_DISPLAY;
+        public const input_key_code KEY_ALL_APPLICATIONS = input_key_code.KEY_DASHBOARD;
+        public const input_key_code KEY_BRIGHTNESS_ZERO = input_key_code.KEY_BRIGHTNESS_AUTO;
+        public const input_key_code KEY_WIMAX = input_key_code.KEY_WWAN;
+        public const input_key_code KEY_FULL_SCREEN = input_key_code.KEY_ZOOM;
+        public const input_key_code KEY_SCREEN = input_key_code.KEY_ASPECT_RATIO;
+        public const input_key_code KEY_BRIGHTNESS_TOGGLE = input_key_code.KEY_DISPLAY_TOGGLE;
+
+        public const input_key_code BTN_MISC = input_key_code.BTN_0; // 0x100
+        public const input_key_code BTN_MOUSE = input_key_code.BTN_LEFT; // 0x110
+        public const input_key_code BTN_JOYSTICK = input_key_code.BTN_TRIGGER; // 0x120
+        public const input_key_code BTN_GAMEPAD = input_key_code.BTN_A; // 0x130
+        public const input_key_code BTN_DIGI = input_key_code.BTN_TOOL_PEN; // 0x140
+        public const input_key_code BTN_WHEEL = input_key_code.BTN_GEAR_DOWN; // 0x150
+        public const input_key_code BTN_TRIGGER_HAPPY = input_key_code.BTN_TRIGGER_HAPPY_1; // 0x2c0
+
+        public const input_key_code BTN_SOUTH = input_key_code.BTN_A;
+        public const input_key_code BTN_EAST = input_key_code.BTN_B;
+        public const input_key_code BTN_NORTH = input_key_code.BTN_X;
+        public const input_key_code BTN_WEST = input_key_code.BTN_Y;
+
+        public const input_key_code KEY_MIN_INTERESTING = input_key_code.KEY_MUTE;
     }
 
     // intentionally public
@@ -704,8 +775,8 @@ namespace HIDrogen.Imports.Linux
         REL_HWHEEL = 0x06,
         REL_DIAL = 0x07,
         REL_WHEEL = 0x08,
-        REL_MISC_1 = 0x09,
-        REL_MISC_2 = 0x0a,
+        REL_MISC = 0x09,
+        REL_RESERVED = 0x0a,
         REL_WHEEL_HI_RES = 0x0b,
         REL_HWHEEL_HI_RES = 0x0c,
 
@@ -742,6 +813,8 @@ namespace HIDrogen.Imports.Linux
         ABS_TOOL_WIDTH = 0x1c,
 
         ABS_VOLUME = 0x20,
+        ABS_PROFILE = 0x21,
+        ABS_SND_PROFILE = 0x22,
 
         ABS_MISC_1 = 0x28,
         ABS_MISC_2 = 0x29,
@@ -749,7 +822,8 @@ namespace HIDrogen.Imports.Linux
         ABS_MISC_4 = 0x2b,
         ABS_MISC_5 = 0x2c,
         ABS_MISC_6 = 0x2d,
-        ABS_MISC_7 = 0x2e,
+
+        ABS_RESERVED = 0x2e,
 
         ABS_MT_SLOT = 0x2f,
         ABS_MT_TOUCH_MAJOR = 0x30,
@@ -777,6 +851,7 @@ namespace HIDrogen.Imports.Linux
         SW_TABLET_MODE = 0x01,
         SW_HEADPHONE_INSERT = 0x02,
         SW_RFKILL_ALL = 0x03,
+        SW_RADIO = SW_RFKILL_ALL,
         SW_MICROPHONE_INSERT = 0x04,
         SW_DOCK = 0x05,
         SW_LINEOUT_INSERT = 0x06,
@@ -790,8 +865,9 @@ namespace HIDrogen.Imports.Linux
         SW_MUTE_DEVICE = 0x0e,
         SW_PEN_INSERTED = 0x0f,
         SW_MACHINE_COVER = 0x10,
+        SW_USB_INSERT = 0x11,
 
-        SW_MAX = 0x10,
+        SW_MAX = 0x11,
         SW_CNT = SW_MAX + 1,
     }
 
@@ -826,6 +902,15 @@ namespace HIDrogen.Imports.Linux
         LED_CNT = LED_MAX + 1,
     }
 
+    internal enum input_repeat_code
+    {
+        REP_DELAY = 0x00,
+        REP_PERIOD = 0x01,
+
+        REP_MAX = 0x01,
+        REP_CNT = REP_MAX + 1,
+    }
+
     internal enum input_sound_code
     {
         SND_CLICK = 0x00,
@@ -836,12 +921,10 @@ namespace HIDrogen.Imports.Linux
         SND_CNT = SND_MAX + 1,
     }
 
-    internal enum input_repeat_code
+    internal enum input_sound_profile
     {
-        REP_DELAY = 0x00,
-        REP_PERIOD = 0x01,
-
-        REP_MAX = 0x01,
-        REP_CNT = REP_MAX + 1,
+        SND_PROFILE_SILENT = 0x00,
+        SND_PROFILE_VIBRATE = 0x01,
+        SND_PROFILE_RING = 0x02,
     }
 }

@@ -42,10 +42,10 @@ namespace HIDrogen.Devices
             var baseMappings = new EvdevDeviceMapping()
                 .WithKey(input_key_code.BTN_START, "start")
                 .WithKey(input_key_code.BTN_SELECT, "select")
-                .WithKey(input_key_code.BTN_A, "buttonSouth")
-                .WithKey(input_key_code.BTN_B, "buttonEast")
-                .WithKey(input_key_code.BTN_X, "buttonWest")
-                .WithKey(input_key_code.BTN_Y, "buttonNorth")
+                .WithKey(input_key_code_alt.BTN_SOUTH, "buttonSouth")
+                .WithKey(input_key_code_alt.BTN_EAST, "buttonEast")
+                .WithKey(input_key_code_alt.BTN_WEST, "buttonWest")
+                .WithKey(input_key_code_alt.BTN_NORTH, "buttonNorth")
                 .WithHat(0, "dpad")
                 .WithStick(input_abs_code.ABS_X, "leftStick")
                 .WithStick(input_abs_code.ABS_RX, "rightStick")
@@ -57,8 +57,8 @@ namespace HIDrogen.Devices
                 baseMappings.Clone()
                     .WithKey(input_key_code.BTN_TL, "leftShoulder")
                     .WithKey(input_key_code.BTN_TR, "rightShoulder")
-                    .WithKey(input_key_code.BTN_TL2, "leftTrigger")
-                    .WithKey(input_key_code.BTN_TR2, "rightTrigger"),
+                    .WithKey(input_key_code.BTN_TL_2, "leftTrigger")
+                    .WithKey(input_key_code.BTN_TR_2, "rightTrigger"),
                 new EvdevDeviceMatcher()
             );
 
