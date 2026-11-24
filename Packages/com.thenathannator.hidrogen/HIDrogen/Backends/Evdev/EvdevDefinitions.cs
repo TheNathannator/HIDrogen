@@ -16,8 +16,8 @@ namespace HIDrogen.Backend.Linux
         public int vendorId;
         public int productId;
 
-        // not the biggest fan of stuffing device-specific data in here,
-        // but there's also not really any harm in doing so
+        // TODO: Not the biggest fan of stuffing device-specific data in here
+        // But, there's also not really any harm in doing so... just feels hacky
         public byte xusbSubtype;
         public byte santrollerSubtype;
         public byte santrollerCapabilities;
