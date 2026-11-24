@@ -791,7 +791,9 @@ namespace HIDrogen.Devices.LowLevel
 
         private int GetAbsZeroPoint(input_absinfo absInfo)
         {
-            return absInfo.minimum + (absInfo.maximum - absInfo.minimum) / 2;
+            // ? what was i thinking with this?
+            // return absInfo.minimum + (absInfo.maximum - absInfo.minimum) / 2;
+            return 0;
         }
 
         private static bool IsDpadKey(input_key_code key)
