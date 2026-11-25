@@ -52,5 +52,10 @@ namespace HIDrogen.Devices.LowLevel
         public const string DriverSony = "sony";
         public const string DriverWiimote = "wiimote";
         public const string DriverXpad = "xpad";
+
+        // xone has a separate driver for each GIP device class
+        public const string DriverXoneMadCatzStratocaster = "xone-gip-madcatz-strat";
+        public const string DriverXonePdpJaguar = "xone-gip-pdp-jaguar";
+        public const string DriverXoneMadCatzDrumkit = "xone-gip-madcatz-glam";
     }
 }
