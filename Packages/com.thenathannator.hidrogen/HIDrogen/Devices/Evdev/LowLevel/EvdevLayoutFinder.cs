@@ -252,6 +252,8 @@ namespace HIDrogen.Devices.LowLevel
             });
         }
 
+        // While this registration will never end up actually using the control mappings outside of
+        // compatibility checking, they're still nice to have for self-documentation
         public static void RegisterStaticLayout<TDevice>(
             EvdevDeviceMapping mappings,
             EvdevDeviceMatcher matcher

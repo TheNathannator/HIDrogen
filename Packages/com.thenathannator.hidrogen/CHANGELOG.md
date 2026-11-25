@@ -12,6 +12,7 @@ Dates are relative to UTC.
 
 - A new evdev backend has been implemented, for devices which are not covered by hidraw or libusb.
   - This backend comes with built-in generic joystick and gamepad support, along with dedicated support for a few specific common gamepads that are not covered by the generic support.
+  - This backend also comes with a public API for registering new device layouts and some utilities for more advanced input handling scenarios. This API is recommended over manual layouts and matching.
 
 ### Changed
 
