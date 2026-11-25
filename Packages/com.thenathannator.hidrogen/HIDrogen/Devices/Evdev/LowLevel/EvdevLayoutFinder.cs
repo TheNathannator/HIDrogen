@@ -34,6 +34,12 @@ namespace HIDrogen.Devices.LowLevel
             return this;
         }
 
+        public EvdevDeviceMatcher WithProduct(string product, bool supportRegex = true)
+        {
+            m_Matcher = m_Matcher.WithProduct(product, supportRegex);
+            return this;
+        }
+
         public EvdevDeviceMatcher WithRevision(ushort revision)
         {
             m_Matcher = m_Matcher.WithVersion(revision.ToString());
@@ -42,19 +48,19 @@ namespace HIDrogen.Devices.LowLevel
 
         public EvdevDeviceMatcher WithXusbSubtype(byte xusbSubtype)
         {
-            m_Matcher = m_Matcher.WithCapability("xusbSubtype", xusbSubtype);
+            m_Matcher = m_Matcher.WithCapability("xusbSubtype", (int)xusbSubtype);
             return this;
         }
 
         public EvdevDeviceMatcher WithSantrollerSubtype(byte santrollerSubtype)
         {
-            m_Matcher = m_Matcher.WithCapability("santrollerSubtype", santrollerSubtype);
+            m_Matcher = m_Matcher.WithCapability("santrollerSubtype", (int)santrollerSubtype);
             return this;
         }
 
         public EvdevDeviceMatcher WithSantrollerCapabilities(byte santrollerCapabilities)
         {
-            m_Matcher = m_Matcher.WithCapability("santrollerCapabilities", santrollerCapabilities);
+            m_Matcher = m_Matcher.WithCapability("santrollerCapabilities", (int)santrollerCapabilities);
             return this;
         }
 
