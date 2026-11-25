@@ -14,6 +14,7 @@ namespace HIDrogen.Devices.LowLevel
     public struct EvdevDeviceMatcher
     {
         private InputDeviceMatcher m_Matcher;
+        private EvdevLayoutMatchPredicate m_Predicate;
 
         public EvdevDeviceMatcher WithDriver(string driver)
         {
@@ -63,12 +64,21 @@ namespace HIDrogen.Devices.LowLevel
             m_Matcher = m_Matcher.WithCapability("santrollerCapabilities", (int)santrollerCapabilities);
             return this;
         }
+        public EvdevDeviceMatcher WithPredicate(EvdevLayoutMatchPredicate predicate)
+        {
+            m_Predicate = predicate;
+            return this;
+        }
 
         internal InputDeviceMatcher ToMatcher()
         {
             return m_Matcher.WithInterface(EvdevDefinitions.InterfaceName);
         }
+
+        internal EvdevLayoutMatchPredicate predicate => m_Predicate;
     }
+
+    public delegate float EvdevLayoutMatchPredicate(EvdevCapabilities capabilities);
 
     public static class EvdevLayoutFinder
     {
@@ -76,6 +86,7 @@ namespace HIDrogen.Devices.LowLevel
         {
             public string layoutName;
             public InputDeviceMatcher matcher;
+            public EvdevLayoutMatchPredicate predicate;
             public EvdevDeviceMapping mappings;
             public bool isStatic;
         }
@@ -128,6 +139,22 @@ namespace HIDrogen.Devices.LowLevel
                 }
 
                 float match = registration.matcher.MatchPercentage(description);
+                if (match <= 0)
+                {
+                    continue;
+                }
+
+                if (registration.predicate != null)
+                {
+                    float predicateMatch = registration.predicate(capabilities);
+                    if (predicateMatch < 0)
+                    {
+                        continue;
+                    }
+
+                    match += predicateMatch;
+                }
+
                 if (match > bestMatch)
                 {
                     bestMatch = match;
@@ -220,6 +247,7 @@ namespace HIDrogen.Devices.LowLevel
                 layoutName = typeof(TDevice).Name,
                 mappings = mappings,
                 matcher = matcher.ToMatcher(),
+                predicate = matcher.predicate,
                 isStatic = false,
             });
         }
@@ -239,6 +267,7 @@ namespace HIDrogen.Devices.LowLevel
                 layoutName = typeof(TDevice).Name,
                 mappings = mappings,
                 matcher = matcher.ToMatcher(),
+                predicate = matcher.predicate,
                 isStatic = true,
             });
         }
