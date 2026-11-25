@@ -2,6 +2,8 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
@@ -298,6 +300,11 @@ namespace HIDrogen
         public void QueueStateEvent(InputDevice device, FourCC format, byte[] stateBuffer, int offset, int length)
         {
             m_InputBuffer.QueueStateEvent(device, format, stateBuffer, offset, length);
+        }
+
+        public unsafe void QueueStateEvent(InputDevice device, FourCC format, NativeArray<byte> stateBuffer)
+        {
+            QueueStateEvent(device, format, stateBuffer.GetUnsafePtr(), stateBuffer.Length);
         }
 
         public unsafe void QueueStateEvent(InputDevice device, FourCC format, void* stateBuffer, int stateLength)

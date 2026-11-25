@@ -265,14 +265,9 @@ namespace HIDrogen.Backend.Linux
             }
         }
 
-        private unsafe void SendStateLocked()
+        private void SendStateLocked()
         {
-            m_Backend.QueueStateEvent(
-                m_Device,
-                EvdevDefinitions.InputFormat,
-                m_StateLocked.GetUnsafeReadOnlyPtr(),
-                m_StateLocked.Length
-            );
+            m_Backend.QueueStateEvent(m_Device, EvdevDefinitions.InputFormat, m_StateLocked);
 
             // Clear rels, they don't have persistent state
             m_StateHandlerLocked.ClearRel(m_StateLocked);
