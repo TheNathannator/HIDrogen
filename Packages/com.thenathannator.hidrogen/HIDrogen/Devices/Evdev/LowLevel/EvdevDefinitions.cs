@@ -34,9 +34,9 @@ namespace HIDrogen.Devices.LowLevel
                 .WithCapability("busType", (int)busType)
                 .WithCapability("vendorId", vendorId)
                 .WithCapability("productId", productId)
-                .WithCapability("xusbSubtype", xusbSubtype)
-                .WithCapability("santrollerSubtype", santrollerSubtype)
-                .WithCapability("santrollerCapabilities", santrollerCapabilities);
+                .WithCapability("xusbSubtype", (int)xusbSubtype)
+                .WithCapability("santrollerSubtype", (int)santrollerSubtype)
+                .WithCapability("santrollerCapabilities", (int)santrollerCapabilities);
 
             // Supported inputs are not matched against for simplicity
         }

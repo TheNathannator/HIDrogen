@@ -232,7 +232,7 @@ namespace HIDrogen.Devices.LowLevel
                     index++;
                 }
 
-                return comparer.Compare(values[index], target) == 0;
+                return index < values.Length && comparer.Compare(values[index], target) == 0;
             }
 
             int keyIndex = 0;
