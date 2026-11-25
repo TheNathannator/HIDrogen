@@ -46,5 +46,11 @@ namespace HIDrogen.Devices.LowLevel
     {
         public const string InterfaceName = "Evdev";
         public static readonly FourCC InputFormat = new FourCC('E', 'V', 'D', 'V');
+
+        public const string DriverHidGeneric = "hid-generic";
+        public const string DriverPlaystation = "playstation";
+        public const string DriverSony = "sony";
+        public const string DriverWiimote = "wiimote";
+        public const string DriverXpad = "xpad";
     }
 }
