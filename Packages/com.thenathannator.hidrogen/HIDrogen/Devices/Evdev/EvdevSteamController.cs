@@ -95,8 +95,8 @@ namespace HIDrogen.Devices
                 .WithKey(input_key_code.BTN_THUMB_L, (LeftStickPress, DisplayL3))
                 .WithKey(input_key_code.BTN_THUMB_R, (RightStickPress, DisplayR3))
 
-                .WithStick(input_abs_code.ABS_HAT0X, (LeftTouchpad, DisplayLeftTouchpad))
-                .WithStick(input_abs_code.ABS_HAT1X, (RightTouchpad, DisplayRightTouchpad))
+                .WithStick(input_abs_code.ABS_HAT0X, (LeftTouchpad, DisplayLeftTouchpad), EvdevStickOption.InvertY)
+                .WithStick(input_abs_code.ABS_HAT1X, (RightTouchpad, DisplayRightTouchpad), EvdevStickOption.InvertY)
                 .WithKey(input_key_code.BTN_THUMB, new EvdevControlMapping()
                 {
                     path = LeftTouchpadPress,
@@ -161,8 +161,8 @@ namespace HIDrogen.Devices
                 .WithKey(input_key_code.BTN_THUMB_L, (LeftStickPress, DisplayL3))
                 .WithKey(input_key_code.BTN_THUMB_R, (RightStickPress, DisplayR3))
 
-                .WithStick(input_abs_code.ABS_HAT0X, (LeftTouchpad, DisplayLeftTouchpad))
-                .WithStick(input_abs_code.ABS_HAT1X, (RightTouchpad, DisplayRightTouchpad))
+                .WithStick(input_abs_code.ABS_HAT0X, (LeftTouchpad, DisplayLeftTouchpad), EvdevStickOption.InvertY)
+                .WithStick(input_abs_code.ABS_HAT1X, (RightTouchpad, DisplayRightTouchpad), EvdevStickOption.InvertY)
                 .WithKey(input_key_code.BTN_THUMB, (LeftTouchpadPress, DisplayLeftTouchpadPress))
                 .WithKey(input_key_code.BTN_THUMB_2, (RightTouchpadPress, DisplayRightTouchpadPress));
 
@@ -254,8 +254,8 @@ namespace HIDrogen.Devices
                 .WithKey(input_key_code.BTN_THUMB_L, (LeftStickPress, DisplayL3))
                 .WithKey(input_key_code.BTN_THUMB_R, (RightStickPress, DisplayR3))
 
-                .WithStick(input_abs_code.ABS_HAT0X, (LeftTouchpad, DisplayLeftTouchpad))
-                .WithStick(input_abs_code.ABS_HAT1X, (RightTouchpad, DisplayRightTouchpad))
+                .WithStick(input_abs_code.ABS_HAT0X, (LeftTouchpad, DisplayLeftTouchpad), EvdevStickOption.InvertY)
+                .WithStick(input_abs_code.ABS_HAT1X, (RightTouchpad, DisplayRightTouchpad), EvdevStickOption.InvertY)
                 .WithKey(input_key_code.BTN_THUMB, (LeftTouchpadPress, DisplayLeftTouchpadPress))
                 .WithKey(input_key_code.BTN_THUMB_2, (RightTouchpadPress, DisplayRightTouchpadPress));
 
