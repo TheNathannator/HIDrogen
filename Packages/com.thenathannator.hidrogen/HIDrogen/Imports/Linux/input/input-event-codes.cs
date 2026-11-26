@@ -757,8 +757,8 @@ namespace HIDrogen.Imports.Linux
 
         public const input_key_code BTN_SOUTH = input_key_code.BTN_A;
         public const input_key_code BTN_EAST = input_key_code.BTN_B;
-        public const input_key_code BTN_NORTH = input_key_code.BTN_X;
-        public const input_key_code BTN_WEST = input_key_code.BTN_Y;
+        public const input_key_code BTN_WEST = input_key_code.BTN_X;
+        public const input_key_code BTN_NORTH = input_key_code.BTN_Y;
 
         public const input_key_code KEY_MIN_INTERESTING = input_key_code.KEY_MUTE;
     }
