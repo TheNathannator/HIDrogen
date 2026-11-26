@@ -14,7 +14,8 @@ namespace HIDrogen.InputDebug
         private TextLog m_Log;
 
         public bool showMouse { get; set; }
-        public bool showNoise { get; set; }
+        public bool showNoisy { get; set; }
+        public bool showSynthetic { get; set; }
         public bool showUnchanged { get; set; }
 
         private void OnEnable()
@@ -40,7 +41,8 @@ namespace HIDrogen.InputDebug
             }
 
             var enumerateFlags = EnumerateFlags.IgnoreControlsInCurrentState;
-            if (showNoise) enumerateFlags |= EnumerateFlags.IncludeNoisyControls;
+            if (showNoisy) enumerateFlags |= EnumerateFlags.IncludeNoisyControls;
+            if (showSynthetic) enumerateFlags |= EnumerateFlags.IncludeSyntheticControls;
 
             bool IsChanged<TValue>(InputControl<TValue> control, out TValue value)
                 where TValue : struct, IEquatable<TValue>
