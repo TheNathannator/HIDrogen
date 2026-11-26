@@ -79,7 +79,7 @@ namespace HIDrogen.Services.Linux
             var hidLayoutFinder = (InputDeviceFindControlLayoutDelegate) hidLayoutFinderMethod.CreateDelegate(
                 typeof(InputDeviceFindControlLayoutDelegate)
             );
-            InputSystem.onFindLayoutForDevice -= sdlLayoutFinder;
+            InputSystem.onFindLayoutForDevice -= hidLayoutFinder;
 
             // Just in case, plan B:
             // Devices that would have been handled by the SDL layout finder before will still
