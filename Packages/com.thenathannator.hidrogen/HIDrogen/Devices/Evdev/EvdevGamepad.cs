@@ -9,8 +9,8 @@ namespace HIDrogen.Devices
 
     using static ControlNames;
 
-    [InputControlLayout(hideInUI = true)]
-    internal class EvdevGamepad : Gamepad
+    [InputControlLayout(hideInUI = true, displayName = "Generic Gamepad")]
+    internal sealed class EvdevGamepad : Gamepad
     {
         internal static void Initialize()
         {

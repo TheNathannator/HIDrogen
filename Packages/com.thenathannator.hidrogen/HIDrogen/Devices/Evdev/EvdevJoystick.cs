@@ -8,8 +8,8 @@ namespace HIDrogen.Devices
     /// <summary>
     /// A joystick reported via evdev on Linux, with no pre-defined form.
     /// </summary>
-    [InputControlLayout(hideInUI = true)]
-    internal class EvdevJoystick : InputDevice
+    [InputControlLayout(hideInUI = true, displayName = "Generic Joystick")]
+    internal sealed class EvdevJoystick : InputDevice
     {
         internal static void Initialize()
         {
