@@ -15,10 +15,15 @@ namespace HIDrogen
             IntegerAxisControl.Initialize();
             IntegerButtonControl.Initialize();
 
-            // Devices
+            // Fallback device layouts
             EvdevJoystick.Initialize();
             EvdevGamepad.Initialize();
-            EvdevSteamController.Initialize();
+
+            // Steam
+            EvdevSteamVirtualController.Initialize();
+            EvdevSteamControllerV1.Initialize();
+            EvdevSteamControllerV2.Initialize();
+            EvdevSteamDeck.Initialize();
         }
     }
 }
