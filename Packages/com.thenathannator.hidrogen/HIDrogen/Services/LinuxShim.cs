@@ -23,63 +23,69 @@ namespace HIDrogen.Services.Linux
         public LinuxShim()
         {
             // Shim native device discovery, as shimming their descriptions is not enough
-            // InputManager InputSystem.s_Manager;
-            var inputManagerField = typeof(InputSystem).GetField(
-                "s_Manager",
-                BindingFlags.NonPublic | BindingFlags.Static
-            );
-            // IInputRuntime InputManager.m_Runtime;
-            var inputRuntimeField = inputManagerField.FieldType.GetField(
-                "m_Runtime",
-                BindingFlags.NonPublic | BindingFlags.Instance
-            );
-            // Action<int, string> IInputRuntime.onDeviceDiscovered { get; set; }
-            var onDeviceDiscoveredProperty = inputRuntimeField.FieldType.GetProperty(
-                "onDeviceDiscovered",
-                BindingFlags.Public | BindingFlags.Instance
-            );
+            {
+                // InputManager InputSystem.s_Manager;
+                var inputManagerField = typeof(InputSystem).GetField(
+                    "s_Manager",
+                    BindingFlags.NonPublic | BindingFlags.Static
+                );
+                // IInputRuntime InputManager.m_Runtime;
+                var inputRuntimeField = inputManagerField.FieldType.GetField(
+                    "m_Runtime",
+                    BindingFlags.NonPublic | BindingFlags.Instance
+                );
+                // Action<int, string> IInputRuntime.onDeviceDiscovered { get; set; }
+                var onDeviceDiscoveredProperty = inputRuntimeField.FieldType.GetProperty(
+                    "onDeviceDiscovered",
+                    BindingFlags.Public | BindingFlags.Instance
+                );
 
-            object inputManager = inputManagerField.GetValue(null);
-            object inputRuntime = inputRuntimeField.GetValue(inputManager);
-            m_RealNativeDeviceDiscovered = (Action<int, string>)onDeviceDiscoveredProperty.GetValue(inputRuntime);
-            onDeviceDiscoveredProperty.SetValue(inputRuntime, (Action<int, string>)OnNativeDeviceDiscovered);
+                object inputManager = inputManagerField.GetValue(null);
+                object inputRuntime = inputRuntimeField.GetValue(inputManager);
+                m_RealNativeDeviceDiscovered = (Action<int, string>)onDeviceDiscoveredProperty.GetValue(inputRuntime);
+                onDeviceDiscoveredProperty.SetValue(inputRuntime, (Action<int, string>)OnNativeDeviceDiscovered);
+            }
 
             // Just to be thorough, also remove SDL layout finder
-            var sdlLayoutBuilder = typeof(InputSystem).Assembly.GetType("UnityEngine.InputSystem.Linux.SDLLayoutBuilder");
-            var sdlLayoutFinderMethod = sdlLayoutBuilder.GetMethod(
-                "OnFindLayoutForDevice",
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
-                null,
-                new Type[]
-                {
-                    typeof(InputDeviceDescription).MakeByRefType(),
-                    typeof(string),
-                    typeof(InputDeviceExecuteCommandDelegate)
-                },
-                null
-            );
-            var sdlLayoutFinder = (InputDeviceFindControlLayoutDelegate) sdlLayoutFinderMethod.CreateDelegate(
-                typeof(InputDeviceFindControlLayoutDelegate)
-            );
-            InputSystem.onFindLayoutForDevice -= sdlLayoutFinder;
+            {
+                var sdlLayoutBuilder = typeof(InputSystem).Assembly.GetType("UnityEngine.InputSystem.Linux.SDLLayoutBuilder");
+                var sdlLayoutFinderMethod = sdlLayoutBuilder.GetMethod(
+                    "OnFindLayoutForDevice",
+                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
+                    null,
+                    new Type[]
+                    {
+                        typeof(InputDeviceDescription).MakeByRefType(),
+                        typeof(string),
+                        typeof(InputDeviceExecuteCommandDelegate)
+                    },
+                    null
+                );
+                var sdlLayoutFinder = (InputDeviceFindControlLayoutDelegate) sdlLayoutFinderMethod.CreateDelegate(
+                    typeof(InputDeviceFindControlLayoutDelegate)
+                );
+                InputSystem.onFindLayoutForDevice -= sdlLayoutFinder;
+            }
 
             // Also remove HID layout finder; devices without explicit HID layouts should fall back to evdev
-            var hidLayoutFinderMethod = typeof(HID).GetMethod(
-                "OnFindLayoutForDevice",
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
-                null,
-                new Type[]
-                {
-                    typeof(InputDeviceDescription).MakeByRefType(),
-                    typeof(string),
-                    typeof(InputDeviceExecuteCommandDelegate)
-                },
-                null
-            );
-            var hidLayoutFinder = (InputDeviceFindControlLayoutDelegate) hidLayoutFinderMethod.CreateDelegate(
-                typeof(InputDeviceFindControlLayoutDelegate)
-            );
-            InputSystem.onFindLayoutForDevice -= hidLayoutFinder;
+            {
+                var hidLayoutFinderMethod = typeof(HID).GetMethod(
+                    "OnFindLayoutForDevice",
+                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
+                    null,
+                    new Type[]
+                    {
+                        typeof(InputDeviceDescription).MakeByRefType(),
+                        typeof(string),
+                        typeof(InputDeviceExecuteCommandDelegate)
+                    },
+                    null
+                );
+                var hidLayoutFinder = (InputDeviceFindControlLayoutDelegate) hidLayoutFinderMethod.CreateDelegate(
+                    typeof(InputDeviceFindControlLayoutDelegate)
+                );
+                InputSystem.onFindLayoutForDevice -= hidLayoutFinder;
+            }
 
             // Just in case, plan B:
             // Devices that would have been handled by the SDL layout finder before will still
