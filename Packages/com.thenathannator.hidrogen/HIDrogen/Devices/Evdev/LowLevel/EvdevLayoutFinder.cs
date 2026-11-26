@@ -11,10 +11,11 @@ namespace HIDrogen.Devices.LowLevel
 {
     // Intentionally public and not platform guarded, for other packages to reference.
 
+    public delegate float EvdevLayoutMatchPredicate(EvdevCapabilities capabilities);
+
     public struct EvdevDeviceMatcher
     {
         private InputDeviceMatcher m_Matcher;
-        private EvdevLayoutMatchPredicate m_Predicate;
 
         public EvdevDeviceMatcher WithDriver(string driver)
         {
@@ -64,21 +65,12 @@ namespace HIDrogen.Devices.LowLevel
             m_Matcher = m_Matcher.WithCapability("santrollerCapabilities", (int)santrollerCapabilities);
             return this;
         }
-        public EvdevDeviceMatcher WithPredicate(EvdevLayoutMatchPredicate predicate)
-        {
-            m_Predicate = predicate;
-            return this;
-        }
 
         internal InputDeviceMatcher ToMatcher()
         {
             return m_Matcher.WithInterface(EvdevDefinitions.InterfaceName);
         }
-
-        internal EvdevLayoutMatchPredicate predicate => m_Predicate;
     }
-
-    public delegate float EvdevLayoutMatchPredicate(EvdevCapabilities capabilities);
 
     public static class EvdevLayoutFinder
     {
@@ -234,7 +226,8 @@ namespace HIDrogen.Devices.LowLevel
 
         public static void RegisterLayout<TDevice>(
             EvdevDeviceMapping mappings,
-            EvdevDeviceMatcher matcher
+            EvdevDeviceMatcher matcher,
+            EvdevLayoutMatchPredicate predicate = null
         )
             where TDevice : InputDevice
         {
@@ -247,7 +240,7 @@ namespace HIDrogen.Devices.LowLevel
                 layoutName = typeof(TDevice).Name,
                 mappings = mappings,
                 matcher = matcher.ToMatcher(),
-                predicate = matcher.predicate,
+                predicate = predicate,
                 isStatic = false,
             });
         }
@@ -256,7 +249,8 @@ namespace HIDrogen.Devices.LowLevel
         // compatibility checking, they're still nice to have for self-documentation
         public static void RegisterStaticLayout<TDevice>(
             EvdevDeviceMapping mappings,
-            EvdevDeviceMatcher matcher
+            EvdevDeviceMatcher matcher,
+            EvdevLayoutMatchPredicate predicate = null
         )
             where TDevice : InputDevice
         {
@@ -269,7 +263,7 @@ namespace HIDrogen.Devices.LowLevel
                 layoutName = typeof(TDevice).Name,
                 mappings = mappings,
                 matcher = matcher.ToMatcher(),
-                predicate = matcher.predicate,
+                predicate = predicate,
                 isStatic = true,
             });
         }
