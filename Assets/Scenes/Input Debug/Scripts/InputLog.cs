@@ -12,8 +12,8 @@ namespace HIDrogen.InputDebug
         [SerializeField]
         private TextLog m_Log;
 
-        public bool showMouse;
-        public bool showNoise;
+        public bool showMouse { get; set; }
+        public bool showNoise { get; set; }
 
         private void OnEnable()
         {
