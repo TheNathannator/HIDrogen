@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -8,7 +9,7 @@ namespace HIDrogen.InputDebug
     public sealed class TextLog : MonoBehaviour
     {
         [SerializeField]
-        private Text m_Text;
+        private TMP_Text m_Text;
         [SerializeField]
         private ScrollRect m_Scroll;
 
