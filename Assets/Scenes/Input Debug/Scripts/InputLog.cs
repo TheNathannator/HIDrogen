@@ -6,8 +6,6 @@ using UnityEngine.InputSystem.LowLevel;
 
 namespace HIDrogen.InputDebug
 {
-    using EnumerateFlags = InputControlExtensions.Enumerate;
-
     public class InputLog : MonoBehaviour
     {
         [SerializeField]
@@ -16,7 +14,6 @@ namespace HIDrogen.InputDebug
         public bool showMouse { get; set; }
         public bool showNoisy { get; set; }
         public bool showSynthetic { get; set; }
-        public bool showUnchanged { get; set; }
 
         private void OnEnable()
         {
@@ -40,24 +37,33 @@ namespace HIDrogen.InputDebug
                 return;
             }
 
-            var enumerateFlags = EnumerateFlags.IgnoreControlsInCurrentState;
-            if (showNoisy) enumerateFlags |= EnumerateFlags.IncludeNoisyControls;
-            if (showSynthetic) enumerateFlags |= EnumerateFlags.IncludeSyntheticControls;
+            // Manual enumeration is performed
+            EnumerateControls(device);
 
-            bool IsChanged<TValue>(InputControl<TValue> control, out TValue value)
-                where TValue : struct, IEquatable<TValue>
+            void EnumerateControls(InputControl parent)
             {
-                value = control.ReadValueFromEvent(eventPtr);
-                if (showUnchanged)
+                foreach (var control in parent.children)
                 {
-                    return true;
-                }
+                    if (!showNoisy && control.noisy)
+                    {
+                        continue;
+                    }
 
-                var previous = control.ReadValue();
-                return !value.Equals(previous);
+                    if (!showSynthetic && control.synthetic)
+                    {
+                        continue;
+                    }
+
+                    if (control.children.Count < 1)
+                    {
+                        LogControl(control);
+                    }
+
+                    EnumerateControls(control);
+                }
             }
 
-            foreach (var control in eventPtr.EnumerateControls(enumerateFlags, device))
+            void LogControl(InputControl control)
             {
                 switch (control)
                 {
@@ -122,6 +128,14 @@ namespace HIDrogen.InputDebug
                         break;
                     }
                 }
+            }
+
+            bool IsChanged<TValue>(InputControl<TValue> control, out TValue value)
+                where TValue : struct, IEquatable<TValue>
+            {
+                var previous = control.ReadValue();
+                value = control.ReadValueFromEvent(eventPtr);
+                return !value.Equals(previous);
             }
         }
     }
