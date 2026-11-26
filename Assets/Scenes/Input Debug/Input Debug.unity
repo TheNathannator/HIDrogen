@@ -1427,7 +1427,7 @@ PrefabInstance:
     - target: {fileID: 126821382127474893, guid: 343838c1d06ea224fadd5ee673d07e36,
         type: 3}
       propertyPath: m_text
-      value: Unchanged
+      value: Non-Leaf
       objectReference: {fileID: 0}
     - target: {fileID: 601265340690801191, guid: 343838c1d06ea224fadd5ee673d07e36,
         type: 3}
@@ -1467,7 +1467,7 @@ PrefabInstance:
     - target: {fileID: 601265340690801191, guid: 343838c1d06ea224fadd5ee673d07e36,
         type: 3}
       propertyPath: m_SizeDelta.x
-      value: 185
+      value: 160
       objectReference: {fileID: 0}
     - target: {fileID: 601265340690801191, guid: 343838c1d06ea224fadd5ee673d07e36,
         type: 3}
@@ -1527,7 +1527,7 @@ PrefabInstance:
     - target: {fileID: 601265340690801191, guid: 343838c1d06ea224fadd5ee673d07e36,
         type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: -225
+      value: -250
       objectReference: {fileID: 0}
     - target: {fileID: 601265340690801191, guid: 343838c1d06ea224fadd5ee673d07e36,
         type: 3}
@@ -1557,7 +1557,7 @@ PrefabInstance:
     - target: {fileID: 6467170419911373035, guid: 343838c1d06ea224fadd5ee673d07e36,
         type: 3}
       propertyPath: onValueChanged.m_PersistentCalls.m_Calls.Array.size
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6467170419911373035, guid: 343838c1d06ea224fadd5ee673d07e36,
         type: 3}
@@ -1577,7 +1577,7 @@ PrefabInstance:
     - target: {fileID: 6467170419911373035, guid: 343838c1d06ea224fadd5ee673d07e36,
         type: 3}
       propertyPath: onValueChanged.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: set_showUnchanged
+      value: set_showNonLeaf
       objectReference: {fileID: 0}
     - target: {fileID: 6467170419911373035, guid: 343838c1d06ea224fadd5ee673d07e36,
         type: 3}
@@ -1587,12 +1587,12 @@ PrefabInstance:
     - target: {fileID: 8024909019757810716, guid: 343838c1d06ea224fadd5ee673d07e36,
         type: 3}
       propertyPath: m_Name
-      value: Option 4
+      value: Show Non-Leaf
       objectReference: {fileID: 0}
     - target: {fileID: 8024909019757810716, guid: 343838c1d06ea224fadd5ee673d07e36,
         type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 343838c1d06ea224fadd5ee673d07e36, type: 3}
@@ -1796,7 +1796,7 @@ PrefabInstance:
     - target: {fileID: 8743423519919437360, guid: 55942e8bf12c0124fbed769e5a191404,
         type: 3}
       propertyPath: m_SizeDelta.x
-      value: 145
+      value: 170
       objectReference: {fileID: 0}
     - target: {fileID: 8743423519919437360, guid: 55942e8bf12c0124fbed769e5a191404,
         type: 3}

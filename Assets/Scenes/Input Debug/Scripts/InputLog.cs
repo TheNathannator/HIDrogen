@@ -14,6 +14,7 @@ namespace HIDrogen.InputDebug
         public bool showMouse { get; set; }
         public bool showNoisy { get; set; }
         public bool showSynthetic { get; set; }
+        public bool showNonLeaf { get; set; }
 
         private void OnEnable()
         {
@@ -54,7 +55,7 @@ namespace HIDrogen.InputDebug
                         continue;
                     }
 
-                    if (control.children.Count < 1)
+                    if (control.children.Count < 1 || showNonLeaf)
                     {
                         LogControl(control);
                     }
