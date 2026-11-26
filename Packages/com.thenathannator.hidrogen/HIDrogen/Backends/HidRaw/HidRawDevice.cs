@@ -141,16 +141,14 @@ namespace HIDrogen.Backend.Linux
                 }
 
                 var errno = Posix.errno;
-                if (errno == Errno.ENOENT || errno == Errno.ENODEV)
+                if (errno.IsDeviceDisconnect())
                 {
                     // Device has been disconnected
                     errorCount = kMaxReadErrors;
                     return -1;
                 }
 
-                if (errno == Errno.EINTR ||
-                    errno == Errno.EAGAIN ||
-                    errno == Errno.EINPROGRESS)
+                if (errno.IsReadInterrupt())
                 {
                     // Read was interrupted, try again
                     continue;

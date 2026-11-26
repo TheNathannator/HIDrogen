@@ -187,7 +187,7 @@ namespace HIDrogen.Backend.Linux
                     if (fd == null || fd.IsInvalid)
                     {
                         // Ignore permission errors in logs
-                        if (Posix.errno != Errno.EACCES && Posix.errno != Errno.EPERM)
+                        if (!Posix.errno.IsFilePermission() && !Posix.errno.IsDeviceDisconnect())
                         {
                             Logging.LastError("Failed to open hidraw device");
                         }

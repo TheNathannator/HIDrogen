@@ -150,12 +150,6 @@ namespace HIDrogen.Backend.Linux
             m_Backend.QueueDeviceRemove(m_Device);
         }
 
-        private bool WasDeviceDisconnected()
-        {
-            var errno = Posix.errno;
-            return errno == Errno.ENOENT || errno == Errno.ENODEV;
-        }
-
         private bool IsReadAvailable(ref int errorCount)
         {
             var poll = new pollfd(m_Fd, Fcntl.POLLIN);
@@ -185,17 +179,15 @@ namespace HIDrogen.Backend.Linux
                     return bytesRead / sizeof(input_event);
                 }
 
-                if (WasDeviceDisconnected())
+                var errno = Posix.errno;
+                if (errno.IsDeviceDisconnect())
                 {
                     // Device has been disconnected
                     errorCount = kMaxReadErrors;
                     return -1;
                 }
 
-                var errno = Posix.errno;
-                if (errno == Errno.EINTR ||
-                    errno == Errno.EAGAIN ||
-                    errno == Errno.EINPROGRESS)
+                if (errno.IsReadInterrupt())
                 {
                     // Read was interrupted, try again
                     continue;
@@ -297,7 +289,7 @@ namespace HIDrogen.Backend.Linux
                 var absInfo = new input_absinfo();
                 if (Ioctl.ioctl(m_Fd, EVIOCGABS(absCode), ref absInfo) < 0)
                 {
-                    if (WasDeviceDisconnected())
+                    if (Posix.errno.IsDeviceDisconnect())
                     {
                         return;
                     }
@@ -327,7 +319,7 @@ namespace HIDrogen.Backend.Linux
                 var absInfo = new input_absinfo();
                 if (Ioctl.ioctl(m_Fd, EVIOCGABS(absCode), ref absInfo) < 0)
                 {
-                    if (WasDeviceDisconnected())
+                    if (Posix.errno.IsDeviceDisconnect())
                     {
                         return;
                     }
@@ -341,7 +333,7 @@ namespace HIDrogen.Backend.Linux
 
                 if (Ioctl.ioctl(m_Fd, EVIOCSABS(absCode), ref absInfo) < 0)
                 {
-                    if (WasDeviceDisconnected())
+                    if (Posix.errno.IsDeviceDisconnect())
                     {
                         return;
                     }
@@ -363,7 +355,7 @@ namespace HIDrogen.Backend.Linux
                 var newAbsInfo = new input_absinfo();
                 if (Ioctl.ioctl(m_Fd, EVIOCGABS(absCode), ref newAbsInfo) < 0)
                 {
-                    if (WasDeviceDisconnected())
+                    if (Posix.errno.IsDeviceDisconnect())
                     {
                         return;
                     }
@@ -377,7 +369,7 @@ namespace HIDrogen.Backend.Linux
 
                 if (Ioctl.ioctl(m_Fd, EVIOCSABS(absCode), ref newAbsInfo) < 0)
                 {
-                    if (WasDeviceDisconnected())
+                    if (Posix.errno.IsDeviceDisconnect())
                     {
                         return;
                     }
