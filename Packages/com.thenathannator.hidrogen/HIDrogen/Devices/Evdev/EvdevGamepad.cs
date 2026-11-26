@@ -74,7 +74,8 @@ namespace HIDrogen.Devices
                     .WithKey(input_key_code.BTN_TR, RightShoulder)
                     .WithAbsButton(input_abs_code.ABS_Z, LeftTrigger)
                     .WithAbsButton(input_abs_code.ABS_RZ, RightTrigger),
-                new EvdevDeviceMatcher()
+                new EvdevDeviceMatcher(),
+                (c) => 1 // Prioritize above other gamepad matches
             );
         }
     }
