@@ -255,6 +255,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6467170419911373035, guid: 343838c1d06ea224fadd5ee673d07e36,
         type: 3}
+      propertyPath: m_IsOn
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6467170419911373035, guid: 343838c1d06ea224fadd5ee673d07e36,
+        type: 3}
       propertyPath: onValueChanged.m_PersistentCalls.m_Calls.Array.size
       value: 1
       objectReference: {fileID: 0}
@@ -286,7 +291,7 @@ PrefabInstance:
     - target: {fileID: 8024909019757810716, guid: 343838c1d06ea224fadd5ee673d07e36,
         type: 3}
       propertyPath: m_Name
-      value: Show Noisy Inputs
+      value: Show Noisy
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 343838c1d06ea224fadd5ee673d07e36, type: 3}
@@ -791,6 +796,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6467170419911373035, guid: 343838c1d06ea224fadd5ee673d07e36,
         type: 3}
+      propertyPath: m_IsOn
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6467170419911373035, guid: 343838c1d06ea224fadd5ee673d07e36,
+        type: 3}
       propertyPath: onValueChanged.m_PersistentCalls.m_Calls.Array.size
       value: 2
       objectReference: {fileID: 0}
@@ -847,7 +857,7 @@ PrefabInstance:
     - target: {fileID: 8024909019757810716, guid: 343838c1d06ea224fadd5ee673d07e36,
         type: 3}
       propertyPath: m_Name
-      value: Show Mouse Inputs
+      value: Show Mouse
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 343838c1d06ea224fadd5ee673d07e36, type: 3}
