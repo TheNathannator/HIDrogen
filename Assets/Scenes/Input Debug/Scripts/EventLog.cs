@@ -33,7 +33,7 @@ namespace HIDrogen.InputDebug
                 case StateEvent.Type:
                 {
                     var ev = StateEvent.From(eventPtr);
-                    m_Log.AppendLine($"{eventPtr.time:F6}: {device} {eventPtr.type} {ev->stateFormat} [{ev->stateSizeInBytes}]");
+                    m_Log.AppendLine($"{eventPtr.time:F6}: {device.path} {eventPtr.type} {ev->stateFormat} [{ev->stateSizeInBytes}]");
                     break;
                 }
                 case DeltaStateEvent.Type:

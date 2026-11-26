@@ -65,11 +65,11 @@ namespace HIDrogen.InputDebug
                         {
                             if (button.IsValueConsideredPressed(value))
                             {
-                                m_Log.AppendLine($"{eventPtr.time:F6}: {button} {value:F3} (pressed)");
+                                m_Log.AppendLine($"{eventPtr.time:F6}: {button.path} {value:F3} (pressed)");
                             }
                             else
                             {
-                                m_Log.AppendLine($"{eventPtr.time:F6}: {button} {value:F3}");
+                                m_Log.AppendLine($"{eventPtr.time:F6}: {button.path} {value:F3}");
                             }
                         }
                         break;
@@ -78,7 +78,7 @@ namespace HIDrogen.InputDebug
                     {
                         if (IsChanged(axis, out float value))
                         {
-                            m_Log.AppendLine($"{eventPtr.time:F6}: {axis} {value:F3}");
+                            m_Log.AppendLine($"{eventPtr.time:F6}: {axis.path} {value:F3}");
                         }
                         break;
                     }
@@ -86,7 +86,7 @@ namespace HIDrogen.InputDebug
                     {
                         if (IsChanged(integer, out int value))
                         {
-                            m_Log.AppendLine($"{eventPtr.time:F6}: {integer} {value}");
+                            m_Log.AppendLine($"{eventPtr.time:F6}: {integer.path} {value}");
                         }
                         break;
                     }
@@ -94,7 +94,7 @@ namespace HIDrogen.InputDebug
                     {
                         if (IsChanged(vector2, out var value))
                         {
-                            m_Log.AppendLine($"{eventPtr.time:F6}: {vector2} {value:F3}");
+                            m_Log.AppendLine($"{eventPtr.time:F6}: {vector2.path} {value:F3}");
                         }
                         break;
                     }
@@ -102,7 +102,7 @@ namespace HIDrogen.InputDebug
                     {
                         if (IsChanged(vector3, out var value))
                         {
-                            m_Log.AppendLine($"{eventPtr.time:F6}: {vector3} {value:F3}");
+                            m_Log.AppendLine($"{eventPtr.time:F6}: {vector3.path} {value:F3}");
                         }
                         break;
                     }
@@ -110,13 +110,13 @@ namespace HIDrogen.InputDebug
                     {
                         if (IsChanged(quat, out var value))
                         {
-                            m_Log.AppendLine($"{eventPtr.time:F6}: {quat} {value:F3}");
+                            m_Log.AppendLine($"{eventPtr.time:F6}: {quat.path} {value:F3}");
                         }
                         break;
                     }
                     default:
                     {
-                        m_Log.AppendLine($"{eventPtr.time:F6}: {control}");
+                        m_Log.AppendLine($"{eventPtr.time:F6}: {control.path}");
                         break;
                     }
                 }
