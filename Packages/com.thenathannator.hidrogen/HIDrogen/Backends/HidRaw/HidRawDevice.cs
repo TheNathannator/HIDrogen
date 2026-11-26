@@ -120,7 +120,7 @@ namespace HIDrogen.Backend.Linux
         {
             var poll = new pollfd(m_Fd, Fcntl.POLLIN);
             int result = Fcntl.poll(ref poll, 0);
-            if (result < 0)
+            if (result < 0 && Posix.errno != Errno.EINTR)
             {
                 Logging.LastError($"Error while polling for device monitor events");
                 errorCount++;

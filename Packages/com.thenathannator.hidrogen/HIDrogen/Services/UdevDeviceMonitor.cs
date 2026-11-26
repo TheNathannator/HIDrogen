@@ -176,7 +176,10 @@ namespace HIDrogen.Services.Linux
                 int result = Fcntl.poll(ref poll, 0);
                 if (result < 0)
                 {
-                    Logging.LastError($"Error while polling for device monitor events");
+                    if (Posix.errno != Errno.EINTR)
+                    {
+                        Logging.LastError($"Error while polling for device monitor events");
+                    }
                     break;
                 }
 
