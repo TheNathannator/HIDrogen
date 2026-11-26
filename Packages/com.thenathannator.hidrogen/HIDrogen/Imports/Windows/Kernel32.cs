@@ -1,4 +1,3 @@
-#if UNITY_STANDALONE_WIN
 using System;
 using System.Runtime.InteropServices;
 
@@ -18,6 +17,7 @@ namespace HIDrogen.Imports.Windows
         E_NOTIMPL = unchecked((int)0x80004001),
     }
 
+#if UNITY_STANDALONE_WIN
     internal static class Kernel32
     {
         internal const string kFileName = "kernel32.dll";
@@ -39,5 +39,5 @@ namespace HIDrogen.Imports.Windows
             [MarshalAs(UnmanagedType.LPStr)] string lpProcName
         );
     }
-}
 #endif
+}
