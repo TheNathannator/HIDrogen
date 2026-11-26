@@ -108,19 +108,20 @@ namespace HIDrogen.Devices
                     path = RightTouchpadPress,
                     displayName = DisplayRightTouchpadPress,
                     options = EvdevMappingOption.Synthetic,
-                })
-
-                .WithKey(input_key_code.BTN_GRIP_L, (LeftGrip1, DisplayL4))
-                .WithKey(input_key_code.BTN_GRIP_R, (RightGrip1, DisplayR4));
+                });
 
             // Steam Controller v1 (wired)
             EvdevLayoutFinder.RegisterLayout<EvdevSteamControllerV1>(
-                mappings,
+                mappings.Clone()
+                    .WithKey(input_key_code.BTN_GRIP_L, (LeftGrip1, DisplayL4))
+                    .WithKey(input_key_code.BTN_GRIP_R, (RightGrip1, DisplayR4)),
                 new EvdevDeviceMatcher().WithHardwareIds(0x28DE, 0x1102)
             );
             // Steam Controller v1 (BLE)
             EvdevLayoutFinder.RegisterLayout<EvdevSteamControllerV1>(
-                mappings,
+                mappings.Clone()
+                    .WithKey(input_key_code.BTN_TRIGGER_HAPPY_1, (LeftGrip1, DisplayL4))
+                    .WithKey(input_key_code.BTN_TRIGGER_HAPPY_2, (RightGrip1, DisplayR4)),
                 new EvdevDeviceMatcher().WithHardwareIds(0x28DE, 0x1142)
             );
         }
@@ -163,31 +164,57 @@ namespace HIDrogen.Devices
                 .WithStick(input_abs_code.ABS_HAT0X, (LeftTouchpad, DisplayLeftTouchpad))
                 .WithStick(input_abs_code.ABS_HAT1X, (RightTouchpad, DisplayRightTouchpad))
                 .WithKey(input_key_code.BTN_THUMB, (LeftTouchpadPress, DisplayLeftTouchpadPress))
-                .WithKey(input_key_code.BTN_THUMB_2, (RightTouchpadPress, DisplayRightTouchpadPress))
+                .WithKey(input_key_code.BTN_THUMB_2, (RightTouchpadPress, DisplayRightTouchpadPress));
 
+            var gripMappings = mappings.Clone()
                 .WithKey(input_key_code.BTN_GRIP_L, (LeftGrip1, DisplayL4))
                 .WithKey(input_key_code.BTN_GRIP_R, (RightGrip1, DisplayR4))
                 .WithKey(input_key_code.BTN_GRIP_L_2, (LeftGrip2, DisplayL5))
                 .WithKey(input_key_code.BTN_GRIP_R_2, (RightGrip2, DisplayR5));
 
+            var triggerHappyMappings = mappings.Clone()
+                .WithKey(input_key_code.BTN_TRIGGER_HAPPY_1, (LeftGrip1, DisplayL4))
+                .WithKey(input_key_code.BTN_TRIGGER_HAPPY_2, (RightGrip1, DisplayR4))
+                .WithKey(input_key_code.BTN_TRIGGER_HAPPY_3, (LeftGrip2, DisplayL5))
+                .WithKey(input_key_code.BTN_TRIGGER_HAPPY_4, (RightGrip2, DisplayR5));
+
             // Steam Controller v2 (Ibex) (wired)
             EvdevLayoutFinder.RegisterLayout<EvdevSteamControllerV2>(
-                mappings,
+                gripMappings,
                 new EvdevDeviceMatcher().WithHardwareIds(0x28DE, 0x1302)
             );
+            EvdevLayoutFinder.RegisterLayout<EvdevSteamControllerV2>(
+                triggerHappyMappings,
+                new EvdevDeviceMatcher().WithHardwareIds(0x28DE, 0x1302)
+            );
+
             // Steam Controller v2 (Ibex) (BLE)
             EvdevLayoutFinder.RegisterLayout<EvdevSteamControllerV2>(
-                mappings,
+                gripMappings,
                 new EvdevDeviceMatcher().WithHardwareIds(0x28DE, 0x1303)
             );
+            EvdevLayoutFinder.RegisterLayout<EvdevSteamControllerV2>(
+                triggerHappyMappings,
+                new EvdevDeviceMatcher().WithHardwareIds(0x28DE, 0x1303)
+            );
+
             // Steam Controller v2 puck (Proteus)
             EvdevLayoutFinder.RegisterLayout<EvdevSteamControllerV2>(
-                mappings,
+                gripMappings,
                 new EvdevDeviceMatcher().WithHardwareIds(0x28DE, 0x1304)
             );
+            EvdevLayoutFinder.RegisterLayout<EvdevSteamControllerV2>(
+                triggerHappyMappings,
+                new EvdevDeviceMatcher().WithHardwareIds(0x28DE, 0x1304)
+            );
+
             // Steam Machine internal receiver (Nereid)
             EvdevLayoutFinder.RegisterLayout<EvdevSteamControllerV2>(
-                mappings,
+                gripMappings,
+                new EvdevDeviceMatcher().WithHardwareIds(0x28DE, 0x1305)
+            );
+            EvdevLayoutFinder.RegisterLayout<EvdevSteamControllerV2>(
+                triggerHappyMappings,
                 new EvdevDeviceMatcher().WithHardwareIds(0x28DE, 0x1305)
             );
         }
@@ -230,16 +257,23 @@ namespace HIDrogen.Devices
                 .WithStick(input_abs_code.ABS_HAT0X, (LeftTouchpad, DisplayLeftTouchpad))
                 .WithStick(input_abs_code.ABS_HAT1X, (RightTouchpad, DisplayRightTouchpad))
                 .WithKey(input_key_code.BTN_THUMB, (LeftTouchpadPress, DisplayLeftTouchpadPress))
-                .WithKey(input_key_code.BTN_THUMB_2, (RightTouchpadPress, DisplayRightTouchpadPress))
-
-                .WithKey(input_key_code.BTN_GRIP_L, (LeftGrip1, DisplayL4))
-                .WithKey(input_key_code.BTN_GRIP_R, (RightGrip1, DisplayR4))
-                .WithKey(input_key_code.BTN_GRIP_L_2, (LeftGrip2, DisplayL5))
-                .WithKey(input_key_code.BTN_GRIP_R_2, (RightGrip2, DisplayR5));
+                .WithKey(input_key_code.BTN_THUMB_2, (RightTouchpadPress, DisplayRightTouchpadPress));
 
             // Steam Deck internal gamepad
             EvdevLayoutFinder.RegisterLayout<EvdevSteamDeck>(
-                mappings,
+                mappings.Clone()
+                    .WithKey(input_key_code.BTN_GRIP_L, (LeftGrip1, DisplayL4))
+                    .WithKey(input_key_code.BTN_GRIP_R, (RightGrip1, DisplayR4))
+                    .WithKey(input_key_code.BTN_GRIP_L_2, (LeftGrip2, DisplayL5))
+                    .WithKey(input_key_code.BTN_GRIP_R_2, (RightGrip2, DisplayR5)),
+                new EvdevDeviceMatcher().WithHardwareIds(0x28DE, 0x1205)
+            );
+            EvdevLayoutFinder.RegisterLayout<EvdevSteamDeck>(
+                mappings.Clone()
+                    .WithKey(input_key_code.BTN_TRIGGER_HAPPY_1, (LeftGrip1, DisplayL4))
+                    .WithKey(input_key_code.BTN_TRIGGER_HAPPY_2, (RightGrip1, DisplayR4))
+                    .WithKey(input_key_code.BTN_TRIGGER_HAPPY_3, (LeftGrip2, DisplayL5))
+                    .WithKey(input_key_code.BTN_TRIGGER_HAPPY_4, (RightGrip2, DisplayR5)),
                 new EvdevDeviceMatcher().WithHardwareIds(0x28DE, 0x1205)
             );
         }
