@@ -74,6 +74,7 @@ namespace HIDrogen.Devices.LowLevel
 
     public static class EvdevLayoutFinder
     {
+#if UNITY_STANDALONE_LINUX // don't allocate mappings on non-Linux platforms
         private struct RegisteredLayout
         {
             public string layoutName;
@@ -86,12 +87,16 @@ namespace HIDrogen.Devices.LowLevel
         private static readonly StringBuilder s_StringBuilder = new StringBuilder();
 
         private static readonly List<RegisteredLayout> s_Registry = new List<RegisteredLayout>();
+#endif
 
         internal static void Initialize()
         {
+#if UNITY_STANDALONE_LINUX
             InputSystem.onFindLayoutForDevice += FindDeviceLayout;
+#endif
         }
 
+#if UNITY_STANDALONE_LINUX
         internal static string FindDeviceLayout(
             ref InputDeviceDescription description,
             string matchedLayout,
@@ -223,6 +228,7 @@ namespace HIDrogen.Devices.LowLevel
 
             return layoutName;
         }
+#endif
 
         public static void RegisterLayout<TDevice>(
             EvdevDeviceMapping mappings,
@@ -233,6 +239,7 @@ namespace HIDrogen.Devices.LowLevel
         {
             InputSystem.RegisterLayout<TDevice>();
 
+#if UNITY_STANDALONE_LINUX
             // evdev layouts are mapped based on input codes, not raw bytes,
             // so we have to wait for layout finding so that we can get the evdev capabilities
             s_Registry.Add(new RegisteredLayout()
@@ -243,6 +250,7 @@ namespace HIDrogen.Devices.LowLevel
                 predicate = predicate,
                 isStatic = false,
             });
+#endif
         }
 
         // While this registration will never end up actually using the control mappings outside of
@@ -256,7 +264,8 @@ namespace HIDrogen.Devices.LowLevel
         {
             InputSystem.RegisterLayout<TDevice>();
 
-            // While static layouts are not mapped based on input codes, we still need to wait for
+#if UNITY_STANDALONE_LINUX
+            // While static layouts are not matched based on input codes, we still need to wait for
             // layout finding so we can validate that all expected inputs are available
             s_Registry.Add(new RegisteredLayout()
             {
@@ -266,6 +275,7 @@ namespace HIDrogen.Devices.LowLevel
                 predicate = predicate,
                 isStatic = true,
             });
+#endif
         }
     }
 }

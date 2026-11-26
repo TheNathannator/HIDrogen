@@ -86,8 +86,13 @@ namespace HIDrogen.Devices.LowLevel
         }
     }
 
+#if UNITY_STANDALONE_LINUX // don't allocate mappings on non-Linux platforms
     public class EvdevDeviceMapping
+#else
+    public struct EvdevDeviceMapping
+#endif
     {
+#if UNITY_STANDALONE_LINUX
         internal readonly SortedDictionary<input_key_code, EvdevControlMapping> m_Keys
             = new SortedDictionary<input_key_code, EvdevControlMapping>();
         internal readonly SortedDictionary<input_abs_code, (EvdevControlMapping mapping, EvdevAxisOption options)> m_Abs
@@ -112,12 +117,18 @@ namespace HIDrogen.Devices.LowLevel
             m_AbsButtons = new SortedDictionary<input_abs_code, (EvdevControlMapping, EvdevButtonAxisOption)>(other.m_AbsButtons);
             m_AbsSticks = new SortedDictionary<input_abs_code, (EvdevControlMapping, EvdevStickOption)>(other.m_AbsSticks);
         }
+#endif
 
         public EvdevDeviceMapping Clone()
         {
+#if UNITY_STANDALONE_LINUX
             return new EvdevDeviceMapping(this);
+#else
+            return new EvdevDeviceMapping();
+#endif
         }
 
+#if UNITY_STANDALONE_LINUX
         private void ValidateKey(input_key_code key)
         {
             if (m_Keys.ContainsKey(key))
@@ -156,13 +167,16 @@ namespace HIDrogen.Devices.LowLevel
                 throw new ArgumentException(nameof(mapping), "Mapping must have a control path set.");
             }
         }
+#endif
 
         public EvdevDeviceMapping WithKey(input_key_code key, EvdevControlMapping mapping)
         {
+#if UNITY_STANDALONE_LINUX
             ValidateKey(key);
             ValidateMapping(mapping);
 
             m_Keys.Add(key, mapping);
+#endif
             return this;
         }
 
@@ -172,19 +186,23 @@ namespace HIDrogen.Devices.LowLevel
             EvdevAxisOption options = EvdevAxisOption.None
         )
         {
+#if UNITY_STANDALONE_LINUX
             ValidateAbs(abs);
             ValidateMapping(mapping);
 
             m_Abs.Add(abs, (mapping, options));
+#endif
             return this;
         }
 
         public EvdevDeviceMapping WithHat(int hat, EvdevControlMapping mapping)
         {
+#if UNITY_STANDALONE_LINUX
             ValidateHat(hat);
             ValidateMapping(mapping);
 
             m_Hats.Add(hat, mapping);
+#endif
             return this;
         }
 
@@ -194,10 +212,12 @@ namespace HIDrogen.Devices.LowLevel
             EvdevButtonAxisOption options = EvdevButtonAxisOption.None
         )
         {
+#if UNITY_STANDALONE_LINUX
             ValidateAbs(abs);
             ValidateMapping(mapping);
 
             m_AbsButtons.Add(abs, (mapping, options));
+#endif
             return this;
         }
 
@@ -207,17 +227,20 @@ namespace HIDrogen.Devices.LowLevel
             EvdevStickOption options = EvdevStickOption.None
         )
         {
+#if UNITY_STANDALONE_LINUX
             ValidateAbs(abs);
             ValidateAbs(abs + 1); // The next abs needs to be available, as they will be paired together
             ValidateMapping(mapping);
 
             m_AbsSticks.Add(abs, (mapping, options));
             m_AbsSticks.Add(abs + 1, (mapping, options));
+#endif
             return this;
         }
 
         public bool IsCompatible(EvdevCapabilities capabilities)
         {
+#if UNITY_STANDALONE_LINUX
             // Both the supported inputs and the desired mappings are guaranteed to be sorted,
             // which we can take advantage of to avoid needless allocations of a hash set,
             // at the cost of less convenient checking of whether a mapping is supported.
@@ -309,9 +332,13 @@ namespace HIDrogen.Devices.LowLevel
             }
 
             return true;
+#else
+            return false;
+#endif
         }
     }
 
+#if UNITY_STANDALONE_LINUX
     internal class EvdevLayoutBuilder
     {
         private static readonly StringBuilder s_StringBuilder = new StringBuilder();
@@ -902,4 +929,5 @@ namespace HIDrogen.Devices.LowLevel
             return s_StringBuilder.ToString();
         }
     }
+#endif
 }
