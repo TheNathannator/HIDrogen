@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
@@ -14,6 +15,7 @@ namespace HIDrogen.InputDebug
 
         public bool showMouse { get; set; }
         public bool showNoise { get; set; }
+        public bool showUnchanged { get; set; }
 
         private void OnEnable()
         {
@@ -38,9 +40,19 @@ namespace HIDrogen.InputDebug
             }
 
             var enumerateFlags = EnumerateFlags.IgnoreControlsInCurrentState;
-            if (showNoise)
+            if (showNoise) enumerateFlags |= EnumerateFlags.IncludeNoisyControls;
+
+            bool IsChanged<TValue>(InputControl<TValue> control, out TValue value)
+                where TValue : struct, IEquatable<TValue>
             {
-                enumerateFlags |= EnumerateFlags.IncludeNoisyControls;
+                value = control.ReadValueFromEvent(eventPtr);
+                if (showUnchanged)
+                {
+                    return true;
+                }
+
+                var previous = control.ReadValue();
+                return !value.Equals(previous);
             }
 
             foreach (var control in eventPtr.EnumerateControls(enumerateFlags, device))
@@ -49,40 +61,57 @@ namespace HIDrogen.InputDebug
                 {
                     case ButtonControl button:
                     {
-                        float value = button.ReadValueFromEvent(eventPtr);
-                        if (button.IsValueConsideredPressed(value))
+                        if (IsChanged(button, out float value))
                         {
-                            m_Log.AppendLine($"{eventPtr.time:F6}: {button} {value:F3} (pressed)");
-                        }
-                        else
-                        {
-                            m_Log.AppendLine($"{eventPtr.time:F6}: {button} {value:F3}");
+                            if (button.IsValueConsideredPressed(value))
+                            {
+                                m_Log.AppendLine($"{eventPtr.time:F6}: {button} {value:F3} (pressed)");
+                            }
+                            else
+                            {
+                                m_Log.AppendLine($"{eventPtr.time:F6}: {button} {value:F3}");
+                            }
                         }
                         break;
                     }
                     case AxisControl axis:
                     {
-                        m_Log.AppendLine($"{eventPtr.time:F6}: {axis} {axis.ReadValueFromEvent(eventPtr):F3}");
+                        if (IsChanged(axis, out float value))
+                        {
+                            m_Log.AppendLine($"{eventPtr.time:F6}: {axis} {value:F3}");
+                        }
                         break;
                     }
                     case IntegerControl integer:
                     {
-                        m_Log.AppendLine($"{eventPtr.time:F6}: {integer} {integer.ReadValueFromEvent(eventPtr)}");
+                        if (IsChanged(integer, out int value))
+                        {
+                            m_Log.AppendLine($"{eventPtr.time:F6}: {integer} {value}");
+                        }
                         break;
                     }
                     case Vector2Control vector2:
                     {
-                        m_Log.AppendLine($"{eventPtr.time:F6}: {vector2} {vector2.ReadValueFromEvent(eventPtr):F3}");
+                        if (IsChanged(vector2, out var value))
+                        {
+                            m_Log.AppendLine($"{eventPtr.time:F6}: {vector2} {value:F3}");
+                        }
                         break;
                     }
                     case Vector3Control vector3:
                     {
-                        m_Log.AppendLine($"{eventPtr.time:F6}: {vector3} {vector3.ReadValueFromEvent(eventPtr):F3}");
+                        if (IsChanged(vector3, out var value))
+                        {
+                            m_Log.AppendLine($"{eventPtr.time:F6}: {vector3} {value:F3}");
+                        }
                         break;
                     }
                     case QuaternionControl quat:
                     {
-                        m_Log.AppendLine($"{eventPtr.time:F6}: {quat} {quat.ReadValueFromEvent(eventPtr):F3}");
+                        if (IsChanged(quat, out var value))
+                        {
+                            m_Log.AppendLine($"{eventPtr.time:F6}: {quat} {value:F3}");
+                        }
                         break;
                     }
                     default:
