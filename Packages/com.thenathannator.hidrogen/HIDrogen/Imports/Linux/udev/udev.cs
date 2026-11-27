@@ -1091,6 +1091,7 @@ namespace HIDrogen.Imports.Linux
         public const string DriverSony = "sony";
         public const string DriverWiimote = "wiimote";
         public const string DriverXpad = "xpad";
+        public const string DriverXpadNoOne = "xpad-noone";
 
         public const string EventAdded = "add";
         public const string EventRemoved = "remove";

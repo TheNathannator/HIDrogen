@@ -268,6 +268,12 @@ namespace HIDrogen.Backend.Linux
                 }
             }
 
+            // xpad-noone is just a variant of the xpad driver, so normalize it to "xpad"
+            if (deviceInfo.driver == Udev.DriverXpadNoOne)
+            {
+                deviceInfo.driver = Udev.DriverXpad;
+            }
+
             switch (deviceInfo.busType)
             {
                 case input_bus_type.USB:
