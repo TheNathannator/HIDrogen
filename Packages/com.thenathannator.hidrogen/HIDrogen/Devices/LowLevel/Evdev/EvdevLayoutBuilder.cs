@@ -8,6 +8,9 @@ using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
 
+// TODO:
+// - Optional mappings
+
 namespace HIDrogen.Devices.LowLevel
 {
     [Flags]
