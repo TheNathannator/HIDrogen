@@ -105,6 +105,9 @@ namespace HIDrogen.Devices.LowLevel
         internal readonly SortedDictionary<input_abs_code, (EvdevControlMapping mapping, EvdevStickOption options)> m_AbsSticks
             = new SortedDictionary<input_abs_code, (EvdevControlMapping, EvdevStickOption)>();
 
+        internal readonly SortedSet<input_key_code> m_IgnoredKeys = new SortedSet<input_key_code>();
+        internal readonly SortedSet<input_abs_code> m_IgnoredAbs = new SortedSet<input_abs_code>();
+
         public EvdevDeviceMapping()
         {
         }
@@ -114,8 +117,12 @@ namespace HIDrogen.Devices.LowLevel
             m_Keys = new SortedDictionary<input_key_code, EvdevControlMapping>(other.m_Keys);
             m_Abs = new SortedDictionary<input_abs_code, (EvdevControlMapping, EvdevAxisOption)>(other.m_Abs);
             m_Hats = new SortedDictionary<int, EvdevControlMapping>(other.m_Hats);
+
             m_AbsButtons = new SortedDictionary<input_abs_code, (EvdevControlMapping, EvdevButtonAxisOption)>(other.m_AbsButtons);
             m_AbsSticks = new SortedDictionary<input_abs_code, (EvdevControlMapping, EvdevStickOption)>(other.m_AbsSticks);
+
+            m_IgnoredKeys = new SortedSet<input_key_code>(other.m_IgnoredKeys);
+            m_IgnoredAbs = new SortedSet<input_abs_code>(other.m_IgnoredAbs);
         }
 #endif
 
@@ -131,7 +138,8 @@ namespace HIDrogen.Devices.LowLevel
 #if UNITY_STANDALONE_LINUX
         private void ValidateKey(input_key_code key)
         {
-            if (m_Keys.ContainsKey(key))
+            if (m_Keys.ContainsKey(key) ||
+                m_IgnoredKeys.Contains(key))
             {
                 throw new ArgumentException($"A mapping for {key} has already been added.", nameof(key));
             }
@@ -141,7 +149,8 @@ namespace HIDrogen.Devices.LowLevel
         {
             if (m_Abs.ContainsKey(abs) ||
                 m_AbsButtons.ContainsKey(abs) ||
-                m_AbsSticks.ContainsKey(abs))
+                m_AbsSticks.ContainsKey(abs) ||
+                m_IgnoredAbs.Contains(abs))
             {
                 throw new ArgumentException($"An axis mapping for {abs} has already been added.", nameof(abs));
             }
@@ -234,6 +243,24 @@ namespace HIDrogen.Devices.LowLevel
 
             m_AbsSticks.Add(abs, (mapping, options));
             m_AbsSticks.Add(abs + 1, (mapping, options));
+#endif
+            return this;
+        }
+
+        public EvdevDeviceMapping WithIgnoredKey(input_key_code key)
+        {
+#if UNITY_STANDALONE_LINUX
+            ValidateKey(key);
+            m_IgnoredKeys.Add(key);
+#endif
+            return this;
+        }
+
+        public EvdevDeviceMapping WithIgnoredAbs(input_abs_code abs)
+        {
+#if UNITY_STANDALONE_LINUX
+            ValidateAbs(abs);
+            m_IgnoredAbs.Add(abs);
 #endif
             return this;
         }
@@ -382,12 +409,18 @@ namespace HIDrogen.Devices.LowLevel
 
             foreach (var key in capabilities.supportedKeys)
             {
-                m_AvailableKeys.Add(key);
+                if (mappings == null || !mappings.m_IgnoredKeys.Contains(key))
+                {
+                    m_AvailableKeys.Add(key);
+                }
             }
 
             foreach (var abs in capabilities.supportedAbs)
             {
-                m_AvailableAbs.Add(abs);
+                if (mappings == null || !mappings.m_IgnoredAbs.Contains(abs))
+                {
+                    m_AvailableAbs.Add(abs);
+                }
             }
 
             // Controls are laid out in the following order:
