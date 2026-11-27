@@ -24,6 +24,9 @@ namespace HIDrogen
             EvdevSteamControllerV1.Initialize();
             EvdevSteamControllerV2.Initialize();
             EvdevSteamDeck.Initialize();
+
+            // Xpad
+            XpadGamepad.Initialize();
         }
     }
 }

@@ -7,6 +7,13 @@ namespace HIDrogen.Devices
         public const string DisplaySystem = "System";
         public const string DisplayShare = "Share";
 
+        public const string DisplayMenu = "Menu";
+        public const string DisplayView = "View";
+        public const string DisplayGuide = "Guide";
+
+        public const string DisplayHome = "Home";
+        public const string DisplayCapture = "Capture";
+
         public const string DisplaySteam = "Steam";
         public const string DisplayQuickAccess = "Quick Access";
 
@@ -16,6 +23,12 @@ namespace HIDrogen.Devices
         public const string DisplayY = "Y";
 
         public const string DisplayDpad = "D-pad";
+
+        public const string DisplayLeftShoulder = "Left Shoulder";
+        public const string DisplayRightShoulder = "Right Shoulder";
+
+        public const string DisplayLeftBumper = "Left Bumper";
+        public const string DisplayRightBumper = "Right Bumper";
 
         public const string DisplayLeftTrigger = "Left Trigger";
         public const string DisplayRightTrigger = "Right Trigger";
