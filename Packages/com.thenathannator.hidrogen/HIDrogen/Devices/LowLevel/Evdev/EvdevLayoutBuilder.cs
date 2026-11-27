@@ -290,6 +290,7 @@ namespace HIDrogen.Devices.LowLevel
             {
                 if (!FindValue(key, capabilities.supportedKeys, ref keyIndex))
                 {
+                    EvdevLayoutFinder.LayoutMatchDebug($"- Missing key {key}");
                     return false;
                 }
             }
@@ -299,6 +300,7 @@ namespace HIDrogen.Devices.LowLevel
             {
                 if (!FindValue(abs, capabilities.supportedAbs, ref absIndex))
                 {
+                    EvdevLayoutFinder.LayoutMatchDebug($"- Missing abs {abs}");
                     return false;
                 }
             }
@@ -310,6 +312,7 @@ namespace HIDrogen.Devices.LowLevel
                 if (hat < 0 || hat > 3)
                 {
                     // invalid hat
+                    EvdevLayoutFinder.LayoutMatchDebug($"- Invalid hat {hat}");
                     return false;
                 }
 
@@ -337,6 +340,7 @@ namespace HIDrogen.Devices.LowLevel
                 }
 
                 // missing
+                EvdevLayoutFinder.LayoutMatchDebug($"- Missing hat {hat}");
                 return false;
             }
 
@@ -345,6 +349,7 @@ namespace HIDrogen.Devices.LowLevel
             {
                 if (!FindValue(abs, capabilities.supportedAbs, ref absIndex))
                 {
+                    EvdevLayoutFinder.LayoutMatchDebug($"- Missing abs {abs}");
                     return false;
                 }
             }
@@ -354,6 +359,7 @@ namespace HIDrogen.Devices.LowLevel
             {
                 if (!FindValue(abs, capabilities.supportedAbs, ref absIndex))
                 {
+                    EvdevLayoutFinder.LayoutMatchDebug($"- Missing abs {abs}");
                     return false;
                 }
             }

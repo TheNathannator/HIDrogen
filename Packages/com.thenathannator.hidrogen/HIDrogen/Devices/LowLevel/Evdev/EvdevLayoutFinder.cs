@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 using HIDrogen.Imports.Linux;
 using UnityEngine;
@@ -108,6 +109,8 @@ namespace HIDrogen.Devices.LowLevel
             {
                 return null;
             }
+
+            LayoutMatchDebug($"Finding layout for {description.ToJson()}");
             
             EvdevCapabilities capabilities;
             try
@@ -122,6 +125,7 @@ namespace HIDrogen.Devices.LowLevel
 
             if (capabilities.vendorId == 0 && capabilities.productId == 0)
             {
+                LayoutMatchDebug("No hardware IDs, skipping");
                 return null;
             }
 
@@ -130,14 +134,18 @@ namespace HIDrogen.Devices.LowLevel
             for (int i = 0; i < s_Registry.Count; i++)
             {
                 var registration = s_Registry[i];
-                if (!registration.mappings.IsCompatible(capabilities))
-                {
-                    continue;
-                }
 
                 float match = registration.matcher.MatchPercentage(description);
                 if (match <= 0)
                 {
+                    continue;
+                }
+
+                LayoutMatchDebug($"Trying {registration.layoutName}...");
+
+                if (!registration.mappings.IsCompatible(capabilities))
+                {
+                    // IsCompatible logs a reason alreaady
                     continue;
                 }
 
@@ -146,6 +154,7 @@ namespace HIDrogen.Devices.LowLevel
                     float predicateMatch = registration.predicate(capabilities);
                     if (predicateMatch < 0)
                     {
+                        LayoutMatchDebug("- Predicate doesn't match");
                         continue;
                     }
 
@@ -154,8 +163,13 @@ namespace HIDrogen.Devices.LowLevel
 
                 if (match > bestMatch)
                 {
+                    LayoutMatchDebug($"- New best match (score {match})");
                     bestMatch = match;
                     bestMatchIndex = i;
+                }
+                else
+                {
+                    LayoutMatchDebug($"- Matches but ranks lower (score {match})");
                 }
             }
 
@@ -165,6 +179,8 @@ namespace HIDrogen.Devices.LowLevel
             if (bestMatchIndex >= 0)
             {
                 var registration = s_Registry[bestMatchIndex];
+                LayoutMatchDebug($"Using layout {registration.layoutName}");
+
                 if (registration.isStatic)
                 {
                     // This layout is statically-mapped, skip dynamic layout creation
@@ -174,6 +190,10 @@ namespace HIDrogen.Devices.LowLevel
                 layoutName = registration.layoutName;
                 baseLayout = registration.layoutName;
                 mappings = registration.mappings;
+            }
+            else
+            {
+                LayoutMatchDebug("Falling back to joystick layout");
             }
 
             layoutName += $"::{(int)capabilities.busType}-{capabilities.vendorId}-{capabilities.productId}";
@@ -227,6 +247,12 @@ namespace HIDrogen.Devices.LowLevel
             );
 
             return layoutName;
+        }
+
+        [Conditional("HIDROGEN_TEST_PROJECT")]
+        internal static void LayoutMatchDebug(string message)
+        {
+            Logging.Verbose(message);
         }
 #endif
 
