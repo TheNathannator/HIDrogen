@@ -44,7 +44,7 @@ namespace HIDrogen.Devices
                 .WithIgnoredKey(input_key_code.BTN_TRIGGER_HAPPY_3)
                 .WithIgnoredKey(input_key_code.BTN_TRIGGER_HAPPY_4);
 
-            EvdevLayoutFinder.RegisterLayout<EvdevGamepad>(
+            EvdevLayoutFinder.RegisterLayout<XpadGamepad>(
                 mappings,
                 new EvdevDeviceMatcher()
                     .WithDriver(EvdevDefinitions.DriverXpad)
