@@ -45,10 +45,10 @@ namespace HIDrogen.Devices
                 .WithKey(input_key_code.BTN_START, StartButton)
                 .WithKey(input_key_code.BTN_SELECT, SelectButton)
 
-                .WithKey(input_key_code_alt.BTN_SOUTH, ButtonSouth)
-                .WithKey(input_key_code_alt.BTN_EAST, ButtonEast)
-                .WithKey(input_key_code_alt.BTN_WEST, ButtonWest)
-                .WithKey(input_key_code_alt.BTN_NORTH, ButtonNorth)
+                .WithKey(input_key_code.BTN_SOUTH, ButtonSouth)
+                .WithKey(input_key_code.BTN_EAST, ButtonEast)
+                .WithKey(input_key_code.BTN_WEST, ButtonWest)
+                .WithKey(input_key_code.BTN_NORTH, ButtonNorth)
 
                 .WithHat(0, Dpad)
 

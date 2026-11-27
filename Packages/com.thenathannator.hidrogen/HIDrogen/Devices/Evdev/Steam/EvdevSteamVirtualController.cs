@@ -24,10 +24,10 @@ namespace HIDrogen.Devices
                     .WithKey(input_key_code.BTN_SELECT, (SelectButton, DisplaySelect))
                     .WithKey(input_key_code.BTN_MODE, (SystemButton, DisplaySystem))
 
-                    .WithKey(input_key_code_alt.BTN_SOUTH, (ButtonSouth, DisplayA))
-                    .WithKey(input_key_code_alt.BTN_EAST, (ButtonEast, DisplayB))
-                    .WithKey(input_key_code_alt.BTN_WEST, (ButtonWest, DisplayX))
-                    .WithKey(input_key_code_alt.BTN_NORTH, (ButtonNorth, DisplayY))
+                    .WithKey(input_key_code_alt.BTN_A, (ButtonSouth, DisplayA))
+                    .WithKey(input_key_code_alt.BTN_B, (ButtonEast, DisplayB))
+                    .WithKey(input_key_code_alt.BTN_X, (ButtonWest, DisplayX))
+                    .WithKey(input_key_code_alt.BTN_Y, (ButtonNorth, DisplayY))
 
                     .WithHat(0, (Dpad, DisplayDpad))
 

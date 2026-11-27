@@ -472,8 +472,8 @@ namespace HIDrogen.Devices.LowLevel
 
             var mapping = new EvdevControlMapping()
             {
-                path = ToCamelCase(key.ToString()),
-                displayName = ToDisplayName(key.ToString(), s_KeyDisplayNameFixes),
+                path = ToControlPath(key),
+                displayName = ToDisplayName(key),
             };
             if (mappings != null && mappings.m_Keys.TryGetValue(key, out var buttonMapping))
             {
@@ -524,8 +524,8 @@ namespace HIDrogen.Devices.LowLevel
             string parameters = $"zeroPoint={zero},minValue={min},maxValue={max}";
             var mapping = new EvdevControlMapping()
             {
-                path = ToCamelCase(abs.ToString()),
-                displayName = ToDisplayName(abs.ToString(), s_AbsDisplayNameFixes),
+                path = ToControlPath(abs),
+                displayName = ToDisplayName(abs),
             };
             if (mappings != null)
             {
@@ -889,6 +889,42 @@ namespace HIDrogen.Devices.LowLevel
 
             // Otherwise, treat them as analog
             return false;
+        }
+
+        private static string ToControlPath(input_key_code key)
+        {
+            switch (key)
+            {
+                // Use ABCXYZ names for generic input mappings
+                case input_key_code.BTN_SOUTH: return "btnA";
+                case input_key_code.BTN_WEST: return "btnB";
+                case input_key_code.BTN_NORTH: return "btnX";
+                case input_key_code.BTN_EAST: return "btnY";
+                default: return ToCamelCase(key.ToString());
+            }
+        }
+
+        private static string ToDisplayName(input_key_code key)
+        {
+            switch (key)
+            {
+                // Use ABCXYZ names for generic input mappings
+                case input_key_code.BTN_SOUTH: return "A Button";
+                case input_key_code.BTN_WEST: return "B Button";
+                case input_key_code.BTN_NORTH: return "X Button";
+                case input_key_code.BTN_EAST: return "Y Button";
+                default: return ToDisplayName(key.ToString(), s_KeyDisplayNameFixes);
+            }
+        }
+
+        private static string ToControlPath(input_abs_code abs)
+        {
+            return ToCamelCase(abs.ToString());
+        }
+
+        private static string ToDisplayName(input_abs_code abs)
+        {
+            return ToDisplayName(abs.ToString(), s_AbsDisplayNameFixes);
         }
 
         private static string ToCamelCase(string name)

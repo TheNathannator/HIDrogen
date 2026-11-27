@@ -341,11 +341,11 @@ namespace HIDrogen.Imports.Linux
         BTN_BASE_6 = 0x12b,
         BTN_DEAD = 0x12f,
 
-        BTN_A = 0x130,
-        BTN_B = 0x131,
+        BTN_SOUTH = 0x130,
+        BTN_EAST = 0x131,
         BTN_C = 0x132,
-        BTN_X = 0x133,
-        BTN_Y = 0x134,
+        BTN_NORTH = 0x133,
+        BTN_WEST = 0x134,
         BTN_Z = 0x135,
         BTN_TL = 0x136,
         BTN_TR = 0x137,
@@ -735,6 +735,11 @@ namespace HIDrogen.Imports.Linux
     /// <summary>
     /// Aliases and alternative forms for key codes.
     /// </summary>
+    /// <remarks>
+    /// These are kept separate from <see cref="input_key_code"/> to ensure that every key value
+    /// has only one standard name. This property is relied on for stable control paths and
+    /// display names in the evdev layout builder.
+    /// </remarks>
     public static class input_key_code_alt
     {
         public const input_key_code KEY_HANGUEL = input_key_code.KEY_HANGEUL;
@@ -750,15 +755,38 @@ namespace HIDrogen.Imports.Linux
         public const input_key_code BTN_MISC = input_key_code.BTN_0; // 0x100
         public const input_key_code BTN_MOUSE = input_key_code.BTN_LEFT; // 0x110
         public const input_key_code BTN_JOYSTICK = input_key_code.BTN_TRIGGER; // 0x120
-        public const input_key_code BTN_GAMEPAD = input_key_code.BTN_A; // 0x130
+        public const input_key_code BTN_GAMEPAD = input_key_code.BTN_SOUTH; // 0x130
         public const input_key_code BTN_DIGI = input_key_code.BTN_TOOL_PEN; // 0x140
         public const input_key_code BTN_WHEEL = input_key_code.BTN_GEAR_DOWN; // 0x150
         public const input_key_code BTN_TRIGGER_HAPPY = input_key_code.BTN_TRIGGER_HAPPY_1; // 0x2c0
 
-        public const input_key_code BTN_SOUTH = input_key_code.BTN_A;
-        public const input_key_code BTN_EAST = input_key_code.BTN_B;
-        public const input_key_code BTN_WEST = input_key_code.BTN_X;
-        public const input_key_code BTN_NORTH = input_key_code.BTN_Y;
+        /// <summary>
+        /// Alias for <see cref="input_key_code.BTN_SOUTH"/> that refers to a button labelled 'A'.
+        /// </summary>
+        /// <remarks>
+        /// The only notable gamepad drivers to explicitly use this alias are xpad and hid-steam.
+        /// Gamepad mappings for all other drivers should probably refer to the standard enum instead.
+        /// </remarks>
+        public const input_key_code BTN_A = input_key_code.BTN_SOUTH;
+
+        /// <summary>
+        /// Alias for <see cref="input_key_code.BTN_EAST"/> that refers to a button labelled 'B'.
+        /// </summary>
+        /// <inheritdoc cref="BTN_A"/>
+        public const input_key_code BTN_B = input_key_code.BTN_EAST;
+
+        // yes, X is defined as north and Y is defined as west. why...?
+        /// <summary>
+        /// Alias for <see cref="input_key_code.BTN_NORTH"/> (sic) that refers to a button labelled 'X'.
+        /// </summary>
+        /// <inheritdoc cref="BTN_A"/>
+        public const input_key_code BTN_X = input_key_code.BTN_NORTH;
+
+        /// <summary>
+        /// Alias for <see cref="input_key_code.BTN_WEST"/> (sic) that refers to a button labelled 'Y'.
+        /// </summary>
+        /// <inheritdoc cref="BTN_A"/>
+        public const input_key_code BTN_Y = input_key_code.BTN_WEST;
 
         public const input_key_code KEY_MIN_INTERESTING = input_key_code.KEY_MUTE;
     }
